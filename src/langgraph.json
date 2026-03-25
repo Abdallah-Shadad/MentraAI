@@ -1,0 +1,8 @@
+{
+    "graphs":{
+        "roadmap":"./studio_app.py:app"
+    } ,
+    "dependencies": [
+        "."
+    ]
+}
