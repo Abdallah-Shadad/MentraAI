@@ -1,0 +1,330 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║         ROADMAP MULTI-AGENT — TOOLS REQUIRED PER AGENT  (Updated)           ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+PHILOSOPHY:
+  ✅ LLM is the brain — it decides what topics, stages, and curriculum look like.
+  ✅ Search tools (Tavily, YouTube API) give it REAL resources instead of hallucinations.
+  ✅ DB stores only: user profile, generated roadmap, learner progress.
+  ❌ NO static topic databases, NO pre-built curriculum templates in DB.
+  ❌ NO resource lookups from DB ever — all resources come from live search APIs.
+
+DATA SOURCES:
+  DB (PostgreSQL) → user info, roadmap output, learner progress ONLY
+  Search APIs     → ALL resource discovery (videos, docs, articles, courses)
+  LLM reasoning   → curriculum design, skill gap analysis, adaptation decisions
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. ProfileAnalyzerAgent  →  ProfileAnalyzerTools.py
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ROLE: Assess user background and identify skill gaps.
+LLM does all analysis — tools only provide real user data from DB.
+
+TOOLS:
+
+  1.1  get_user_profile(user_id: str) → dict
+       ─────────────────────────────────────
+       SOURCE : PostgreSQL users table
+       RETURNS: {
+           "user_id": "...",
+           "name": "...",
+           "education": "...",
+           "years_of_experience": int,
+           "current_role": "...",
+           "current_skills": ["python", "html", ...],
+           "learning_goal": "...",
+           "weekly_hours": int
+       }
+       WHY    : Real user data → LLM can do accurate difficulty assessment.
+
+  1.2  get_learner_progress_summary(user_id: str) → dict
+       ─────────────────────────────────────────────────
+       SOURCE : PostgreSQL learner_progress table
+       RETURNS: summary of completed stages + quiz scores (if any previous roadmap)
+       WHY    : Returns user when resuming — LLM sees prior progress context.
+
+  NOTE: No external API calls needed here. LLM REASONS about skill gaps
+        from the profile data — it doesn't need a static skills database.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. CurriculumGeneratorAgent  →  CurriculumGeneratorTools.py
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ROLE: Design a personalised stage-by-stage curriculum.
+LLM fully designs the curriculum — no static templates.
+Tools only help validate and give live context.
+
+TOOLS:
+
+  2.1  search_topic_overview(topic: str) → str
+       ─────────────────────────────────────────
+       SOURCE : Tavily Search API
+       PURPOSE: LLM searches what a topic actually covers in practice.
+       RETURNS: Short summary text (200-300 words) about the topic
+       WHY    : LLM builds learning_objectives grounded in real world content,
+                not hallucinated descriptions.
+       EXAMPLE: search_topic_overview("CSS Flexbox") →
+                "CSS Flexbox is a one-dimensional layout model that allows..."
+
+  2.2  search_industry_requirements(career_track: str) → str
+       ────────────────────────────────────────────────────────
+       SOURCE : Tavily Search API
+       PURPOSE: Search what skills employers currently require for this track.
+       RETURNS: Summary of job market requirements (pulled from real job boards/articles)
+       WHY    : LLM aligns curriculum to real-world demand, not outdated assumptions.
+       EXAMPLE: search_industry_requirements("Web Development 2026") →
+                "Employers expect React, TypeScript, REST APIs, Git workflows..."
+
+  NOTE: The LLM itself decides stage count, stage names, ordering, and
+        learning objectives — these tools just ground it in real-world data.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. ResourceCuratorAgent  →  ResourceCuratorTools.py
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ROLE: Find 3–5 REAL, high-quality learning resources for each stage.
+THIS IS THE MOST TOOL-DEPENDENT AGENT — 100% of resources come from APIs.
+LLM picks the best from search results and assigns quality scores.
+
+TOOLS:
+
+  3.1  search_youtube_videos(query: str, max_results: int = 5) → list
+       ──────────────────────────────────────────────────────────────
+       SOURCE : YouTube Data API v3
+       ENV    : YOUTUBE_API_KEY
+       RETURNS: [
+           {
+               "title": "CSS Flexbox in 20 Minutes",
+               "url": "https://youtube.com/watch?v=...",
+               "channel": "Traversy Media",
+               "views": 1200000,
+               "duration": "20:14",
+               "published": "2024-06-01"
+           }
+       ]
+       QUERY STRATEGY: "{stage_topic} tutorial {difficulty_level} {year}"
+       WHY    : Real YouTube URLs — never broken, always current.
+
+  3.2  search_web_articles(query: str, max_results: int = 5) → list
+       ──────────────────────────────────────────────────────────────
+       SOURCE : Tavily Search API
+       ENV    : TAVILY_API_KEY
+       INSTALL: pip install tavily-python
+       RETURNS: [
+           {
+               "title": "...",
+               "url": "https://...",
+               "content": "short snippet...",
+               "score": 0.9           ← Tavily's own relevance score
+           }
+       ]
+       SEARCH DEPTH: "advanced" for better results
+       INCLUDE DOMAINS: developer.mozilla.org, freecodecamp.org, web.dev,
+                        css-tricks.com, docs.python.org, reactjs.org,
+                        coursera.org, theodinproject.com
+       WHY    : Tavily returns real, current, relevant articles from trusted sites.
+
+  3.3  search_free_courses(topic: str) → list
+       ─────────────────────────────────────────
+       SOURCE : Tavily Search API (focused query)
+       PURPOSE: Find free structured courses for the topic.
+       QUERY  : "{topic} free course site:freecodecamp.org OR site:theodinproject.com
+                 OR site:coursera.org OR site:edx.org"
+       RETURNS: list of course results (same format as 3.2)
+       WHY    : Structured courses are the highest-value resource type.
+
+  3.4  score_resource_quality(url: str, resource_type: str) → float
+       ──────────────────────────────────────────────────────────────
+       PURPOSE: Assign a quality score to each found resource.
+       SOURCE : Local rule-based function (no API call)
+       RETURNS: float (0.0 – 1.0)
+
+       SCORING RULES (descending priority — higher = better for learner):
+       ┌────────────────────────────────────────────┬───────────┐
+       │ Source / Type                              │  Score    │
+       ├────────────────────────────────────────────┼───────────┤
+       │ freeCodeCamp (freecodecamp.org)            │  0.97     │
+       │ The Odin Project (theodinproject.com)      │  0.95     │
+       │ Structured free course (Coursera/edX free) │  0.93     │
+       │ YouTube — top educational channel          │  0.90     │
+       │  (Traversy Media, Fireship, Academind,     │           │
+       │   The Net Ninja, Kevin Powell, etc.)       │           │
+       │ YouTube — general educational              │  0.80     │
+       │ CSS-Tricks / web.dev / A List Apart        │  0.78     │
+       │ Official Documentation (MDN, React docs,   │  0.75     │
+       │   Python docs, etc.)                       │           │
+       │ Medium / Dev.to / Hashnode articles        │  0.65     │
+       │ Blog posts (unknown domain)                │  0.50     │
+       │ Unknown / unverified                       │  0.35     │
+       └────────────────────────────────────────────┴───────────┘
+
+       REASONING FOR THIS SCORING:
+         - Learners benefit MORE from interactive, structured content
+           (freeCodeCamp has exercises, projects, clear path)
+         - Good YouTube tutorials are often better EXPLAINED than dry docs
+         - Official docs are a REFERENCE, not a learning path — scored lower
+         - A learner who only uses official docs will struggle more than one
+           who uses freeCodeCamp + YouTube + docs together
+
+  3.5  check_url_alive(url: str) → bool
+       ─────────────────────────────────
+       SOURCE : requests.head() with 3s timeout (no API key)
+       PURPOSE: Verify the URL returns HTTP 200 before including in output.
+       WHY    : Guarantees zero broken links reach the user.
+       NOTE    : Skip for YouTube URLs (always valid if returned by API).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. AdaptationEngineAgent  →  AdaptionEngineTools.py
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ROLE: Adjust the roadmap based on quiz/progress data.
+LLM reasons about WHAT to adapt — tools fetch real progress + find remedial content.
+
+TOOLS:
+
+  4.1  get_learner_progress(user_id: str) → dict
+       ────────────────────────────────────────────
+       SOURCE : PostgreSQL learner_progress table
+       RETURNS: {
+           "stage_0": {
+               "quiz_score": 72,
+               "struggled_topics": ["CSS Flexbox"],
+               "completion_date": "2026-04-10",
+               "time_spent_hours": 18
+           },
+           ...
+       }
+       WHY    : Real progress data from DB → LLM adapts based on facts.
+
+  4.2  search_remedial_resources(topic: str, difficulty: str) → list
+       ─────────────────────────────────────────────────────────────
+       SOURCE : Tavily Search API + YouTube API (same as ResourceCurator tools)
+       PURPOSE: Find beginner-friendly content for a struggling topic.
+       QUERY  : "{topic} explained simply for beginners tutorial"
+       RETURNS: list of resources (same format as ResourceCurator output)
+       WHY    : Real remedial content pulled live — not hallucinated links.
+
+  4.3  assess_struggle_severity(quiz_score: int) → dict
+       ──────────────────────────────────────────────────
+       SOURCE : Local rule-based (no API)
+       RETURNS: {
+           "severity": "critical" | "moderate" | "minor" | "good",
+           "recommended_action": "insert_remedial_stage" | "add_resources" | "none"
+       }
+       RULES  :
+           score < 50  → critical  → insert full remedial stage before next
+           50–69       → moderate  → add 2-3 remedial resources + extend by 1 week
+           70–79       → minor     → add 1-2 supplemental resources
+           80+         → good      → no change needed
+       WHY    : LLM gets a clear, rule-based framework — no hallucinated thresholds.
+
+  4.4  save_adapted_roadmap(user_id: str, adapted_curriculum: dict) → bool
+       ─────────────────────────────────────────────────────────────────────
+       SOURCE : PostgreSQL roadmaps table
+       PURPOSE: Persist the adapted curriculum back to DB after adaptation.
+       RETURNS: True on success, False on failure
+       WHY    : Ensures adaptation changes are saved and not lost on next request.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. RoadmapSupervisorAgent  →  SupervisorTools.py  (NEW FILE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ROLE: Orchestrate which agent to call next.
+No search tools needed — supervisor only needs state inspection + logging.
+
+TOOLS:
+
+  5.1  log_workflow_step(user_id: str, step: str, status: str) → None
+       ──────────────────────────────────────────────────────────────
+       SOURCE : PostgreSQL workflow_logs table
+       PURPOSE: Write each routing decision to DB for observability.
+       WHY    : Production audit trail — you can replay what happened.
+
+  5.2  save_roadmap_to_db(user_id: str, roadmap: dict) → bool
+       ──────────────────────────────────────────────────────
+       SOURCE : PostgreSQL roadmaps table
+       PURPOSE: When workflow completes, persist the full roadmap result.
+       RETURNS: True on success
+       WHY    : Roadmap must be stored so the user can retrieve it later
+                without re-running the full multi-agent pipeline.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXTERNAL APIS & SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  # .env additions
+  YOUTUBE_API_KEY=...      # console.cloud.google.com → YouTube Data API v3
+  TAVILY_API_KEY=...       # app.tavily.com → free tier = 1000 searches/month
+
+  # Install
+  pip install tavily-python
+  pip install google-api-python-client   # for YouTube API
+
+  # TAVILY USAGE EXAMPLE
+  from tavily import TavilyClient
+  client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+  results = client.search(
+      query="CSS Flexbox tutorial beginner 2025",
+      search_depth="advanced",
+      include_domains=["freecodecamp.org", "css-tricks.com", "web.dev"],
+      max_results=5
+  )
+
+  # YOUTUBE USAGE EXAMPLE
+  from googleapiclient.discovery import build
+  youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"))
+  results = youtube.search().list(
+      q="CSS Flexbox tutorial beginner",
+      part="snippet",
+      type="video",
+      maxResults=5,
+      relevanceLanguage="en",
+      videoDuration="medium"    # 4–20 min  (short=<4, medium=4-20, long=20+)
+  ).execute()
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FINAL TOOLS SUMMARY  (What Uses DB vs Search API)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Agent                | Tool                          | Source
+  ─────────────────────┼───────────────────────────────┼──────────────────
+  ProfileAnalyzer      | get_user_profile              | DB (users table)
+  ProfileAnalyzer      | get_learner_progress_summary  | DB (progress table)
+  ─────────────────────┼───────────────────────────────┼──────────────────
+  CurriculumGenerator  | search_topic_overview         | Tavily Search API
+  CurriculumGenerator  | search_industry_requirements  | Tavily Search API
+  ─────────────────────┼───────────────────────────────┼──────────────────
+  ResourceCurator      | search_youtube_videos         | YouTube Data API v3
+  ResourceCurator      | search_web_articles           | Tavily Search API
+  ResourceCurator      | search_free_courses           | Tavily Search API
+  ResourceCurator      | score_resource_quality        | Local (no API)
+  ResourceCurator      | check_url_alive               | HTTP HEAD request
+  ─────────────────────┼───────────────────────────────┼──────────────────
+  AdaptationEngine     | get_learner_progress          | DB (progress table)
+  AdaptationEngine     | search_remedial_resources     | Tavily + YouTube
+  AdaptationEngine     | assess_struggle_severity      | Local (no API)
+  AdaptationEngine     | save_adapted_roadmap          | DB (roadmaps table)
+  ─────────────────────┼───────────────────────────────┼──────────────────
+  Supervisor           | log_workflow_step             | DB (logs table)
+  Supervisor           | save_roadmap_to_db            | DB (roadmaps table)
+  ─────────────────────┴───────────────────────────────┴──────────────────
+
+  TOTAL: 15 tools
+    DB only (user/roadmap/progress): 6 tools
+    Tavily Search API:               5 tools
+    YouTube Data API:                2 tools  (shared with Adaptation)
+    Local computation:               2 tools
+
+  LLM IS RESPONSIBLE FOR:
+    - All curriculum design decisions
+    - All skill gap reasoning
+    - Choosing the best resources from search results
+    - All adaptation strategy (using severity from tool as input)
