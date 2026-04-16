@@ -5,7 +5,7 @@
 <h2> ⚠️ you must update the base_url in the ```studio_app.py```, ```main.py``` file</h2>
 
 <h2> and you must intializae .env file</h2>
-<h3> In ```.env``` of [```src``` , ```docker```] folder</h3>
+<h3>  ```.env``` In [```src``` , ```docker```] folder</h3>
 
 </div>
 
