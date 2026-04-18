@@ -1,5 +1,3 @@
-
-
 """
 RoadmapMultiAgent/agents/AdaptationEngine.py
 """
@@ -9,8 +7,8 @@ from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
 
 from ...AgentEnums import AgentType
 from ...BaseWorkerAgent import BaseWorkerAgent
-from .schemas import AdaptationEngineOutput
-
+from .schemas.AdaptationEngine import AdaptationEngineOutput
+from .prompts.AdaptationEnginePrompt import SYSTEM_PROMPT
 
 class AdaptationEngine(BaseWorkerAgent):
     """
@@ -22,16 +20,7 @@ class AdaptationEngine(BaseWorkerAgent):
     State keys produced  : ``adapted_curriculum``, ``adaptation_agent_done``
     """
 
-    _DEFAULT_SYSTEM_PROMPT = """You are an adaptive learning specialist.
-Analyse the learner's quiz performance and suggest roadmap adjustments.
-Return a JSON:
-{
-  "struggling_topics": ["topic1", "..."],
-  "recommended_resources": [{"title": "...", "url": "..."}],
-  "stage_adjustments": [{"action": "reorder|insert_remedial", "stage_id": "...", "reason": "..."}],
-  "summary": "brief explanation of changes"
-}
-"""
+    _DEFAULT_SYSTEM_PROMPT = SYSTEM_PROMPT
 
     def get_agent_type(self) -> AgentType:
         return AgentType.ADAPTATION_ENGINE.value
@@ -45,8 +34,11 @@ Return a JSON:
             SystemMessage(content=self._system_prompt),
             HumanMessage(
                 content=(
-                    f"Current curriculum  : {state.get('curriculum', {})}\n"
-                    f"Learner progress    : {state.get('learner_progress', {})}\n\n"
+                    f"User Background : {state.get('user_background', 'Not specified')}"
+                    f"Career track      : {state.get('career_track', 'Not specified')}\n"
+                    f"Current stage     : {state.get('current_stage', 'Not specified')}\n"
+                    f"Difficulty level  : {state.get('difficulty_level', 'Not specified')}\n"
+                    f"Full curriculum   : {state.get('curriculum', 'Not specified')}\n"
                     "Please analyse and return roadmap adaptation recommendations."
                 )
             ),
