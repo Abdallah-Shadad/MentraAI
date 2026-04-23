@@ -554,7 +554,7 @@ namespace MentraAI.API.Data.Migrations
                     b.HasIndex("RoadmapId", "StageIndex")
                         .IsUnique();
 
-                    b.ToTable("UserStageProgresses");
+                    b.ToTable("UserStageProgress");
                 });
 
             modelBuilder.Entity("MentraAI.API.Modules.Users.Models.UserProfile", b =>

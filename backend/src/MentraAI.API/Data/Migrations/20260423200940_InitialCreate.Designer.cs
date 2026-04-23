@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MentraAI.API.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260423195009_InitialCreate")]
+    [Migration("20260423200940_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -557,7 +557,7 @@ namespace MentraAI.API.Data.Migrations
                     b.HasIndex("RoadmapId", "StageIndex")
                         .IsUnique();
 
-                    b.ToTable("UserStageProgresses");
+                    b.ToTable("UserStageProgress");
                 });
 
             modelBuilder.Entity("MentraAI.API.Modules.Users.Models.UserProfile", b =>
