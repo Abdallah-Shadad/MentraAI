@@ -33,7 +33,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Roadmap> Roadmaps { get; set; }
 
     // == Stage Progress =====
-    public DbSet<UserStageProgress> UserStageProgresses { get; set; }
+    public DbSet<UserStageProgress> UserStageProgress { get; set; }
 
     // == Quizzes ============
     public DbSet<QuizAttempt> QuizAttempts { get; set; }
@@ -119,6 +119,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             e.HasOne(x => x.User)
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
+                .HasPrincipalKey(u => u.Id)      // explicit principal key
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.CareerTrack)
                 .WithMany(c => c.UserTracks)
@@ -147,7 +148,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             e.HasIndex(x => x.RoadmapId);
             e.Property(x => x.ResourcesDataJson).HasColumnType("nvarchar(max)");
             e.HasOne(x => x.Roadmap)
-                .WithMany(r => r.Stages)
+                .WithMany()
                 .HasForeignKey(x => x.RoadmapId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
@@ -163,7 +164,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             e.Property(x => x.QuestionsDataJson).HasColumnType("nvarchar(max)");
             e.Property(x => x.UserAnswersDataJson).HasColumnType("nvarchar(max)");
             e.HasOne(x => x.StageProgress)
-                .WithMany(s => s.QuizAttempts)
+                .WithMany()
                 .HasForeignKey(x => x.StageProgressId)
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.User)

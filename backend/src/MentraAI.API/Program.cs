@@ -10,7 +10,7 @@ using MentraAI.API.Data;
 using MentraAI.API.Modules.Auth.DTOs.Requests;
 using MentraAI.API.Modules.Auth.Models;
 using MentraAI.API.Modules.Auth.Services;
-using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,26 +20,33 @@ builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(c =>
 {
-    // FIX: Removed .Models namespace qualifiers
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "MentraAI API", Version = "v1" });
-
-    // Add JWT Authorization support to Swagger UI
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
-        Description = "JWT Authorization header. Example: 'Bearer {token}'",
+        Title = "MentraAI API",
+        Version = "v1"
+    });
+
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "Enter: Bearer {your token}",
         Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
 
-    // FIX: Wrapped in a delegate (document => ...)
-    c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
         {
-            // FIX: Replaced .Reference property with the new strongly-typed Reference class
-            new OpenApiSecuritySchemeReference("Bearer"),
-            new List<string>()
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id   = "Bearer"
+                }
+            },
+            Array.Empty<string>()
         }
     });
 });
@@ -102,6 +109,9 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowCredentials());
 });
+
+//  AutoMapper
+builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
 //  FluentValidation 
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();

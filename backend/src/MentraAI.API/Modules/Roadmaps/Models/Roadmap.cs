@@ -13,6 +13,4 @@ public class Roadmap
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public UserTrack UserTrack { get; set; } = null!;
-    public ICollection<StageProgress.Models.UserStageProgress> Stages { get; set; }
-        = new List<StageProgress.Models.UserStageProgress>();
 }

@@ -22,6 +22,5 @@ public class UserStageProgress
     public DateTime? CompletedAt { get; set; }
 
     public Roadmap Roadmap { get; set; } = null!;
-    public ICollection<Quizzes.Models.QuizAttempt> QuizAttempts { get; set; }
-        = new List<Quizzes.Models.QuizAttempt>();
+
 }
