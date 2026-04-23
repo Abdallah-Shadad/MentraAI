@@ -354,7 +354,7 @@ namespace MentraAI.API.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "UserStageProgresses",
+                name: "UserStageProgress",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -369,9 +369,9 @@ namespace MentraAI.API.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_UserStageProgresses", x => x.Id);
+                    table.PrimaryKey("PK_UserStageProgress", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_UserStageProgresses_Roadmaps_RoadmapId",
+                        name: "FK_UserStageProgress_Roadmaps_RoadmapId",
                         column: x => x.RoadmapId,
                         principalTable: "Roadmaps",
                         principalColumn: "Id",
@@ -405,9 +405,9 @@ namespace MentraAI.API.Data.Migrations
                         principalTable: "AspNetUsers",
                         principalColumn: "Id");
                     table.ForeignKey(
-                        name: "FK_QuizAttempts_UserStageProgresses_StageProgressId",
+                        name: "FK_QuizAttempts_UserStageProgress_StageProgressId",
                         column: x => x.StageProgressId,
-                        principalTable: "UserStageProgresses",
+                        principalTable: "UserStageProgress",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -553,13 +553,13 @@ namespace MentraAI.API.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_UserStageProgresses_RoadmapId",
-                table: "UserStageProgresses",
+                name: "IX_UserStageProgress_RoadmapId",
+                table: "UserStageProgress",
                 column: "RoadmapId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_UserStageProgresses_RoadmapId_StageIndex",
-                table: "UserStageProgresses",
+                name: "IX_UserStageProgress_RoadmapId_StageIndex",
+                table: "UserStageProgress",
                 columns: new[] { "RoadmapId", "StageIndex" },
                 unique: true);
 
@@ -619,7 +619,7 @@ namespace MentraAI.API.Data.Migrations
                 name: "OnboardingQuestions");
 
             migrationBuilder.DropTable(
-                name: "UserStageProgresses");
+                name: "UserStageProgress");
 
             migrationBuilder.DropTable(
                 name: "Roadmaps");
