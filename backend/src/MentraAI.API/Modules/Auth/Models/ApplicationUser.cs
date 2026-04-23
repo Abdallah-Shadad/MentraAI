@@ -12,7 +12,5 @@ namespace MentraAI.API.Modules.Auth.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public bool IsActive { get; set; } = true;
-
-        public ICollection<UserTrack> UserTracks { get; set; } = new List<UserTrack>();
     }
 }
