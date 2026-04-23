@@ -1,0 +1,16 @@
+﻿using MentraAI.API.Modules.CareerTracks.Models;
+using Microsoft.AspNetCore.Identity;
+
+namespace MentraAI.API.Modules.Auth.Models
+{
+    public class ApplicationUser : IdentityUser
+    {
+        public string FirstName { get; set; } = string.Empty;
+
+        public string LastName { get; set; } = string.Empty;
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public bool IsActive { get; set; } = true;
+    }
+}
