@@ -111,7 +111,7 @@ builder.Services.AddCors(options =>
 });
 
 //  AutoMapper
-builder.Services.AddAutoMapper(typeof(Program).Assembly);
+builder.Services.AddAutoMapper(typeof(Program));
 
 //  FluentValidation 
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
