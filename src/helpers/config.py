@@ -1,6 +1,13 @@
 from pydantic_settings import BaseSettings
 from typing import List
+from pathlib import Path
+
+# Resolve .env from project root regardless of working directory
+# src/helpers/config.py -> src/helpers -> src -> project_root
+ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
+
 class Settings(BaseSettings):
+
     APP_NAME: str
     APP_VERSION: str
 
@@ -15,10 +22,13 @@ class Settings(BaseSettings):
 
     # tavily
     TAVILY_API_KEY: str
+
+    # youtube
+    YOUTUBE_API_KEY: str
         
 
     class Config:
-        env_file = ".env"
+        env_file = str(ENV_FILE)
         env_file_encoding = "utf-8"
         extra = "ignore"
 

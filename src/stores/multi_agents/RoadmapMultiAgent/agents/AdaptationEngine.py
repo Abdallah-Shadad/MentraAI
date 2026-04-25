@@ -9,8 +9,14 @@ from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
 
 from ...AgentEnums import AgentType
 from ...BaseWorkerAgent import BaseWorkerAgent
+<<<<<<< Updated upstream
 from .schemas import AdaptationEngineOutput
 
+=======
+from .schemas.AdaptationEngine import AdaptationEngineOutput
+from .prompts.AdaptationEnginePrompt import SYSTEM_PROMPT
+from .tools.AdaptionEngineTools import ADAPTION_TOOLS
+>>>>>>> Stashed changes
 
 class AdaptationEngine(BaseWorkerAgent):
     """
@@ -32,6 +38,10 @@ Return a JSON:
   "summary": "brief explanation of changes"
 }
 """
+
+    def __init__(self, config=None, llm=None, tools=None):
+        # Default to ADAPTION_TOOLS; caller may inject different/mock tools.
+        super().__init__(config=config, llm=llm, tools=tools if tools is not None else ADAPTION_TOOLS)
 
     def get_agent_type(self) -> AgentType:
         return AgentType.ADAPTATION_ENGINE.value

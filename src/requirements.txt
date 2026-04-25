@@ -15,7 +15,12 @@ fastapi==0.135.2
 uvicorn[standard]==0.42.0
 python-multipart==0.0.22
 langgraph-cli==0.4.19
+<<<<<<< Updated upstream
 langgraph-api==0.7.87
+=======
+langgraph-api==0.8.0
+psycopg2==2.9.12
+>>>>>>> Stashed changes
 
 
 nltk==3.9.3
