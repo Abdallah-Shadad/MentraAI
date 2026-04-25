@@ -9,14 +9,9 @@ from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
 
 from ...AgentEnums import AgentType
 from ...BaseWorkerAgent import BaseWorkerAgent
-<<<<<<< Updated upstream
-from .schemas import AdaptationEngineOutput
-
-=======
 from .schemas.AdaptationEngine import AdaptationEngineOutput
 from .prompts.AdaptationEnginePrompt import SYSTEM_PROMPT
 from .tools.AdaptionEngineTools import ADAPTION_TOOLS
->>>>>>> Stashed changes
 
 class AdaptationEngine(BaseWorkerAgent):
     """
