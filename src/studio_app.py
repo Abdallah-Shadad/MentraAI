@@ -3,19 +3,11 @@ from stores.llm.providers.OpenAIProvider import OpenAIProvider
 from stores.multi_agents.AgentProviderFactory import AgentProviderFactory
 
 config = {
-<<<<<<< Updated upstream
-    "api_key": "sk-wfonewfofoofe",
+    "api_key": "null",
     "base_url": "https://8ae4-34-187-223-8.ngrok-free.app/v1/",
     "max_output_tokens": 100000,
     "temperature": 0.1,
     "model": "qwen3:8b",
-=======
-    "api_key": "AIzaSyD7uC5nJHI5lXE1FCGX5jLOgxmfa8UmRVk",
-    "base_url": "https://integrate.api.nvidia.com/v1",
-    "max_output_tokens": 100000,
-    "temperature": 0.1,
-    "model": "qwen/qwen3.5-122b",
->>>>>>> Stashed changes
 }
 
 my_llm = OpenAIProvider(
