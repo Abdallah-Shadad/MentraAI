@@ -85,22 +85,31 @@ builder.Services
 builder.Services
     .AddHttpClient<IAIGatewayService, AIGatewayService>(client =>
     {
-        client.BaseAddress = new Uri(builder.Configuration["AIService:BaseUrl"]!);
-        client.DefaultRequestHeaders.Add(
-            "X-API-Key",
-            builder.Configuration["AIService:ApiKey"]);
-        // Outer timeout — slightly above per-attempt timeout in resilience handler
-        client.Timeout = TimeSpan.FromSeconds(130);
-    })
-    .AddStandardResilienceHandler(options =>
-    {
-        // Retry 3 times on transient failures (503, 502, 500, timeout)
-        options.Retry.MaxRetryAttempts = 3;
-        options.Retry.Delay = TimeSpan.FromSeconds(2);
-        options.Retry.BackoffType = DelayBackoffType.Exponential;
-        // Per-attempt timeout — AI is slow (multi-agent pipeline)
-        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(120);
+        client.BaseAddress = new Uri(
+            builder.Configuration["AIService:BaseUrl"]!);
+
+        client.Timeout = TimeSpan.FromSeconds(30);
     });
+
+//.AddHttpClient<IAIGatewayService, AIGatewayService>(client =>
+//{
+//    client.BaseAddress = new Uri(builder.Configuration["AIService:BaseUrl"]!);
+//    client.DefaultRequestHeaders.Add(
+//        "X-API-Key",
+//        builder.Configuration["AIService:ApiKey"]);
+//    // Outer timeout — slightly above per-attempt timeout in resilience handler
+//    client.Timeout = TimeSpan.FromSeconds(130);
+//});
+//.AddStandardResilienceHandler(options =>
+//{
+//    // Retry 3 times on transient failures (503, 502, 500, timeout)
+//    options.Retry.MaxRetryAttempts = 3;
+//    options.Retry.Delay = TimeSpan.FromSeconds(2);
+//    options.Retry.BackoffType = DelayBackoffType.Exponential;
+//    // Per-attempt timeout — AI is slow (multi-agent pipeline)
+//    options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(120);
+//}
+//);
 
 // === User Repository & Service ===
 // Users Module
