@@ -37,8 +37,6 @@
 
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
-		<Folder Include="Modules\Onboarding\Controllers\" />
-		<Folder Include="Modules\Onboarding\Mappings\" />
 	</ItemGroup>
 
 	<ItemGroup>
