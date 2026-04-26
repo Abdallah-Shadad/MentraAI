@@ -6,6 +6,8 @@ using MentraAI.API.Modules.Auth.DTOs.Requests;
 using MentraAI.API.Modules.Auth.Mappings;
 using MentraAI.API.Modules.Auth.Models;
 using MentraAI.API.Modules.Auth.Services;
+using MentraAI.API.Modules.Onboarding.Repositories;
+using MentraAI.API.Modules.Onboarding.Services;
 using MentraAI.API.Modules.Users.Mappings;
 using MentraAI.API.Modules.Users.Repositories;
 using MentraAI.API.Modules.Users.Services;
@@ -145,8 +147,7 @@ builder.Services.AddCors(options =>
 });
 
 //  AutoMapper
-builder.Services.AddAutoMapper(typeof(Program));
-builder.Services.AddAutoMapper(typeof(UserMappingProfile));
+builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
 //  FluentValidation 
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
@@ -155,6 +156,8 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>()
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IOnboardingRepository, OnboardingRepository>();
+builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 
 //  Build App 
 var app = builder.Build();
