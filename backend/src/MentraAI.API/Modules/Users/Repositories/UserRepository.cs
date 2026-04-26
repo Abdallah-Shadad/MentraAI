@@ -14,11 +14,11 @@ public class UserRepository : IUserRepository
         _db = db;
     }
 
-    public async Task<ApplicationUser?> GetByIdAsync(string userId)
-        => await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+    public async Task<ApplicationUser?> GetByIdAsync(string userId) =>
+        await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
 
-    public async Task<UserProfile?> GetProfileByUserIdAsync(string userId)
-        => await _db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId);
+    public async Task<UserProfile?> GetProfileByUserIdAsync(string userId) =>
+        await _db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId);
 
     public async Task UpdateProfileAsync(UserProfile profile)
     {
