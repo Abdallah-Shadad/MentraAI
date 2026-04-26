@@ -11,23 +11,24 @@ public class UserMappingProfile : Profile
     public UserMappingProfile()
     {
         CreateMap<(ApplicationUser User, UserProfile Profile), UserProfileResponse>()
-            .ForMember(dest => dest.UserId, opt => opt.MapFrom(src => src.User.Id))
-            .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.User.Email))
-            .ForMember(dest => dest.FirstName, opt => opt.MapFrom(src => src.User.FirstName))
-            .ForMember(dest => dest.LastName, opt => opt.MapFrom(src => src.User.LastName))
-            .ForMember(dest => dest.Background, opt => opt.MapFrom(src => src.Profile.Background))
-            .ForMember(dest => dest.WeeklyHours, opt => opt.MapFrom(src => src.Profile.WeeklyHours))
-            .ForMember(dest => dest.CareerGoals, opt => opt.MapFrom(src => src.Profile.CareerGoals))
-            .ForMember(dest => dest.IsOnboarded, opt => opt.MapFrom(src => src.Profile.IsOnboarded))
-            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.Profile.CreatedAt))
-            .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.Profile.UpdatedAt))
-            .ForMember(dest => dest.CurrentSkills, opt => opt.MapFrom(src => DeserializeList(src.Profile.CurrentSkillsJson)))
-            .ForMember(dest => dest.Interests, opt => opt.MapFrom(src => DeserializeList(src.Profile.InterestsJson)));
+            .ForMember(d => d.UserId, o => o.MapFrom(s => s.User.Id))
+            .ForMember(d => d.Email, o => o.MapFrom(s => s.User.Email))
+            .ForMember(d => d.FirstName, o => o.MapFrom(s => s.User.FirstName))
+            .ForMember(d => d.LastName, o => o.MapFrom(s => s.User.LastName))
+            .ForMember(d => d.Background, o => o.MapFrom(s => s.Profile.Background))
+            .ForMember(d => d.WeeklyHours, o => o.MapFrom(s => s.Profile.WeeklyHours))
+            .ForMember(d => d.CareerGoals, o => o.MapFrom(s => s.Profile.CareerGoals))
+            .ForMember(d => d.IsOnboarded, o => o.MapFrom(s => s.Profile.IsOnboarded))
+            .ForMember(d => d.CreatedAt, o => o.MapFrom(s => s.Profile.CreatedAt))
+            .ForMember(d => d.UpdatedAt, o => o.MapFrom(s => s.Profile.UpdatedAt))
+            .ForMember(d => d.CurrentSkills, o => o.MapFrom(s => DeserializeList(s.Profile.CurrentSkillsJson)))
+            .ForMember(d => d.Interests, o => o.MapFrom(s => DeserializeList(s.Profile.InterestsJson)));
     }
 
     private static List<string> DeserializeList(string? json)
     {
-        if (json is null) return new List<string>();
-        return JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+        if (string.IsNullOrWhiteSpace(json)) return new List<string>();
+        try { return JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>(); }
+        catch { return new List<string>(); }
     }
 }

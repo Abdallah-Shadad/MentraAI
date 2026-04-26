@@ -1,10 +1,13 @@
 ﻿using FluentValidation;
 using MentraAI.API.Common.Middleware;
 using MentraAI.API.Data;
+using MentraAI.API.Modules.AIGateway.Services;
 using MentraAI.API.Modules.Auth.DTOs.Requests;
 using MentraAI.API.Modules.Auth.Mappings;
 using MentraAI.API.Modules.Auth.Models;
 using MentraAI.API.Modules.Auth.Services;
+using MentraAI.API.Modules.Onboarding.Repositories;
+using MentraAI.API.Modules.Onboarding.Services;
 using MentraAI.API.Modules.Users.Mappings;
 using MentraAI.API.Modules.Users.Repositories;
 using MentraAI.API.Modules.Users.Services;
@@ -14,6 +17,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Polly;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -76,6 +80,37 @@ builder.Services
     })
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
+
+// == AIGateway Module ==
+builder.Services
+    .AddHttpClient<IAIGatewayService, AIGatewayService>(client =>
+    {
+        client.BaseAddress = new Uri(
+            builder.Configuration["AIService:BaseUrl"]!);
+
+        client.Timeout = TimeSpan.FromSeconds(30);
+    });
+
+//.AddHttpClient<IAIGatewayService, AIGatewayService>(client =>
+//{
+//    client.BaseAddress = new Uri(builder.Configuration["AIService:BaseUrl"]!);
+//    client.DefaultRequestHeaders.Add(
+//        "X-API-Key",
+//        builder.Configuration["AIService:ApiKey"]);
+//    // Outer timeout — slightly above per-attempt timeout in resilience handler
+//    client.Timeout = TimeSpan.FromSeconds(130);
+//});
+//.AddStandardResilienceHandler(options =>
+//{
+//    // Retry 3 times on transient failures (503, 502, 500, timeout)
+//    options.Retry.MaxRetryAttempts = 3;
+//    options.Retry.Delay = TimeSpan.FromSeconds(2);
+//    options.Retry.BackoffType = DelayBackoffType.Exponential;
+//    // Per-attempt timeout — AI is slow (multi-agent pipeline)
+//    options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(120);
+//}
+//);
+
 // === User Repository & Service ===
 // Users Module
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -121,13 +156,17 @@ builder.Services.AddCors(options =>
 });
 
 //  AutoMapper
-builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
 //  FluentValidation 
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
 //  Module Services 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IOnboardingRepository, OnboardingRepository>();
+builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 
 //  Build App 
 var app = builder.Build();
