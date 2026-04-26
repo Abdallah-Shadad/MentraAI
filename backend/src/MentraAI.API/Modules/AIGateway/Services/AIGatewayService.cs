@@ -23,94 +23,121 @@ public class AIGatewayService : IAIGatewayService
 
 
     // PREDICT CAREER  —  Phase 3 
+
+    // fake implementation until AI team finalizes contract and we can implement the real HTTP call
     public async Task<PredictionResult> PredictCareerAsync(
-        string userId,
-        UserProfile profile,
-        CancellationToken ct = default)
+    string userId,
+    UserProfile profile,
+    CancellationToken ct = default)
     {
-        _logger.LogInformation(
-            "Calling AI prediction for user {UserId}", userId);
-
-        // Build request — parse JSON arrays stored in profile columns
-        // TEMP UNTIL AI TEAM FINALIZES PREDICT CONTRACT — we want to be flexible on what profile data we send, and how it's stored in DB
-        var request = new PredictAIRequest
-        {
-            UserId = userId,
-            Background = profile.Background ?? string.Empty,
-            Skills = ParseJsonArray(profile.CurrentSkillsJson),
-            Interests = ParseJsonArray(profile.InterestsJson),
-            WeeklyHours = profile.WeeklyHours ?? 0,
-            CareerGoals = profile.CareerGoals ?? string.Empty
-        };
-
-        // Send request
-        HttpResponseMessage httpResponse;
-        try
-        {
-            httpResponse = await _http.PostAsJsonAsync(
-                "/api/v1/machine_model/predict", request, ct);
-        }
-        catch (HttpRequestException ex)
-        {
-            _logger.LogError(ex, "AI service unreachable for prediction");
-            throw new AIServiceException("AI service is unavailable.", ex);
-        }
-        catch (TaskCanceledException ex)
-        {
-            _logger.LogError(ex, "AI prediction request timed out");
-            throw;
-        }
-
-        // Read raw body before checking status — needed for logging on failure
-        var rawBody = await httpResponse.Content.ReadAsStringAsync(ct);
-
-        if (!httpResponse.IsSuccessStatusCode)
-        {
-            _logger.LogError(
-                "AI prediction failed. Status: {Status} Body: {Body}",
-                (int)httpResponse.StatusCode, rawBody);
-            throw new AIServiceException(
-                $"AI service returned {(int)httpResponse.StatusCode}.");
-        }
-
-        // Deserialize
-        PredictAIResponse? aiResponse;
-        try
-        {
-            aiResponse = JsonSerializer.Deserialize<PredictAIResponse>(rawBody);
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogError(ex,
-                "AI prediction returned malformed JSON. Body: {Body}", rawBody);
-            throw new AIValidationException("AI returned malformed JSON.");
-        }
-
-        if (aiResponse is null)
-        {
-            _logger.LogError("AI prediction returned null after deserialization");
-            throw new AIValidationException("AI returned empty response.");
-        }
-
-        // Validate structure before returning to caller
-        PredictAIResponseValidator.Validate(aiResponse);
-
-        // Map AI response → InternalModel
-        // Caller gets PredictionResult — never sees PredictAIResponse
-        var topRolesJson = JsonSerializer.Serialize(
-            aiResponse.TopRoles.Select(r => new { name = r.Name, confidence = r.Confidence }));
-
-        _logger.LogInformation(
-            "AI prediction succeeded for user {UserId}. PrimaryRole: {Role} ({Confidence:P0})",
-            userId, aiResponse.PrimaryRole!.Name, aiResponse.PrimaryRole.Confidence);
+        await Task.Delay(500); // simulate AI latency
 
         return new PredictionResult
         {
-            PrimaryRoleName = aiResponse.PrimaryRole!.Name,
-            PrimaryConfidence = aiResponse.PrimaryRole.Confidence,
-            TopRolesJson = topRolesJson
+            PrimaryRoleName = "Backend Engineer",
+            PrimaryConfidence = 0.87m,
+            TopRolesJson = """
+        [
+            {
+                "name": "Backend Engineer",
+                "confidence": 0.87
+            },
+            {
+                "name": "Data Engineer",
+                "confidence": 0.71
+            }
+        ]
+        """
         };
     }
+    //public async Task<PredictionResult> PredictCareerAsync(
+    //    string userId,
+    //    UserProfile profile,
+    //    CancellationToken ct = default)
+    //{
+    //    _logger.LogInformation(
+    //        "Calling AI prediction for user {UserId}", userId);
+
+    //    // Build request — parse JSON arrays stored in profile columns
+    //    // TEMP UNTIL AI TEAM FINALIZES PREDICT CONTRACT — we want to be flexible on what profile data we send, and how it's stored in DB
+    //    var request = new PredictAIRequest
+    //    {
+    //        UserId = userId,
+    //        Background = profile.Background ?? string.Empty,
+    //        Skills = ParseJsonArray(profile.CurrentSkillsJson),
+    //        Interests = ParseJsonArray(profile.InterestsJson),
+    //        WeeklyHours = profile.WeeklyHours ?? 0,
+    //        CareerGoals = profile.CareerGoals ?? string.Empty
+    //    };
+
+    //    // Send request
+    //    HttpResponseMessage httpResponse;
+    //    try
+    //    {
+    //        httpResponse = await _http.PostAsJsonAsync(
+    //            "/api/v1/machine_model/predict", request, ct);
+    //    }
+    //    catch (HttpRequestException ex)
+    //    {
+    //        _logger.LogError(ex, "AI service unreachable for prediction");
+    //        throw new AIServiceException("AI service is unavailable.", ex);
+    //    }
+    //    catch (TaskCanceledException ex)
+    //    {
+    //        _logger.LogError(ex, "AI prediction request timed out");
+    //        throw;
+    //    }
+
+    //    // Read raw body before checking status — needed for logging on failure
+    //    var rawBody = await httpResponse.Content.ReadAsStringAsync(ct);
+
+    //    if (!httpResponse.IsSuccessStatusCode)
+    //    {
+    //        _logger.LogError(
+    //            "AI prediction failed. Status: {Status} Body: {Body}",
+    //            (int)httpResponse.StatusCode, rawBody);
+    //        throw new AIServiceException(
+    //            $"AI service returned {(int)httpResponse.StatusCode}.");
+    //    }
+
+    //    // Deserialize
+    //    PredictAIResponse? aiResponse;
+    //    try
+    //    {
+    //        aiResponse = JsonSerializer.Deserialize<PredictAIResponse>(rawBody);
+    //    }
+    //    catch (JsonException ex)
+    //    {
+    //        _logger.LogError(ex,
+    //            "AI prediction returned malformed JSON. Body: {Body}", rawBody);
+    //        throw new AIValidationException("AI returned malformed JSON.");
+    //    }
+
+    //    if (aiResponse is null)
+    //    {
+    //        _logger.LogError("AI prediction returned null after deserialization");
+    //        throw new AIValidationException("AI returned empty response.");
+    //    }
+
+    //    // Validate structure before returning to caller
+    //    PredictAIResponseValidator.Validate(aiResponse);
+
+    //    // Map AI response → InternalModel
+    //    // Caller gets PredictionResult — never sees PredictAIResponse
+    //    var topRolesJson = JsonSerializer.Serialize(
+    //        aiResponse.TopRoles.Select(r => new { name = r.Name, confidence = r.Confidence }));
+
+    //    _logger.LogInformation(
+    //        "AI prediction succeeded for user {UserId}. PrimaryRole: {Role} ({Confidence:P0})",
+    //        userId, aiResponse.PrimaryRole!.Name, aiResponse.PrimaryRole.Confidence);
+
+    //    return new PredictionResult
+    //    {
+    //        PrimaryRoleName = aiResponse.PrimaryRole!.Name,
+    //        PrimaryConfidence = aiResponse.PrimaryRole.Confidence,
+    //        TopRolesJson = topRolesJson
+    //    };
+    //}
 
     // =====================================================================
     // GENERATE ROADMAP  —  future Phase stub
