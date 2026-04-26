@@ -122,12 +122,15 @@ builder.Services.AddCors(options =>
 
 //  AutoMapper
 builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddAutoMapper(typeof(UserMappingProfile));
 
 //  FluentValidation 
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
 //  Module Services 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 //  Build App 
 var app = builder.Build();

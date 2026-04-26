@@ -28,21 +28,27 @@ public class UsersController : ControllerBase
 
     private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-    // ── GET /api/v1/users/me ──────────────────────────────────────────
+    // =====================================================================
+    // GET /api/v1/users/me
+    // =====================================================================
     [HttpGet("me")]
     [ProducesResponseType(typeof(ApiResponse<UserProfileResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+    [ProducesResponseType(typeof(object), 401)]
+    [ProducesResponseType(typeof(object), 404)]
     public async Task<IActionResult> GetMe()
     {
         var result = await _userService.GetProfileAsync(GetUserId());
         return Ok(ApiResponse<UserProfileResponse>.Ok(result));
     }
 
-    // ── PUT /api/v1/users/me ──────────────────────────────────────────
+    // =====================================================================
+    // PUT /api/v1/users/me
+    // =====================================================================
     [HttpPut("me")]
     [ProducesResponseType(typeof(ApiResponse<UserProfileResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+    [ProducesResponseType(typeof(object), 400)]
+    [ProducesResponseType(typeof(object), 401)]
+    [ProducesResponseType(typeof(object), 404)]
     public async Task<IActionResult> UpdateMe([FromBody] UpdateProfileRequest request)
     {
         var validation = await _updateValidator.ValidateAsync(request);
@@ -55,7 +61,13 @@ public class UsersController : ControllerBase
             return BadRequest(new
             {
                 success = false,
-                error = new { code = ErrorCodes.VALIDATION_ERROR, message = "Validation failed.", statusCode = 400, errors }
+                error = new
+                {
+                    code = ErrorCodes.VALIDATION_ERROR,
+                    message = "Validation failed.",
+                    statusCode = 400,
+                    errors
+                }
             });
         }
 
