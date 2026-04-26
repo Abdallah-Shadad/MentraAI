@@ -1,16 +1,20 @@
-﻿using System.Text;
-using FluentValidation;
+﻿using FluentValidation;
+using MentraAI.API.Common.Middleware;
+using MentraAI.API.Data;
+using MentraAI.API.Modules.Auth.DTOs.Requests;
+using MentraAI.API.Modules.Auth.Mappings;
+using MentraAI.API.Modules.Auth.Models;
+using MentraAI.API.Modules.Auth.Services;
+using MentraAI.API.Modules.Users.Mappings;
+using MentraAI.API.Modules.Users.Repositories;
+using MentraAI.API.Modules.Users.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
-using MentraAI.API.Common.Middleware;
-using MentraAI.API.Data;
-using MentraAI.API.Modules.Auth.DTOs.Requests;
-using MentraAI.API.Modules.Auth.Models;
-using MentraAI.API.Modules.Auth.Services;
 using Microsoft.OpenApi.Models;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -72,7 +76,13 @@ builder.Services
     })
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
+// === User Repository & Service ===
+// Users Module
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
 
+// Add to AutoMapper registration — update the existing line:
+builder.Services.AddAutoMapper(typeof(AuthMappingProfile), typeof(UserMappingProfile));
 // === JWT ====
 builder.Services
     .AddAuthentication(options =>
