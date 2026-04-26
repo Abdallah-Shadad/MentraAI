@@ -1,5 +1,6 @@
 ﻿using MentraAI.API.Modules.Users.DTOs.Requests;
 using MentraAI.API.Modules.Users.DTOs.Responses;
+using MentraAI.API.Modules.Users.Models;
 
 namespace MentraAI.API.Modules.Users.Services;
 public interface IUserService
@@ -12,4 +13,5 @@ public interface IUserService
     Task<bool> GetIsOnboardedAsync(string userId);
     Task UpdateProfileFromAnswersAsync(string userId, ProfileUpdateData data);
     Task SetOnboardedAsync(string userId);
+    Task<UserProfile?> GetProfileEntityAsync(string userId);
 }

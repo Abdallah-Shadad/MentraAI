@@ -1,10 +1,11 @@
-﻿using System.Text.Json;
-using AutoMapper;
+﻿using AutoMapper;
 using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
 using MentraAI.API.Modules.Users.DTOs.Requests;
 using MentraAI.API.Modules.Users.DTOs.Responses;
+using MentraAI.API.Modules.Users.Models;
 using MentraAI.API.Modules.Users.Repositories;
+using System.Text.Json;
 
 namespace MentraAI.API.Modules.Users.Services;
 
@@ -98,5 +99,10 @@ public class UserService : IUserService
         profile.UpdatedAt = DateTime.UtcNow;
 
         await _repo.UpdateProfileAsync(profile);
+    }
+
+    public async Task<UserProfile?> GetProfileEntityAsync(string userId)
+    {
+        return await _repo.GetProfileByUserIdAsync(userId);
     }
 }
