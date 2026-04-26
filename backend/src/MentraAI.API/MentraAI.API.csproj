@@ -33,14 +33,8 @@
 
 	<ItemGroup>
 		<Folder Include="Data\Migrations\" />
-		<Folder Include="Modules\AIGateway\DTOs\Requests\" />
-		<Folder Include="Modules\AIGateway\DTOs\Responses\" />
-		<Folder Include="Modules\AIGateway\InternalModels\" />
-		<Folder Include="Modules\AIGateway\Services\" />
-		<Folder Include="Modules\AIGateway\Validators\" />
 		<Folder Include="Modules\Onboarding\Controllers\" />
 		<Folder Include="Modules\Onboarding\Mappings\" />
-		<Folder Include="Modules\Onboarding\Repositories\" />
 		<Folder Include="Modules\Onboarding\Services\" />
 	</ItemGroup>
 
