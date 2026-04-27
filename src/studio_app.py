@@ -4,7 +4,7 @@ from stores.llm.providers.GeminiProvider import GeminiProvider
 from stores.multi_agents.AgentProviderFactory import AgentProviderFactory
 
 config = {
-    "api_key": "AIzaSyD7uC5nJHI5lXE1FCGX5jLOgxmfa8UmRVk",
+    "api_key": "...",
     "base_url": "https://59c4-34-148-170-199.ngrok-free.app/v1/",
     "max_output_tokens": 100000,
     "temperature": 0.1,
