@@ -1,13 +1,14 @@
-﻿using System.Security.Claims;
-using FluentValidation;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using FluentValidation;
 using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
 using MentraAI.API.Common.Models;
 using MentraAI.API.Modules.Auth.DTOs.Requests;
 using MentraAI.API.Modules.Auth.DTOs.Responses;
 using MentraAI.API.Modules.Auth.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace MentraAI.API.Modules.Auth.Controllers;
 
@@ -49,11 +50,8 @@ public class AuthController : ControllerBase
             var errors = validation.Errors
                 .GroupBy(e => e.PropertyName)
                 .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
-            return BadRequest(new
-            {
-                success = false,
-                error = new { code = ErrorCodes.VALIDATION_ERROR, message = "Validation failed.", statusCode = 400, errors }
-            });
+
+            throw new AppException(ErrorCodes.VALIDATION_ERROR, "Validation failed.", 400, errors);
         }
 
         var result = await _authService.RegisterAsync(request);
@@ -70,11 +68,7 @@ public class AuthController : ControllerBase
         var validation = await _loginValidator.ValidateAsync(request);
         if (!validation.IsValid)
         {
-            return BadRequest(new
-            {
-                success = false,
-                error = new { code = ErrorCodes.VALIDATION_ERROR, message = "Validation failed.", statusCode = 400 }
-            });
+            throw new AppException(ErrorCodes.VALIDATION_ERROR, "Validation failed.", 400);
         }
 
         var result = await _authService.LoginAsync(request);
@@ -91,11 +85,7 @@ public class AuthController : ControllerBase
         var validation = await _refreshValidator.ValidateAsync(request);
         if (!validation.IsValid)
         {
-            return BadRequest(new
-            {
-                success = false,
-                error = new { code = ErrorCodes.VALIDATION_ERROR, message = "Refresh token is required.", statusCode = 400 }
-            });
+            throw new AppException(ErrorCodes.VALIDATION_ERROR, "Refresh token is required.", 400);
         }
 
         var result = await _authService.RefreshTokenAsync(request.RefreshToken);
