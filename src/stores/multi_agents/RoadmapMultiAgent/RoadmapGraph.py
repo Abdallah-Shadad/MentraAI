@@ -53,7 +53,7 @@ from ..AgentEnums import AgentType
 from ..AgentProviderFactory import AgentProviderFactory
 from ...graph import GraphInterface
 from ...graph.GraphEnums import GraphType, NodeName
-
+from .agents.schemas.AdaptationEngine import Resource
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1. SHARED STATE
@@ -70,6 +70,8 @@ class RoadmapState(TypedDict, total=False):
     user_id: Annotated[str, "The unique identifier of the user (e.g., 'user_123'). Provided as initial input."]
     career_track: Annotated[str, "The user's chosen career track (e.g., 'Data Science', 'Web Development'). Provided as initial input."]
     weekly_hours: Annotated[int, "Number of hours the user can dedicate to learning per week (e.g., 10). Provided as initial input."]
+    user_background :Annotated[str,"The user's background information (e.g., 'I have a degree in computer science and 2 years of experience in software development'). Provided as initial input."]
+    current_skills :Annotated[List[str],"The user's current skills (e.g., ['Python', 'Machine Learning']). Provided as initial input."]
 
     # ── Profile Analyzer outputs ────────────────────────────────────────
     difficulty_level: Annotated[str, "Assessment of current competency: 'beginner', 'intermediate', or 'advanced'. Produced by Profile Analyzer."]
@@ -77,7 +79,8 @@ class RoadmapState(TypedDict, total=False):
     prerequisite_analysis: Annotated[Dict[str, Any], "Details of existing foundations vs needed foundations based on the user's background. Produced by Profile Analyzer."]
     estimated_duration_weeks: Annotated[int, "Estimated total time required in weeks based on weekly availability. Produced by Profile Analyzer."]
     profile_agent_done: Annotated[bool, "Signals completion of Profile Analyzer execution. Used by Supervisor for routing."]
-
+    ProfileAnalyzer_Summary: Annotated[str, "Summary of the user. Produced by Profile Analyzer."]
+    
     # ── Curriculum Generator outputs ────────────────────────────────────
     curriculum: Annotated[Any, "Detailed curriculum plan containing 'stages' (list of stage objects with objectives and weeks) and 'dependencies'. Produced by Curriculum Generator."]
     curriculum_agent_done: Annotated[bool, "Signals completion of Curriculum Generator execution. Used by Supervisor for routing."]
@@ -87,9 +90,10 @@ class RoadmapState(TypedDict, total=False):
     resource_agent_done: Annotated[bool, "Signals completion of Resource Curator execution. Used by Supervisor for routing."]
 
     # ── Adaptation Engine outputs (optional / triggered by progress) ─────
-    learner_progress: Annotated[Optional[Dict[str, Any]], "Input from user's learning activities (e.g., quiz attempts). Consumed by Adaptation Engine."]
-    adapted_curriculum: Annotated[Optional[Any], "Modified curriculum showing rearranged stages or inserted remedial content. Produced by Adaptation Engine."]
+    struggling_topics: Annotated[Optional[List[str]], "List of topics the user is struggling with. that get from user feedback and quiz attempts. Produced by Adaptation Engine."]
+    adapted_recommended_resources: Annotated[Optional[List[Resource]], "List of recommended resources based on user's struggling topics. Produced by Adaptation Engine."]
     adaptation_agent_done: Annotated[bool, "Signals completion of Adaptation Engine execution. Used by Supervisor for routing."]
+    adaptation_summary: Annotated[str, "Summary of the adaptation. Produced by Adaptation Engine."]
 
     # ── Quiz / Adaptation-mode inputs ───────────────────────────────────
     stage_id: Annotated[Optional[str], "ID of the stage the learner just attempted (e.g. 'stage_0'). Used in adaptation mode."]
