@@ -7,6 +7,7 @@ import logging
 from stores.multi_agents.RoadmapMultiAgent.RoadmapGraph import RoadmapGraph, RoadmapState
 from stores.multi_agents.AgentProviderFactory import AgentProviderFactory
 from stores.llm.providers.OpenAIProvider import OpenAIProvider
+from stores.llm.providers.GeminiProvider import GeminiProvider
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -40,13 +41,18 @@ async def roadmap(request: Request,app_settings: Settings = Depends(get_settings
             "model": "qwen3:8b",
         }
 
-        my_llm = OpenAIProvider(
-            api_key=config["api_key"],  
-            base_url=config["base_url"],
-            max_output_tokens=config["max_output_tokens"],
-            temperature=config["temperature"],
+        # my_llm = OpenAIProvider(
+        #     api_key=config["api_key"],  
+        #     base_url=config["base_url"],
+        #     max_output_tokens=config["max_output_tokens"],
+        #     temperature=config["temperature"],
+        # )
+        my_llm = GeminiProvider(
+            api_key=app_settings.GEMINI_API_KEY,
+            max_output_tokens=100000,
+            temperature=0.1,
         )
-        my_llm.set_generation_model(config["model"])
+        my_llm.set_generation_model("gemini-2.5-flash")
 
 
         agent_factory = AgentProviderFactory(config)

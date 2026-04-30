@@ -23,9 +23,12 @@ Subclasses ONLY need to implement:
 import logging
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional
+import json
+
+from pydantic import ValidationError
 
 from langchain_core.tools import BaseTool
-from langchain_core.messages import BaseMessage, ToolMessage
+from langchain_core.messages import BaseMessage, ToolMessage, SystemMessage
 
 from .AgentEnums import AgentRole
 from .AgentInterface import AgentInterface
@@ -113,17 +116,62 @@ class BaseWorkerAgent(AgentInterface):
         try:
             # ── Tool-calling loop (skipped when no tools are registered) ──
             if self.tools:
-                llm_with_tools = self.llm.client.bind_tools(self.tools)
-                self.logger.info(f"[{agent_name}] Running with {len(self.tools)} tool(s).")
+                schema_name = self._output_schema().__name__
+                # Bind regular tools + the output schema as a tool
+                llm_with_tools = self.llm.client.bind_tools(self.tools + [self._output_schema()])
+                self.logger.info(f"[{agent_name}] Running with {len(self.tools)} tool(s) + {schema_name} schema.")
+
+                # Instruct the model to use the schema tool for its final answer
+                messages.append(SystemMessage(
+                    content=f"When you have finished using tools and are ready to provide the final structured output, "
+                            f"you MUST call the `{schema_name}` tool with your final data. "
+                            f"DO NOT return the final JSON as plain text."
+                ))
 
                 while True:
                     ai_msg = llm_with_tools.invoke(messages)
                     messages.append(ai_msg)
 
                     if not ai_msg.tool_calls:
-                        break  # LLM finished calling tools → move to structured output
+                        # The LLM didn't call any tools. It might have output the JSON as plain text anyway.
+                        # Let's try to parse it directly to avoid a redundant LLM call via structured_chain.
+                        try:
+                            content = ai_msg.content.strip()
+                            if content.startswith("```json"):
+                                content = content[7:-3].strip()
+                            elif content.startswith("```"):
+                                content = content[3:-3].strip()
+                            
+                            parsed_data = json.loads(content)
+                            response = self._output_schema()(**parsed_data)
+                            self.logger.info(f"[{agent_name}] Parsed structured output directly from plain text.")
+                            return {
+                                **state,
+                                self._output_key(): response,
+                                self._done_key(): True,
+                            }
+                        except Exception as e:
+                            self.logger.info(f"[{agent_name}] No tool calls made and direct parse failed. Breaking to structured output fallback.")
+                            break
+
+                    # Check if the final schema tool was called
+                    schema_call = next((tc for tc in ai_msg.tool_calls if tc["name"] == schema_name), None)
+                    if schema_call:
+                        self.logger.info(f"[{agent_name}] Final output schema tool called.")
+                        try:
+                            response = self._output_schema()(**schema_call["args"])
+                            return {
+                                **state,
+                                self._output_key(): response,
+                                self._done_key(): True,
+                            }
+                        except Exception as e:
+                            self.logger.warning(f"[{agent_name}] Failed to parse schema tool args: {e}. Falling back.")
+                            break
 
                     for tc in ai_msg.tool_calls:
+                        if tc["name"] == schema_name:
+                            continue
                         tool_fn = next((t for t in self.tools if t.name == tc["name"]), None)
                         if tool_fn is None:
                             self.logger.warning(f"[{agent_name}] Unknown tool requested: {tc['name']}")
@@ -132,7 +180,7 @@ class BaseWorkerAgent(AgentInterface):
                         self.logger.info(f"[{agent_name}] Tool '{tc['name']}' executed successfully.")
                         messages.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
 
-            # ── Final structured output (uses full message history w/ tool context) ──
+            # ── Final structured output (Fallback or No-Tools Path) ──
             # Use self.llm.client directly so we don't mutate self.llm in-place.
             # (GeminiProvider.with_structured_output replaces self.client in-place,
             # which would break on the second invocation.)
