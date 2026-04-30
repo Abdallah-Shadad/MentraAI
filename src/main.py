@@ -3,6 +3,7 @@ from routes import base
 from utils.metrics import setup_metrics
 from stores.graph   import GraphProviderFactory
 from routes import roadmap
+from routes.AdaptionEngine import adaptation_router
 
 app = FastAPI()
 
@@ -20,3 +21,4 @@ app.on_event("shutdown")(shutdown_span)
 
 app.include_router(base.base_router)
 app.include_router(roadmap.roadmap_router)
+app.include_router(adaptation_router)

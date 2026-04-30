@@ -186,22 +186,14 @@ ROLE: Adjust the roadmap based on quiz/progress data.
 LLM reasons about WHAT to adapt — tools fetch real progress + find remedial content.
 
 TOOLS:
-
-  4.1  get_learner_progress(user_id: str) → dict
-       ────────────────────────────────────────────
-       SOURCE : PostgreSQL learner_progress table
-       RETURNS: {
-           "stage_0": {
-               "quiz_score": 72,
-               "struggled_topics": ["CSS Flexbox"],
-               "completion_date": "2026-04-10",
-               "time_spent_hours": 18
-           },
-           ...
-       }
-       WHY    : Real progress data from DB → LLM adapts based on facts.
-
-  4.2  search_remedial_resources(topic: str, difficulty: str) → list
+     the Agent will analysis the problem that he got from api.
+     then will adatify what need to search for any topic.
+     then give the Resource that need
+     then go to the function Place_NewResource_InPlace_OF_Roadmap to add the new resource to the roadmap.
+     then go to the function save_adapted_roadmap to save the adapted roadmap.
+     then return to supervisor
+     
+  4.1  search_remedial_resources(topic: str, difficulty: str) → list
        ─────────────────────────────────────────────────────────────
        SOURCE : Tavily Search API + YouTube API (same as ResourceCurator tools)
        PURPOSE: Find beginner-friendly content for a struggling topic.
@@ -209,19 +201,13 @@ TOOLS:
        RETURNS: list of resources (same format as ResourceCurator output)
        WHY    : Real remedial content pulled live — not hallucinated links.
 
-  4.3  assess_struggle_severity(quiz_score: int) → dict
-       ──────────────────────────────────────────────────
-       SOURCE : Local rule-based (no API)
-       RETURNS: {
-           "severity": "critical" | "moderate" | "minor" | "good",
-           "recommended_action": "insert_remedial_stage" | "add_resources" | "none"
-       }
-       RULES  :
-           score < 50  → critical  → insert full remedial stage before next
-           50–69       → moderate  → add 2-3 remedial resources + extend by 1 week
-           70–79       → minor     → add 1-2 supplemental resources
-           80+         → good      → no change needed
-       WHY    : LLM gets a clear, rule-based framework — no hallucinated thresholds.
+  4.3 Place_NewResource_InPlace_OF_Roadmap(user_id:int,career_track:str,curriculum:dict,stage_id:str,topic_id:str,new_resource:Resource)
+       ─────────────────────────────────────────────────────────────────────
+       SOURCE : Roadmap State from (adapted_recommended_resources)
+       PURPOSE: Adding new remedial resources to a topic.
+       RETURNS: True on success, False on failure
+       WHY    : Ensures adaptation changes are saved and not lost on next request.
+
 
   4.4  save_adapted_roadmap(user_id: str, adapted_curriculum: dict) → bool
        ─────────────────────────────────────────────────────────────────────
