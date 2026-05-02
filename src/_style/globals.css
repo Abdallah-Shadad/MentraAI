@@ -1,0 +1,198 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* =================== خلفيات (Backgrounds) =================== */
+  --background: #13162f; /* الخلفية الرئيسية الداكنة جدًا (shadcn base) */
+  --bg-primary: #0a0a0f; /* alias للـ background */
+  --bg-card: #111118; /* خلفيات الكروت / sections */
+  --bg-tertiary: #1a1a2e; /* طبقة أعلى للـ hover أو overlays */
+  --bg-gradient: linear-gradient(
+    135deg,
+    #0f0f1a,
+    #1a1033
+  ); /* gradient للـ hero */
+
+  /* =================== ألوان النصوص (Text / Foreground) =================== */
+  --text-foreground: #f1f5f9; /* نص رئيسي فاتح (shadcn) */
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8; /* نصوص خفيفة / descriptions */
+  --text-accent: #c084fc; /* نصوص مميزة / links hover */
+
+  /* =================== الألوان الأساسية / Accents (shadcn + نيون) =================== */
+  --primary: #8b5cf6; /* violet/neon purple الرئيسي */
+  --primary-foreground: #ffffff; /* نص على الـ primary (أبيض) */
+  --primary-dark: #7c3aed; /* hover أو pressed */
+  --primary-light: #a78bfa; /* lighter variant / glow */
+
+  --secondary: #60a5fa; /* أزرق نيون */
+  --secondary-foreground: #ffffff;
+
+  --accent: #c084fc; /* للـ selected / subtle highlights */
+  --accent-foreground: #0f0f1a;
+
+  --muted: #1e293b; /* خلفيات خفيفة / disabled states */
+  --muted-foreground: #94a3b8;
+
+  --accent-glow: #c084fc; /* للـ glow text أو borders */
+
+  /* =================== Card & Popover (shadcn) =================== */
+  --card: #111118; /* = --bg-secondary */
+  --card-foreground: #f1f5f9;
+
+  --popover: #111118;
+  --popover-foreground: #f1f5f9;
+
+  /* =================== حدود وفواصل (Borders / Dividers) =================== */
+  --border: #1e293b; /* حدود خفيفة (shadcn) */
+  --border-strong: #334155; /* حدود أقوى */
+  --input: #1e293b; /* input borders */
+
+  /* =================== Ring / Focus (shadcn) =================== */
+  --ring: #8b5cf6; /* focus ring = primary */
+
+  /* =================== تأثيرات (Shadows / Glows) =================== */
+  --shadow-neon: 0 0 20px rgba(139, 92, 246, 0.4); /* glow بنفسجي */
+  --shadow-blue: 0 0 25px rgba(96, 165, 250, 0.3); /* glow أزرق */
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.5); /* ظل الكروت */
+
+  /* =================== أحجام و Radii و Transitions =================== */
+  --radius: 0.625rem; /* shadcn default ≈10px */
+  --radius-sm: 0.5rem;
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: 1rem;
+
+  --transition: all 0.3s ease;
+  --transition-fast: all 0.15s ease;
+
+  /* =================== ألوان إضافية (نجاح، تحذير، إلخ) =================== */
+  --success: #10b981;
+  --success-foreground: #ffffff;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --gradient-hero: linear-gradient(
+    135deg,
+    hsl(222 47% 11%) 0%,
+    hsl(250 50% 20%) 50%,
+    hsl(222 47% 14%) 100%
+  );
+  --gradient-cta: linear-gradient(
+    135deg,
+    hsl(320 80% 55%) 0%,
+    hsl(280 70% 55%) 100%
+  );
+  --gradient-ai: linear-gradient(
+    135deg,
+    hsl(280 70% 55%) 0%,
+    hsl(185 85% 50%) 100%
+  );
+  --gradient-neural: linear-gradient(
+    180deg,
+    hsl(280 70% 55% / 0.15) 0%,
+    transparent 100%
+  );
+  --gradient-dark: linear-gradient(
+    180deg,
+    hsl(222 47% 11%) 0%,
+    hsl(250 50% 15%) 50%,
+    hsl(222 47% 11%) 100%
+  );
+
+  /* =================== Chart colors (إذا كنت بتستخدم graphs) =================== */
+  --chart-1: #8b5cf6; /* violet */
+  --chart-2: #60a5fa; /* blue */
+  --chart-3: #34d399; /* teal/green */
+  --chart-4: #fbbf24; /* amber */
+  --chart-5: #f472b6; /* pink */
+}
+
+@theme {
+  /*خلفيات*/
+  --color-background: var(--background);
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-card: var(--bg-card);
+  --color-bg-tertiary: var(--bg-tertiary);
+  --color-bg-gradient: var(--bg-gradient);
+
+  /*نصوص*/
+  --color-text-primary: var(--text-primary);
+  --color-text-foreground: var(--text-foreground);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-accent: var(--text-accent);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-light: var(--primary-light);
+  --color-secondary: var(--secondary);
+  --color-accent-glow: var(--accent-glow);
+  /*حدود*/
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-shadow-neon: var(--shadow-neon);
+  --color-shadow-blue: var(--shadow-blue);
+  --color-shadow-card: var(--shadow-card);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-radius: var(--radius);
+  --color-radius-sm: var(--radius-sm);
+  --color-radius-md: var(--radius-md);
+  --color-radius-lg: var(--radius-lg);
+  --color-transition: var(--transition);
+  --color-transition-fast: var(--transition-fast);
+  /*ألوان إضافية*/
+  --color-success: #10b981;
+  --color-success-foreground: #ffffff;
+
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+
+  /*رسوم بيانية*/
+  --color-chart-1: #8b5cf6;
+  --color-chart-2: #60a5fa;
+  --color-chart-3: #34d399;
+  --color-chart-4: #fbbf24;
+  --color-chart-5: #f472b6;
+}
+
+/*================ custom classes ===================*/
+
+html {
+  scroll-behavior: smooth;
+}
+
+.main-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.section-padding {
+  padding: 4rem 0;
+}
+
+.primary-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  background-image: linear-gradient(
+    to right,
+    var(--primary),
+    var(--secondary),
+    var(--primary)
+  );
+}
+
+.gradient-cta {
+  background: var(--gradient-cta);
+  color: white;
+  border-radius: var(--radius);
+  border: none;
+  box-shadow: var(--shadow-neon);
+  transition: all 0.3s ease;
+}
