@@ -6,6 +6,8 @@ using MentraAI.API.Modules.Auth.DTOs.Requests;
 using MentraAI.API.Modules.Auth.Mappings;
 using MentraAI.API.Modules.Auth.Models;
 using MentraAI.API.Modules.Auth.Services;
+using MentraAI.API.Modules.CareerTracks.Repositories;
+using MentraAI.API.Modules.CareerTracks.Services;
 using MentraAI.API.Modules.Onboarding.Repositories;
 using MentraAI.API.Modules.Onboarding.Services;
 using MentraAI.API.Modules.Users.Mappings;
@@ -22,7 +24,7 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// === Controllers ==========================================================================================
+// === Controllers ====
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
@@ -111,13 +113,6 @@ builder.Services
 //}
 //);
 
-// === User Repository & Service ===
-// Users Module
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IUserService, UserService>();
-
-// Add to AutoMapper registration — update the existing line:
-builder.Services.AddAutoMapper(typeof(AuthMappingProfile), typeof(UserMappingProfile));
 // === JWT ====
 builder.Services
     .AddAuthentication(options =>
@@ -163,10 +158,15 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>()
 
 //  Module Services 
 builder.Services.AddScoped<IAuthService, AuthService>();
+
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
+
 builder.Services.AddScoped<IOnboardingRepository, OnboardingRepository>();
 builder.Services.AddScoped<IOnboardingService, OnboardingService>();
+
+builder.Services.AddScoped<ICareerTrackRepository, CareerTrackRepository>();
+builder.Services.AddScoped<ICareerTrackService, CareerTrackService>();
 
 //  Build App 
 var app = builder.Build();
