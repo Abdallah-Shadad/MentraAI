@@ -12,22 +12,23 @@ public interface IAIGatewayService
         CancellationToken ct = default);
 
     // Future Phase — Roadmaps (stub until then)
+    
     Task<RoadmapGenerationResult> GenerateRoadmapAsync(
         string userId,
-        string careerTrack,
+        string careerTrackSlug,
         int weeklyHours,
-        UserProfile profile,
-        CancellationToken ct = default);
+        string userBackground,
+        List<string> currentSkills);
 
     // Future Phase — StageProgress (stub until then)
+    // Add to Modules/AIGateway/Services/IAIGatewayService.cs
     Task<StageResourcesResult> GetStageResourcesAsync(
         string userId,
         string careerTrack,
         int weeklyHours,
         string aiStageId,
         int stageIndex,
-        string roadmapDataJson,
-        CancellationToken ct = default);
+        string roadmapDataJson);
 
     // Future Phase — Quizzes (stub until then)
     Task<QuizGenerationResult> GenerateQuizAsync(
