@@ -21,9 +21,7 @@ const Navbar = () => {
           <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-primary to-secondary transition-shadow group-hover:shadow-neon">
             <Brain className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="font-bold text-xl text-text-primary">
-            Mentra<span className="text-secondary">Ai</span>
-          </span>
+          <span className="primary-gradient font-bold text-xl">MentraAi</span>
         </Link>
 
         {/* Desktop Navigation */}
@@ -41,7 +39,7 @@ const Navbar = () => {
 
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center gap-3">
-          <Link href="/student">
+          <Link href="/register/Login">
             <Button
               variant="ghost"
               className="rounded-full border border-border px-6 text-text-muted hover:text-text-foreground cursor-pointer"
@@ -50,7 +48,7 @@ const Navbar = () => {
             </Button>
           </Link>
 
-          <Link href="/register">
+          <Link href="/register/SignUp">
             <Button className="rounded-full gradient-cta px-6 hover:opacity-90 hover:scale-105 cursor-pointer">
               Sign up
             </Button>
@@ -59,7 +57,7 @@ const Navbar = () => {
 
         {/* Mobile Toggle */}
         <button
-          className="md:hidden rounded-md p-2 text-foreground"
+          className="md:hidden rounded-md p-2 text-text-primary"
           onClick={() => setIsOpen((prev) => !prev)}
         >
           {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -81,16 +79,20 @@ const Navbar = () => {
               </a>
             ))}
 
-            <div className="space-y-2 border-t border-border pt-3">
-              <Button
-                variant="ghost"
-                className="w-full rounded-full border border-border text-text-muted hover:text-text-foreground"
-              >
-                Login
-              </Button>
-              <Button className="w-full rounded-full gradient-cta text-text-foreground hover:bg-gradient-cta cursor-pointer">
-                Sign up
-              </Button>
+            <div className="flex flex-col gap-2 border-t border-border pt-4">
+              <Link href="/register/Login">
+                <Button
+                  variant="ghost"
+                  className="w-full rounded-full border border-border text-text-muted hover:text-text-foreground"
+                >
+                  Login
+                </Button>
+              </Link>
+              <Link href="/register/SignUp">
+                <Button className="w-full rounded-full gradient-cta text-text-foreground hover:bg-gradient-cta cursor-pointer">
+                  Sign up
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

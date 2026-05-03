@@ -48,9 +48,9 @@ export default function StepsSection() {
   return (
     <section
       id="how-it-works"
-      className="main-container relative overflow-hidden"
+      className="section-padding relative overflow-hidden"
     >
-      <div className="py-24">
+      <div className="main-container">
         <div className="container-custom">
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/15 text-secondary border border-secondary/50 text-sm font-medium mb-4">
@@ -60,7 +60,7 @@ export default function StepsSection() {
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-text-muted mb-4">
               Four Steps to <span className="primary-gradient">Success</span>
             </h2>
-            <p className="text-text-muted text-lg max-w-2xl mx-auto">
+            <p className="text-base md:text-lg text-text-muted">
               An organized journey transforming you from confused learner to
               confident professional
             </p>
@@ -83,7 +83,7 @@ export default function StepsSection() {
               {steps.map((step, index) => (
                 <motion.div
                   key={index}
-                  className="relative group"
+                  className="relative group pb-4"
                   initial={{ opacity: 0 }}
                   whileInView={{ opacity: 1 }}
                   transition={{ duration: 1, delay: index * 0.2 }}
@@ -118,18 +118,18 @@ export default function StepsSection() {
                       />
                     </div>
 
-                    <h3 className="font-bold text-lg text-text-muted mb-2">
+                    <h3 className="font-bold text-lg text-text-primary mb-2">
                       {step.title}
                     </h3>
-                    <p className="text-sm text-text-muted leading-relaxed">
+                    <p className="text-sm md:text-base text-text-muted leading-relaxed">
                       {step.description}
                     </p>
                   </div>
 
                   {/* Arrow connector for mobile / tablet */}
                   {index < steps.length - 1 && (
-                    <div className="lg:hidden flex justify-center py-4">
-                      <ArrowRight className="w-6 h-6 text-secondary/40 rotate-90 sm:rotate-0" />
+                    <div className="md:hidden flex justify-center py-4">
+                      <ArrowRight className="w-6 h-6 text-secondary/40 rotate-90" />
                     </div>
                   )}
                 </motion.div>

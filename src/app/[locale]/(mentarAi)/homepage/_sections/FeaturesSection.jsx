@@ -55,8 +55,8 @@ const features = [
 ];
 export default function FeaturesSection() {
   return (
-    <section id="features" className="main-container relative overflow-hidden">
-      <div className="py-20">
+    <section id="features" className="section-padding relative overflow-hidden">
+      <div className="main-container">
         {/* Title */}
         <div className="container-custom">
           <div className="text-center mb-12">
@@ -68,7 +68,7 @@ export default function FeaturesSection() {
               Everything You Need in{" "}
               <span className="primary-gradient">One Platform</span>
             </h2>
-            <p className="text-text-muted text-lg max-w-2xl mx-auto">
+            <p className="text-base md:text-lg text-text-muted">
               Smart tools powered by artificial intelligence for a successful
               learning journey
             </p>

@@ -1,23 +1,16 @@
 "use client";
 import { useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, TriangleAlert } from "lucide-react";
 
-export default function LoginForm({ steps, setSteps }) {
+export default function SignupForm({ steps, setSteps }) {
   const [form, setForm] = useState({
     fname: "",
     lname: "",
-    dob: "",
     gender: "",
     email: "",
-    phone: "",
-    country: "",
     pass: "",
     pass2: "",
-    level: "",
-    field: "",
-    goals: "",
     terms: false,
-    newsletter: false,
   });
 
   const [errors, setErrors] = useState({});
@@ -62,11 +55,8 @@ export default function LoginForm({ steps, setSteps }) {
 
     if (!form.fname) e.fname = "Required";
     if (!form.lname) e.lname = "Required";
-    if (!form.dob) e.dob = "Required";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       e.email = "Invalid email";
-    if (!form.country) e.country = "Required";
-    if (!form.level) e.level = "Required";
     if (form.pass.length < 8) e.pass = "Min 8 characters";
     if (form.pass2 !== form.pass) e.pass2 = "Passwords do not match";
     if (!form.terms) e.terms = "You must accept terms";
@@ -108,14 +98,15 @@ export default function LoginForm({ steps, setSteps }) {
   }
 
   return (
-    <div className="bg-[#13162f]px-4 font-sans">
-      <div className="max-w-2xl mx-auto bg-bg-card/70 border border-slate-800 rounded-2xl shadow-2xl p-8">
+    <div className="font-sans w-full shrink-0">
+      <div className="bg-bg-card/70 border border-slate-800 rounded-2xl shadow-2xl w-full p-4">
         <form onSubmit={handleSubmit}>
           {/* Personal */}
           <p className="text-xs text-purple-300 uppercase tracking-widest mb-4">
             Personal Information
           </p>
 
+          {/* name */}
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <input
@@ -123,6 +114,14 @@ export default function LoginForm({ steps, setSteps }) {
                 className={inputClass("fname")}
                 onChange={(e) => setForm({ ...form, fname: e.target.value })}
               />
+              {errors.fname && (
+                <p className="text-destructive text-xs mt-1 flex items-center gap-1">
+                  <span className="text-red-500">
+                    <TriangleAlert className="w-4 h-4 inline" />
+                  </span>{" "}
+                  {errors.fname}
+                </p>
+              )}
             </div>
 
             <div>
@@ -131,6 +130,14 @@ export default function LoginForm({ steps, setSteps }) {
                 className={inputClass("lname")}
                 onChange={(e) => setForm({ ...form, lname: e.target.value })}
               />
+              {errors.lname && (
+                <p className="text-destructive text-xs mt-2 flex items-center gap-1">
+                  <span className="text-red-500">
+                    <TriangleAlert className="w-4 h-4 inline" />
+                  </span>{" "}
+                  {errors.lname}
+                </p>
+              )}
             </div>
           </div>
 
@@ -162,6 +169,14 @@ export default function LoginForm({ steps, setSteps }) {
               className={inputClass("email")}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
+            {errors.email && (
+              <p className="text-destructive text-xs mt-2 flex items-center gap-1">
+                <span className="text-red-500">
+                  <TriangleAlert className="w-4 h-4 inline" />
+                </span>{" "}
+                {errors.email}
+              </p>
+            )}
           </div>
 
           {/* password */}
@@ -186,6 +201,14 @@ export default function LoginForm({ steps, setSteps }) {
                   {strength.label}
                 </p>
               </div>
+              {errors.pass && (
+                <p className="text-destructive text-xs mt-2 flex items-center gap-1">
+                  <span className="text-red-500">
+                    <TriangleAlert className="w-4 h-4 inline" />
+                  </span>{" "}
+                  {errors.pass}
+                </p>
+              )}
             </div>
 
             <div>
@@ -195,6 +218,14 @@ export default function LoginForm({ steps, setSteps }) {
                 className={inputClass("pass2")}
                 onChange={(e) => setForm({ ...form, pass2: e.target.value })}
               />
+              {errors.pass2 && (
+                <p className="text-destructive text-xs mt-2 flex items-center gap-1">
+                  <span className="text-red-500">
+                    <TriangleAlert className="w-4 h-4 inline" />
+                  </span>{" "}
+                  {errors.pass2}
+                </p>
+              )}
             </div>
           </div>
 
@@ -207,12 +238,24 @@ export default function LoginForm({ steps, setSteps }) {
             <span className="text-sm text-slate-300">
               I agree to Terms & Privacy
             </span>
+            {errors.terms && (
+              <p className="text-destructive text-xs mt-2 flex items-center gap-1">
+                <span className="text-red-500">
+                  <TriangleAlert className="w-4 h-4 inline" />
+                </span>{" "}
+                {errors.terms}
+              </p>
+            )}
           </div>
         </form>
         {/* button movement */}
         <div className="w-full flex gap-2">
           <button
-            onClick={() => setSteps(steps + 1)}
+            onClick={() => {
+              if (validate()) {
+                setSteps(steps + 1);
+              }
+            }}
             className="group cursor-pointer w-full mt-6 py-3 rounded-md bg-linear-to-r from-purple-500 to-purple-700 text-white font-semibold hover:opacity-90 disabled:opacity-50"
           >
             <span>

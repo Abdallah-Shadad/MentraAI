@@ -153,7 +153,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-t border-border mt-16">
         <div className="container mx-auto px-4 py-6">
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-sm text-text-muted text-center">
             © 2024 MentraAI. Your AI-powered learning companion.
           </p>
         </div>

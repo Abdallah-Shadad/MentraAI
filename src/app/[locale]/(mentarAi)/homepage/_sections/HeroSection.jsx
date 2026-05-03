@@ -8,7 +8,7 @@ import { BackgroundNodes } from "../_components/BackgroundNodes";
 
 export default function HeroSection() {
   return (
-    <section className="relative overflow-hidden main-container min-h-screen bg-background">
+    <section className="main-container relative overflow-hidden min-h-screen bg-background">
       <BackgroundNodes />
       <div className="py-24 relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center min-h-[calc(100vh-120px)]">
@@ -16,10 +16,8 @@ export default function HeroSection() {
           <div className="text-left">
             <h1 className="mb-6 text-4xl sm:text-5xl md:text-4xl lg:text-6xl font-bold leading-[1.1] text-text-foreground">
               Your Smart Learning Journey Starts Here
-              <span className="bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent">
-                MentraAi
-              </span>{" "}
-              Guides You <br /> Step-by-Step
+              <span className="primary-gradient">MentraAi</span> Guides You{" "}
+              <br /> Step-by-Step
             </h1>
 
             <p className="mb-10 max-w-xl text-lg md:text-lg text-text-muted">
@@ -30,7 +28,7 @@ export default function HeroSection() {
             <div className="flex flex-col sm:flex-row gap-4">
               <Button
                 size="lg"
-                className="rounded-xl bg-primary text-text-primary px-8 py-6 text-lg hover:bg-primary/90 transition"
+                className="rounded-xl gradient-cta text-text-primary px-8 py-6 text-lg hover:bg-primary/90 transition"
               >
                 Start Your Free Trial
               </Button>
