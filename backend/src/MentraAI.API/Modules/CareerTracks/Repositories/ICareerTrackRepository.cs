@@ -26,4 +26,7 @@ public interface ICareerTrackRepository
 
     // Inserts new UserTrack — called inside transaction, returns entity with Id set
     Task<UserTrack> InsertUserTrackAsync(UserTrack track);
+
+    // Convenience method to do both of the above in one call s
+    Task<UserTrack> ReplaceActiveTrackAsync(string userId, UserTrack newTrack);
 }
