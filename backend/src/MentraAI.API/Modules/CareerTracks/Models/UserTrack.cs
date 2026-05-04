@@ -13,7 +13,7 @@ public class UserTrack
     public DateTime SelectedAt { get; set; } = DateTime.UtcNow;
 
     // Nullable weekly hours so callers can do `roadmap.UserTrack.WeeklyHours ?? 10`
-    public int? WeeklyHours { get; set; }
+    //public int? WeeklyHours { get; set; }
 
     public ApplicationUser User { get; set; } = null!;
     public CareerTrack CareerTrack { get; set; } = null!;
