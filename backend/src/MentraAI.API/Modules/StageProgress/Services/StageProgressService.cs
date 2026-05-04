@@ -8,6 +8,7 @@ using MentraAI.API.Modules.Roadmaps.Repositories;
 using MentraAI.API.Modules.StageProgress.DTOs.Responses;
 using MentraAI.API.Modules.StageProgress.Models;
 using MentraAI.API.Modules.StageProgress.Repositories;
+using MentraAI.API.Modules.Users.Services;
 using System.Text.Json;
 
 namespace MentraAI.API.Modules.StageProgress.Services;
@@ -18,17 +19,20 @@ public class StageProgressService : IStageProgressService
     private readonly IRoadmapRepository _roadmapRepo;
     private readonly ICareerTrackRepository _trackRepo;
     private readonly IAIGatewayService _aiGateway;
+    private readonly IUserService _userService;
 
     public StageProgressService(
         IStageProgressRepository stageRepo,
         IRoadmapRepository roadmapRepo,
         ICareerTrackRepository trackRepo,
-        IAIGatewayService aiGateway)
+        IAIGatewayService aiGateway,
+        IUserService userService)
     {
         _stageRepo = stageRepo;
         _roadmapRepo = roadmapRepo;
         _trackRepo = trackRepo;
         _aiGateway = aiGateway;
+        _userService = userService;
     }
 
     // ── GET /stages ─────────────────────────────────────────────────────────
@@ -77,8 +81,8 @@ public class StageProgressService : IStageProgressService
     {
         var (stage, userTrack, roadmap) = await ValidateStageOwnershipAsync(stageProgressId, userId);
 
-        // Verify stage is ACTIVE — reject LOCKED or COMPLETED
-        if (stage.Status != "ACTIVE")
+        // FIX Issue: Reject only LOCKED stages. Allow ACTIVE and COMPLETED.
+        if (stage.Status == "LOCKED")
             throw new AppException(ErrorCodes.STAGE_LOCKED,
                 "This stage is not unlocked yet.", 422);
 
@@ -86,11 +90,15 @@ public class StageProgressService : IStageProgressService
         if (stage.ResourcesDataJson != null)
             return BuildResourcesResponse(stage);
 
+        // FIX Issue: Fetch weekly hours via IUserService safely
+        var profileResponse = await _userService.GetProfileAsync(userId);
+        int weeklyHours = profileResponse.WeeklyHours ?? 10;
+
         // Cache miss — call AI for resources
         var result = await _aiGateway.GetStageResourcesAsync(
             userId: userId,
             careerTrack: userTrack.CareerTrack.Name,
-            weeklyHours: roadmap.UserTrack.WeeklyHours ?? 10,
+            weeklyHours: weeklyHours,
             aiStageId: stage.AiStageId,
             stageIndex: stage.StageIndex,
             roadmapDataJson: roadmap.RoadmapDataJson);
@@ -107,7 +115,8 @@ public class StageProgressService : IStageProgressService
     {
         var (stage, _, _) = await ValidateStageOwnershipAsync(stageProgressId, userId);
 
-        if (stage.Status != "ACTIVE")
+        // FIX Issue: Reject only LOCKED stages. Allow ACTIVE and COMPLETED.
+        if (stage.Status == "LOCKED")
             throw new AppException(ErrorCodes.STAGE_LOCKED,
                 "This stage is not unlocked yet.", 422);
 

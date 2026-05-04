@@ -4,7 +4,7 @@ using MentraAI.API.Modules.AIGateway.DTOs.Responses;
 using MentraAI.API.Modules.AIGateway.InternalModels;
 using MentraAI.API.Modules.AIGateway.Validators;
 using MentraAI.API.Modules.Users.Models;
-using System.Text;
+using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace MentraAI.API.Modules.AIGateway.Services;
@@ -31,7 +31,7 @@ public class AIGatewayService : IAIGatewayService
     UserProfile profile,
     CancellationToken ct = default)
     {
-        await Task.Delay(500); // simulate AI latency
+        await Task.Delay(500, ct); // simulate AI latency with cancellation support
 
         return new PredictionResult
         {
@@ -51,13 +51,14 @@ public class AIGatewayService : IAIGatewayService
         """
         };
     }
- 
+
     public async Task<RoadmapGenerationResult> GenerateRoadmapAsync(
         string userId,
         string careerTrackSlug,
         int weeklyHours,
         string userBackground,
-        List<string> currentSkills)
+        List<string> currentSkills,
+        CancellationToken ct = default)
     {
         var request = new RoadmapAIRequest
         {
@@ -69,19 +70,17 @@ public class AIGatewayService : IAIGatewayService
             CurrentSkills = currentSkills
         };
 
-       
-        var json = JsonSerializer.Serialize(request);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-        var response = await _http.PostAsync("/api/v1/roadmap", content);
+        // Use PostAsJsonAsync for better serialization and resilience
+        var response = await _http.PostAsJsonAsync("/api/v1/roadmap", request, ct);
 
         if (!response.IsSuccessStatusCode)
         {
-            var body = await response.Content.ReadAsStringAsync();
+            var body = await response.Content.ReadAsStringAsync(ct);
             _logger.LogError("AI roadmap error {Status}: {Body}", response.StatusCode, body);
             throw new AIServiceException($"AI returned {(int)response.StatusCode}");
         }
 
-        var rawJson = await response.Content.ReadAsStringAsync();
+        var rawJson = await response.Content.ReadAsStringAsync(ct);
         RoadmapAIResponse aiResponse;
         try
         {
@@ -114,27 +113,22 @@ public class AIGatewayService : IAIGatewayService
             }).ToList()
         };
     }
+
     // =====================================================================
     // GET STAGE RESOURCES  —  future Phase stub
     // =====================================================================
-    // Modules/AIGateway/Services/AIGatewayService.cs
     public async Task<StageResourcesResult> GetStageResourcesAsync(
-        string userId,
-        string careerTrack,
-        int weeklyHours,
-        string aiStageId,
-        int stageIndex,
-        string roadmapDataJson)
+            string userId, string careerTrack, int weeklyHours,
+            string aiStageId, int stageIndex, string roadmapDataJson, CancellationToken ct = default)
     {
-        // Parse stored roadmap data to extract curriculum + difficulty + skill_gaps
-        // These are passed back to AI opaquely — backend never interprets them
+        // 1. Parse existing roadmap data
         RoadmapData roadmapData;
         try
         {
             using var doc = JsonDocument.Parse(roadmapDataJson);
             var root = doc.RootElement;
             var dataEl = root.TryGetProperty("roadmap", out var rm) &&
-                             rm.TryGetProperty("data", out var d) ? d : root;
+                         rm.TryGetProperty("data", out var d) ? d : root;
 
             roadmapData = JsonSerializer.Deserialize<RoadmapData>(dataEl.GetRawText())
                 ?? throw new AIValidationException("Stored roadmap data is invalid");
@@ -154,51 +148,29 @@ public class AIGatewayService : IAIGatewayService
             CurrentStageIndex = stageIndex,
             DifficultyLevel = roadmapData.DifficultyLevel,
             SkillGaps = roadmapData.SkillGaps,
-            Curriculum = JsonSerializer.SerializeToElement(roadmapData.Curriculum)
+            Curriculum = JsonSerializer.SerializeToElement(roadmapData.Curriculum) // Opaque pass-through
         };
 
-        var json = JsonSerializer.Serialize(request);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-        var response = await _http.PostAsync("/api/v1/roadmap", content);
+        var response = await _http.PostAsJsonAsync("/api/v1/roadmap", request, ct);
 
         if (!response.IsSuccessStatusCode)
         {
-            var body = await response.Content.ReadAsStringAsync();
+            var body = await response.Content.ReadAsStringAsync(ct);
             _logger.LogError("AI stage resources error {Status}: {Body}", response.StatusCode, body);
             throw new AIServiceException($"AI returned {(int)response.StatusCode}");
         }
 
-        var rawJson = await response.Content.ReadAsStringAsync();
-        RoadmapAIResponse aiResponse;
-        try
-        {
-            aiResponse = JsonSerializer.Deserialize<RoadmapAIResponse>(rawJson)
-                ?? throw new AIValidationException("AI returned empty stage resources response");
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogError(ex, "Malformed stage resources JSON from AI");
-            throw new AIValidationException("AI returned malformed JSON");
-        }
+        var rawJson = await response.Content.ReadAsStringAsync(ct);
 
-        // Validate signal only — data structure for stage resources is opaque
-        if (aiResponse.Signal != "201_Created")
-            throw new AIValidationException($"Unexpected AI signal: {aiResponse.Signal}");
-
-        if (aiResponse.Roadmap?.Data is null)
-            throw new AIValidationException("AI stage resources response has no data");
-
-        // Store the entire data block as-is — frontend consumes it directly
-        var dataJson = JsonSerializer.Serialize(aiResponse.Roadmap.Data);
-
+        // FIX Issue 4: Store the full raw JSON exactly as AI sent it to ensure StageProgressService can navigate it
         return new StageResourcesResult
         {
-            ResourcesDataJson = dataJson
+            ResourcesDataJson = rawJson
         };
     }
 
     // =====================================================================
-    // GENERATE QUIZ  —  future Phase stub
+    // GENERATE QUIZ  —  future Phase stub (Issue 5 Fix)
     // =====================================================================
     public Task<QuizGenerationResult> GenerateQuizAsync(
         string userId,
@@ -207,7 +179,7 @@ public class AIGatewayService : IAIGatewayService
         string stageName,
         string difficultyLevel,
         CancellationToken ct = default)
-        => throw new NotImplementedException("GenerateQuizAsync — implemented in Phase 5");
+        => throw new NotImplementedException("GenerateQuizAsync — implemented in Phase 5"); // Stub restored[cite: 1]
 
     // =====================================================================
     // GET ADAPTED ROADMAP  —  future Phase stub
