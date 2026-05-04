@@ -1,10 +1,11 @@
-﻿using System.Text.Json;
-using MentraAI.API.Common.Exceptions;
+﻿using MentraAI.API.Common.Exceptions;
 using MentraAI.API.Modules.AIGateway.DTOs.Requests;
 using MentraAI.API.Modules.AIGateway.DTOs.Responses;
 using MentraAI.API.Modules.AIGateway.InternalModels;
 using MentraAI.API.Modules.AIGateway.Validators;
 using MentraAI.API.Modules.Users.Models;
+using System.Text;
+using System.Text.Json;
 
 namespace MentraAI.API.Modules.AIGateway.Services;
 
@@ -50,118 +51,151 @@ public class AIGatewayService : IAIGatewayService
         """
         };
     }
-    //public async Task<PredictionResult> PredictCareerAsync(
-    //    string userId,
-    //    UserProfile profile,
-    //    CancellationToken ct = default)
-    //{
-    //    _logger.LogInformation(
-    //        "Calling AI prediction for user {UserId}", userId);
-
-    //    // Build request — parse JSON arrays stored in profile columns
-    //    // TEMP UNTIL AI TEAM FINALIZES PREDICT CONTRACT — we want to be flexible on what profile data we send, and how it's stored in DB
-    //    var request = new PredictAIRequest
-    //    {
-    //        UserId = userId,
-    //        Background = profile.Background ?? string.Empty,
-    //        Skills = ParseJsonArray(profile.CurrentSkillsJson),
-    //        Interests = ParseJsonArray(profile.InterestsJson),
-    //        WeeklyHours = profile.WeeklyHours ?? 0,
-    //        CareerGoals = profile.CareerGoals ?? string.Empty
-    //    };
-
-    //    // Send request
-    //    HttpResponseMessage httpResponse;
-    //    try
-    //    {
-    //        httpResponse = await _http.PostAsJsonAsync(
-    //            "/api/v1/machine_model/predict", request, ct);
-    //    }
-    //    catch (HttpRequestException ex)
-    //    {
-    //        _logger.LogError(ex, "AI service unreachable for prediction");
-    //        throw new AIServiceException("AI service is unavailable.", ex);
-    //    }
-    //    catch (TaskCanceledException ex)
-    //    {
-    //        _logger.LogError(ex, "AI prediction request timed out");
-    //        throw;
-    //    }
-
-    //    // Read raw body before checking status — needed for logging on failure
-    //    var rawBody = await httpResponse.Content.ReadAsStringAsync(ct);
-
-    //    if (!httpResponse.IsSuccessStatusCode)
-    //    {
-    //        _logger.LogError(
-    //            "AI prediction failed. Status: {Status} Body: {Body}",
-    //            (int)httpResponse.StatusCode, rawBody);
-    //        throw new AIServiceException(
-    //            $"AI service returned {(int)httpResponse.StatusCode}.");
-    //    }
-
-    //    // Deserialize
-    //    PredictAIResponse? aiResponse;
-    //    try
-    //    {
-    //        aiResponse = JsonSerializer.Deserialize<PredictAIResponse>(rawBody);
-    //    }
-    //    catch (JsonException ex)
-    //    {
-    //        _logger.LogError(ex,
-    //            "AI prediction returned malformed JSON. Body: {Body}", rawBody);
-    //        throw new AIValidationException("AI returned malformed JSON.");
-    //    }
-
-    //    if (aiResponse is null)
-    //    {
-    //        _logger.LogError("AI prediction returned null after deserialization");
-    //        throw new AIValidationException("AI returned empty response.");
-    //    }
-
-    //    // Validate structure before returning to caller
-    //    PredictAIResponseValidator.Validate(aiResponse);
-
-    //    // Map AI response → InternalModel
-    //    // Caller gets PredictionResult — never sees PredictAIResponse
-    //    var topRolesJson = JsonSerializer.Serialize(
-    //        aiResponse.TopRoles.Select(r => new { name = r.Name, confidence = r.Confidence }));
-
-    //    _logger.LogInformation(
-    //        "AI prediction succeeded for user {UserId}. PrimaryRole: {Role} ({Confidence:P0})",
-    //        userId, aiResponse.PrimaryRole!.Name, aiResponse.PrimaryRole.Confidence);
-
-    //    return new PredictionResult
-    //    {
-    //        PrimaryRoleName = aiResponse.PrimaryRole!.Name,
-    //        PrimaryConfidence = aiResponse.PrimaryRole.Confidence,
-    //        TopRolesJson = topRolesJson
-    //    };
-    //}
-
-    // =====================================================================
-    // GENERATE ROADMAP  —  future Phase stub
-    // =====================================================================
-    public Task<RoadmapGenerationResult> GenerateRoadmapAsync(
+ 
+    public async Task<RoadmapGenerationResult> GenerateRoadmapAsync(
         string userId,
-        string careerTrack,
+        string careerTrackSlug,
         int weeklyHours,
-        UserProfile profile,
-        CancellationToken ct = default)
-        => throw new NotImplementedException("GenerateRoadmapAsync — implemented in Phase 3");
+        string userBackground,
+        List<string> currentSkills)
+    {
+        var request = new RoadmapAIRequest
+        {
+            UserId = userId,
+            CareerTrack = careerTrackSlug,
+            WeeklyHours = weeklyHours,
+            IsStageProgression = false,           // roadmap overview mode
+            UserBackground = userBackground,
+            CurrentSkills = currentSkills
+        };
 
+       
+        var json = JsonSerializer.Serialize(request);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var response = await _http.PostAsync("/api/v1/roadmap", content);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            _logger.LogError("AI roadmap error {Status}: {Body}", response.StatusCode, body);
+            throw new AIServiceException($"AI returned {(int)response.StatusCode}");
+        }
+
+        var rawJson = await response.Content.ReadAsStringAsync();
+        RoadmapAIResponse aiResponse;
+        try
+        {
+            aiResponse = JsonSerializer.Deserialize<RoadmapAIResponse>(rawJson)
+                ?? throw new AIValidationException("AI returned empty roadmap response");
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Malformed roadmap JSON from AI");
+            throw new AIValidationException("AI returned malformed JSON");
+        }
+
+        RoadmapAIResponseValidator.Validate(aiResponse);
+
+        var data = aiResponse.Roadmap!.Data!;
+        var stages = data.Curriculum!.Stages;
+
+        return new RoadmapGenerationResult
+        {
+            RoadmapDataJson = rawJson,  // store the entire AI response as-is (opaque)
+            DifficultyLevel = data.DifficultyLevel,
+            TotalWeeks = data.TotalWeeks,
+            SkillGaps = data.SkillGaps,
+            Stages = stages.Select(s => new RoadmapStage
+            {
+                AiStageId = s.Id,
+                Name = s.Name,
+                Topics = s.Topics,
+                EstimatedWeeks = s.EstimatedWeeks
+            }).ToList()
+        };
+    }
     // =====================================================================
     // GET STAGE RESOURCES  —  future Phase stub
     // =====================================================================
-    public Task<StageResourcesResult> GetStageResourcesAsync(
+    // Modules/AIGateway/Services/AIGatewayService.cs
+    public async Task<StageResourcesResult> GetStageResourcesAsync(
         string userId,
         string careerTrack,
         int weeklyHours,
         string aiStageId,
         int stageIndex,
-        string roadmapDataJson,
-        CancellationToken ct = default)
-        => throw new NotImplementedException("GetStageResourcesAsync — implemented in Phase 4");
+        string roadmapDataJson)
+    {
+        // Parse stored roadmap data to extract curriculum + difficulty + skill_gaps
+        // These are passed back to AI opaquely — backend never interprets them
+        RoadmapData roadmapData;
+        try
+        {
+            using var doc = JsonDocument.Parse(roadmapDataJson);
+            var root = doc.RootElement;
+            var dataEl = root.TryGetProperty("roadmap", out var rm) &&
+                             rm.TryGetProperty("data", out var d) ? d : root;
+
+            roadmapData = JsonSerializer.Deserialize<RoadmapData>(dataEl.GetRawText())
+                ?? throw new AIValidationException("Stored roadmap data is invalid");
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse stored roadmap JSON");
+            throw new AIValidationException("Stored roadmap data is malformed");
+        }
+
+        var request = new RoadmapAIRequest
+        {
+            UserId = userId,
+            CareerTrack = careerTrack,
+            WeeklyHours = weeklyHours,
+            IsStageProgression = true,
+            CurrentStageIndex = stageIndex,
+            DifficultyLevel = roadmapData.DifficultyLevel,
+            SkillGaps = roadmapData.SkillGaps,
+            Curriculum = JsonSerializer.SerializeToElement(roadmapData.Curriculum)
+        };
+
+        var json = JsonSerializer.Serialize(request);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var response = await _http.PostAsync("/api/v1/roadmap", content);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            _logger.LogError("AI stage resources error {Status}: {Body}", response.StatusCode, body);
+            throw new AIServiceException($"AI returned {(int)response.StatusCode}");
+        }
+
+        var rawJson = await response.Content.ReadAsStringAsync();
+        RoadmapAIResponse aiResponse;
+        try
+        {
+            aiResponse = JsonSerializer.Deserialize<RoadmapAIResponse>(rawJson)
+                ?? throw new AIValidationException("AI returned empty stage resources response");
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Malformed stage resources JSON from AI");
+            throw new AIValidationException("AI returned malformed JSON");
+        }
+
+        // Validate signal only — data structure for stage resources is opaque
+        if (aiResponse.Signal != "201_Created")
+            throw new AIValidationException($"Unexpected AI signal: {aiResponse.Signal}");
+
+        if (aiResponse.Roadmap?.Data is null)
+            throw new AIValidationException("AI stage resources response has no data");
+
+        // Store the entire data block as-is — frontend consumes it directly
+        var dataJson = JsonSerializer.Serialize(aiResponse.Roadmap.Data);
+
+        return new StageResourcesResult
+        {
+            ResourcesDataJson = dataJson
+        };
+    }
 
     // =====================================================================
     // GENERATE QUIZ  —  future Phase stub

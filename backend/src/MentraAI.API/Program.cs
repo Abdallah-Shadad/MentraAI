@@ -13,6 +13,10 @@ using MentraAI.API.Modules.Onboarding.Services;
 using MentraAI.API.Modules.Users.Mappings;
 using MentraAI.API.Modules.Users.Repositories;
 using MentraAI.API.Modules.Users.Services;
+using MentraAI.API.Modules.Roadmaps.Repositories;
+using MentraAI.API.Modules.Roadmaps.Services;
+using MentraAI.API.Modules.StageProgress.Repositories;
+using MentraAI.API.Modules.StageProgress.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -167,6 +171,12 @@ builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 
 builder.Services.AddScoped<ICareerTrackRepository, CareerTrackRepository>();
 builder.Services.AddScoped<ICareerTrackService, CareerTrackService>();
+
+builder.Services.AddScoped<IRoadmapRepository, RoadmapRepository>();
+builder.Services.AddScoped<IRoadmapService, RoadmapService>();
+
+builder.Services.AddScoped<IStageProgressRepository, StageProgressRepository>();
+builder.Services.AddScoped<IStageProgressService, StageProgressService>();
 
 //  Build App 
 var app = builder.Build();
