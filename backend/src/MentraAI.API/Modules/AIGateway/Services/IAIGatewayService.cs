@@ -11,35 +11,35 @@ public interface IAIGatewayService
         UserProfile profile,
         CancellationToken ct = default);
 
-    // Future Phase — Roadmaps (stub until then)
-    
+    // Future Phase — Roadmaps
     Task<RoadmapGenerationResult> GenerateRoadmapAsync(
         string userId,
         string careerTrackSlug,
         int weeklyHours,
         string userBackground,
-        List<string> currentSkills);
+        List<string> currentSkills,
+        CancellationToken ct = default); // Added CancellationToken
 
-    // Future Phase — StageProgress (stub until then)
-    // Add to Modules/AIGateway/Services/IAIGatewayService.cs
+    // Future Phase — StageProgress
     Task<StageResourcesResult> GetStageResourcesAsync(
-        string userId,
-        string careerTrack,
-        int weeklyHours,
-        string aiStageId,
-        int stageIndex,
-        string roadmapDataJson);
+            string userId,
+            string careerTrack,
+            int weeklyHours,
+            string aiStageId,
+            int stageIndex,
+            string roadmapDataJson,
+            CancellationToken ct = default);
 
-    // Future Phase — Quizzes (stub until then)
+    // Future Phase — Quizzes
     Task<QuizGenerationResult> GenerateQuizAsync(
         string userId,
         string careerTrack,
         string aiStageId,
         string stageName,
         string difficultyLevel,
-        CancellationToken ct = default);
+        CancellationToken ct = default); // Added CancellationToken[cite: 2]
 
-    // Future Phase — Adaptation (stub until then)
+    // Future Phase — Adaptation
     Task<RoadmapGenerationResult> GetAdaptedRoadmapAsync(
         string userId,
         string careerTrack,
