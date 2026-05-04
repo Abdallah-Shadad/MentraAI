@@ -61,4 +61,35 @@ public class CareerTrackRepository : ICareerTrackRepository
         await _db.SaveChangesAsync();
         return track;
     }
+
+    // Convenience method to do both deactivation and insertion in one transaction
+    public async Task<UserTrack> ReplaceActiveTrackAsync(string userId, UserTrack newTrack)
+    {
+        // if we were not using 'EnableRetryOnFailure', we could just do a normal transaction without the execution strategy
+        var strategy = _db.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await _db.Database.BeginTransactionAsync();
+            try
+            {
+                // Deactivate old track
+                await _db.UserTracks
+                    .Where(t => t.UserId == userId && t.IsActive)
+                    .ExecuteUpdateAsync(s => s.SetProperty(t => t.IsActive, false));
+
+                // Add new track
+                _db.UserTracks.Add(newTrack);
+                await _db.SaveChangesAsync();
+
+                await tx.CommitAsync();
+                return newTrack;
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+        });
+    }
 }
