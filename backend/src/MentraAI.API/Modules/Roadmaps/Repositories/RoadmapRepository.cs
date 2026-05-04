@@ -1,7 +1,8 @@
 ﻿// Modules/Roadmaps/Repositories/RoadmapRepository.cs
-using Microsoft.EntityFrameworkCore;
 using MentraAI.API.Data;
 using MentraAI.API.Modules.Roadmaps.Models;
+using MentraAI.API.Modules.StageProgress.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace MentraAI.API.Modules.Roadmaps.Repositories;
 
@@ -45,5 +46,46 @@ public class RoadmapRepository : IRoadmapRepository
     {
         _db.Roadmaps.Update(roadmap);
         await _db.SaveChangesAsync();
+    }
+
+    // Method to create a new roadmap version based on an old one, with new stage progress rows
+    public async Task<Roadmap> CreateNewVersionAsync(
+    Roadmap oldRoadmap,
+    Roadmap newRoadmap,
+    List<UserStageProgress> newStages)
+    {
+        var strategy = _db.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await _db.Database.BeginTransactionAsync();
+            try
+            {
+                // Deactivate current roadmap
+                oldRoadmap.IsActive = false;
+                _db.Roadmaps.Update(oldRoadmap);
+
+                // Insert new roadmap version
+                _db.Roadmaps.Add(newRoadmap);
+                await _db.SaveChangesAsync(); // To populate newRoadmap.Id
+
+                // Insert new stages tied to the new roadmap
+                foreach (var stage in newStages)
+                {
+                    stage.RoadmapId = newRoadmap.Id;
+                    _db.UserStageProgress.Add(stage);
+                }
+
+                await _db.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                return newRoadmap;
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+        });
     }
 }
