@@ -167,16 +167,27 @@ public class StageProgressService : IStageProgressService
     {
         var resources = new StageResources();
 
-        if (stage.ResourcesDataJson != null)
+        if (!string.IsNullOrWhiteSpace(stage.ResourcesDataJson))
         {
             try
             {
-                resources = JsonSerializer.Deserialize<StageResources>(stage.ResourcesDataJson)
-                            ?? new StageResources();
+                using var doc = JsonDocument.Parse(stage.ResourcesDataJson);
+                var root = doc.RootElement;
+
+                // Navigate to the actual data object where resources should live
+                // Based on AI API docs, we look inside roadmap -> data.
+                if (root.TryGetProperty("roadmap", out var roadmap) &&
+                    roadmap.TryGetProperty("data", out var data))
+                {
+                    // If the AI team adds 'videos/articles' inside 'data' later, 
+                    // this deserialization will now work correctly.
+                    resources = JsonSerializer.Deserialize<StageResources>(data.GetRawText())
+                                ?? new StageResources();
+                }
             }
-            catch
+            catch (Exception)
             {
-                // Malformed cached JSON — return empty rather than crashing
+                // Silently return empty resources instead of crashing[cite: 1].
                 resources = new StageResources();
             }
         }
