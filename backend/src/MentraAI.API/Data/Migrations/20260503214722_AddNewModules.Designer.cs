@@ -4,6 +4,7 @@ using MentraAI.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MentraAI.API.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260503214722_AddNewModules")]
+    partial class AddNewModules
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -536,9 +539,6 @@ namespace MentraAI.API.Data.Migrations
                     b.Property<int>("RoadmapId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("RoadmapId1")
-                        .HasColumnType("int");
-
                     b.Property<int>("StageIndex")
                         .HasColumnType("int");
 
@@ -556,8 +556,6 @@ namespace MentraAI.API.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RoadmapId");
-
-                    b.HasIndex("RoadmapId1");
 
                     b.HasIndex("RoadmapId", "StageIndex")
                         .IsUnique();
@@ -838,10 +836,6 @@ namespace MentraAI.API.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("MentraAI.API.Modules.Roadmaps.Models.Roadmap", null)
-                        .WithMany("Stages")
-                        .HasForeignKey("RoadmapId1");
-
                     b.Navigation("Roadmap");
                 });
 
@@ -915,11 +909,6 @@ namespace MentraAI.API.Data.Migrations
             modelBuilder.Entity("MentraAI.API.Modules.Onboarding.Models.OnboardingQuestion", b =>
                 {
                     b.Navigation("Answers");
-                });
-
-            modelBuilder.Entity("MentraAI.API.Modules.Roadmaps.Models.Roadmap", b =>
-                {
-                    b.Navigation("Stages");
                 });
 #pragma warning restore 612, 618
         }
