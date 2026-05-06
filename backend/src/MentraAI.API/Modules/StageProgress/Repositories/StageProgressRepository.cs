@@ -67,4 +67,9 @@ public class StageProgressRepository : IStageProgressRepository
         await _db.SaveChangesAsync();
         return next;
     }
+
+
+    // Temporary stub until Quizzes module is built — always returns false for now
+    public Task<bool> HasPendingQuizAsync(Guid stageProgressId)
+        => Task.FromResult(false); // always returns false for now
 }

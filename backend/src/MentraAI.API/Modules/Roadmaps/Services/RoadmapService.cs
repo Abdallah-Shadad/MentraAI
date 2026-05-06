@@ -41,20 +41,19 @@ public class RoadmapService : IRoadmapService
              ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track.", 422);
 
         if (await _roadmapRepo.HasActiveRoadmapAsync(userTrack.Id))
-            throw new AppException(ErrorCodes.ROADMAP_ALREADY_EXISTS,
-                "An active roadmap already exists for this career track.", 409);
+            throw new AppException(ErrorCodes.ROADMAP_ALREADY_EXISTS, "An active roadmap already exists.", 409);
 
         var profile = await _userService.GetProfileAsync(userId);
-        var currentSkills = profile.CurrentSkills ?? new List<string>();
 
         var result = await _aiGateway.GenerateRoadmapAsync(
             userId: userId,
             careerTrackSlug: userTrack.CareerTrack.Slug,
             weeklyHours: profile.WeeklyHours ?? 10,
             userBackground: profile.Background ?? string.Empty,
-            currentSkills: currentSkills);
+            currentSkills: profile.CurrentSkills ?? new List<string>());
 
-        var roadmap = await _roadmapRepo.CreateAsync(new Roadmap
+        // Create new roadmap version without saving yet (we need the Id for stages, so we save both in one transaction at the end of this method)
+        var roadmap = new Roadmap
         {
             UserTrackId = userTrack.Id,
             VersionNumber = 1,
@@ -62,29 +61,24 @@ public class RoadmapService : IRoadmapService
             TriggerType = "INITIAL",
             RoadmapDataJson = result.RoadmapDataJson,
             CreatedAt = DateTime.UtcNow
-        });
+        };
 
-        var stageProgressRows = new List<UserStageProgress>();
-        for (int i = 0; i < result.Stages.Count; i++)
+        // Prepare stages for insertion 
+        var stages = result.Stages.Select((s, i) => new UserStageProgress
         {
-            var s = result.Stages[i];
-            var row = new UserStageProgress
-            {
-                Id = Guid.NewGuid(),
-                RoadmapId = roadmap.Id,
-                StageIndex = i,
-                AiStageId = s.AiStageId,
-                StageName = s.Name,
-                Status = i == 0 ? "ACTIVE" : "LOCKED",
-                UnlockedAt = i == 0 ? DateTime.UtcNow : null,
-                CompletedAt = null
-            };
-            await _stageRepo.CreateAsync(row);
-            stageProgressRows.Add(row);
-        }
+            Id = Guid.NewGuid(),
+            StageIndex = i,
+            AiStageId = s.AiStageId,
+            StageName = s.Name,
+            Status = i == 0 ? "ACTIVE" : "LOCKED",
+            UnlockedAt = i == 0 ? DateTime.UtcNow : null,
+            CompletedAt = null
+        }).ToList();
 
-        return BuildRoadmapResponse(roadmap, result.DifficultyLevel, result.TotalWeeks,
-            result.SkillGaps, stageProgressRows, result.Stages);
+        // Save both roadmap and stages in one transaction
+        await _roadmapRepo.CreateWithStagesAsync(roadmap, stages);
+
+        return BuildRoadmapResponse(roadmap, result.DifficultyLevel, result.TotalWeeks, result.SkillGaps, stages, result.Stages);
     }
 
     public async Task<RoadmapResponse> GetCurrentRoadmapAsync(string userId)
