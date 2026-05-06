@@ -23,12 +23,15 @@ public interface IRoadmapRepository
     // Update a roadmap row (used to flip IsActive = false on adaptation)
     Task UpdateAsync(Roadmap roadmap);
     // Temporary stub in RoadmapRepository until Quizzes module is built
-    public Task<bool> HasPendingQuizAsync(Guid stageProgressId)
-        => Task.FromResult(false);
+    //public Task<bool> HasPendingQuizAsync(Guid stageProgressId)
+    //    => Task.FromResult(false);
 
     // new method to create a new roadmap version based on an old one, with new stage progress rows
     Task<Roadmap> CreateNewVersionAsync(
         Roadmap oldRoadmap,
         Roadmap newRoadmap,
         List<UserStageProgress> newStages);
+
+    // new method to create a roadmap and its stage progress rows in one transaction
+    Task<Roadmap> CreateWithStagesAsync(Roadmap roadmap, List<UserStageProgress> stages);
 }

@@ -59,11 +59,10 @@ public class StageProgressService : IStageProgressService
     {
         var roadmap = await GetActiveRoadmapForUserAsync(userId);
         var activeStage = await _stageRepo.GetActiveStageAsync(roadmap.Id)
-            ?? throw new AppException(ErrorCodes.STAGE_NOT_FOUND,
-                "No active stage found. All stages may be completed.", 404);
+            ?? throw new AppException(ErrorCodes.STAGE_NOT_FOUND, "No active stage found.", 404);
 
-        // Check if a pending (not yet submitted) quiz exists for this stage
-        var hasPendingQuiz = await _roadmapRepo.HasPendingQuizAsync(activeStage.Id);
+        // FIX Issue: Implement HasPendingQuizAsync in StageProgressRepository to check for pending quizzes
+        var hasPendingQuiz = await _stageRepo.HasPendingQuizAsync(activeStage.Id);
 
         return new CurrentStageResponse
         {
