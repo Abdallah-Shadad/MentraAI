@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Any
+from typing import List, Optional, Any, AsyncIterator
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -17,7 +17,7 @@ class OpenAIProvider(LLMInterface):
                 ):
         # Base Configuration
         self.api_key = api_key
-        self.base_url = base_url
+        self.base_url = base_url if base_url else ""
         self.max_output_tokens = max_output_tokens
         self.temperature = temperature
 
@@ -70,7 +70,20 @@ class OpenAIProvider(LLMInterface):
             self.logger.error(f"[OpenAIProvider] generate_text failed: {e}")
             return None
 
-        
+    async def stream(self, messages: list) -> AsyncIterator[str]:
+        if not self.client:
+            raise Exception("OpenAI client is not initialized")
+        if not self.generation_model_id:
+            raise Exception("Generation model is not set")
+            
+        try:
+            async for chunk in self.client.astream(messages):
+                if chunk.content:
+                    yield chunk.content
+        except Exception as e:
+            self.logger.error(f"[OpenAIProvider] stream failed: {e}")
+            raise e
+
 
     def embed_text(self,document_type:str,document_content:str=None):
         if not self.embedding_model_id:

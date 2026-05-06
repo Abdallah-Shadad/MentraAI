@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Any
+from typing import List, Optional, Any, AsyncIterator
 
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_core.tools import BaseTool
@@ -71,6 +71,20 @@ class GeminiProvider(LLMInterface):
         except Exception as e:
             self.logger.error(f"[GeminiProvider] invoke failed: {e}")
             return None
+
+    async def stream(self, messages: list) -> AsyncIterator[str]:
+        if not self.client:
+            raise Exception("Gemini client is not initialized")
+        if not self.generation_model_id:
+            raise Exception("Generation model is not set")
+            
+        try:
+            async for chunk in self.client.astream(messages):
+                if chunk.content:
+                    yield chunk.content
+        except Exception as e:
+            self.logger.error(f"[GeminiProvider] stream failed: {e}")
+            raise e
 
     def embed_text(self, document_type: str, document_content: str = None):
         if not self.embedding_model_id:
