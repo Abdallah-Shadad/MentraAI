@@ -1,6 +1,18 @@
 # Welcome in Mentra AI
 
-## to let the project work Fastapi
+<div align="center">
+
+<h2> ⚠️ you must update the base_url in the ```studio_app.py```, ```main.py``` file</h2>
+
+<h2> and you must intializae .env file</h2>
+<h3>  ```.env``` In [```src``` , ```docker```] folder</h3>
+
+</div>
+
+---
+
+# 🤖 To let the project work
+## In Fastapi
 ```bash
 python -m venv .venv
 .venv\Scripts\activate

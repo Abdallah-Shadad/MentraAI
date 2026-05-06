@@ -4,8 +4,8 @@ from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
 
 from ...AgentEnums import AgentType
 from ...BaseWorkerAgent import BaseWorkerAgent
-from .schemas import ProfileAnalyzerOutput
-
+from .schemas.ProfileAnalyzer import ProfileAnalyzerOutput
+from .prompts.ProfileAnalyzerPrompt import SYSTEM_PROMPT
 
 class ProfileAnalyzer(BaseWorkerAgent):
     """
@@ -18,15 +18,7 @@ class ProfileAnalyzer(BaseWorkerAgent):
     State keys produced  : ``profile_analysis``, ``profile_agent_done``
     """
 
-    _DEFAULT_SYSTEM_PROMPT = """You are an expert career and skills assessment specialist.
-Analyse the user's background and career goal, then return a JSON:
-{
-  "difficulty_level": "beginner|intermediate|advanced",
-  "skill_gaps": ["skill1", "skill2"],
-  "prerequisite_analysis": {"has_python": true, ...},
-  "estimated_duration_weeks": <int>
-}
-"""
+    _DEFAULT_SYSTEM_PROMPT = SYSTEM_PROMPT
 
     # ── AgentInterface: identity ────────────────────────────────────────
 
@@ -48,6 +40,8 @@ Analyse the user's background and career goal, then return a JSON:
                 content=(
                     f"User ID      : {state.get('user_id', 'unknown')}\n"
                     f"Career Track : {state.get('career_track', 'Not specified')}"
+                    f"User Background : {state.get('user_background', 'Not specified')}"
+                    f"User Skills : {state.get('user_skills', 'Not specified')}"                    
                 )
             ),
         ]
