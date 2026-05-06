@@ -88,4 +88,34 @@ public class RoadmapRepository : IRoadmapRepository
             }
         });
     }
+    public async Task<Roadmap> CreateWithStagesAsync(Roadmap roadmap, List<UserStageProgress> stages)
+    {
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await _db.Database.BeginTransactionAsync();
+            try
+            {
+                // Add roadmap first to get the generated Id for the stages
+                _db.Roadmaps.Add(roadmap);
+                await _db.SaveChangesAsync();
+
+                // Link stages to the new roadmap
+                foreach (var stage in stages)
+                {
+                    stage.RoadmapId = roadmap.Id;
+                }
+                _db.UserStageProgress.AddRange(stages); // AddRange that accepts a list of stages
+
+                await _db.SaveChangesAsync();
+                await tx.CommitAsync();
+                return roadmap;
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+        });
+    }
 }

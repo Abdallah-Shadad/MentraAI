@@ -28,4 +28,7 @@ public interface IStageProgressRepository
     // Unlock the next stage by StageIndex + 1 — called on quiz pass
     // Returns the unlocked stage (or null if it was the last stage)
     Task<UserStageProgress?> UnlockNextStageAsync(int roadmapId, int currentStageIndex);
+
+    // Temporary stub until Quizzes module is built — always returns false for now
+    Task<bool> HasPendingQuizAsync(Guid stageProgressId);
 }
