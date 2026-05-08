@@ -1,5 +1,5 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using AutoMapper;
 using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
 using MentraAI.API.Modules.AIGateway.Services;
@@ -21,6 +21,7 @@ public class QuizService : IQuizService
     private readonly IAIGatewayService        _aiGateway;
     private readonly IQuizScoringService      _scoring;
     private readonly IRoadmapService          _roadmapService;
+    private readonly IMapper                  _mapper;
     private readonly ILogger<QuizService>     _logger;
 
     private static readonly JsonSerializerOptions _json = new() { PropertyNameCaseInsensitive = true };
@@ -32,6 +33,7 @@ public class QuizService : IQuizService
         IAIGatewayService        aiGateway,
         IQuizScoringService      scoring,
         IRoadmapService          roadmapService,
+        IMapper                  mapper,
         ILogger<QuizService>     logger)
     {
         _quizRepo       = quizRepo;
@@ -40,6 +42,7 @@ public class QuizService : IQuizService
         _aiGateway      = aiGateway;
         _scoring        = scoring;
         _roadmapService = roadmapService;
+        _mapper         = mapper;
         _logger         = logger;
     }
 
@@ -101,7 +104,7 @@ public class QuizService : IQuizService
         });
 
         // Step 10: return display-only — strip correct_answer
-        return BuildQuizResponse(quiz, result.Questions);
+        return _mapper.Map<QuizResponse>(quiz);
     }
 
     // =====================================================================
@@ -116,10 +119,7 @@ public class QuizService : IQuizService
         if (quiz.UserId != userId)
             throw new AppException(ErrorCodes.QUIZ_NOT_FOUND, "Quiz not found.", 404);
 
-        // Deserialize from DB — strip correct_answer before returning
-        var displayQuestions = DeserializeDisplayQuestions(quiz.QuestionsDataJson);
-
-        return BuildQuizResponse(quiz, displayQuestions);
+        return _mapper.Map<QuizResponse>(quiz);
     }
 
     // =====================================================================
@@ -235,68 +235,8 @@ public class QuizService : IQuizService
 
         return new QuizHistoryResponse
         {
-            Attempts = attempts.Select(a => new QuizAttemptSummary
-            {
-                QuizId        = a.Id,
-                AttemptNumber = a.AttemptNumber,
-                Score         = a.Score,
-                IsPassed      = a.IsPassed,
-                IsSubmitted   = a.IsSubmitted,
-                GeneratedAt   = a.GeneratedAt,
-                SubmittedAt   = a.SubmittedAt
-            }).ToList()
+            Attempts = _mapper.Map<List<QuizAttemptSummary>>(attempts)
         };
-    }
-
-    // =====================================================================
-    // PRIVATE HELPERS
-    // =====================================================================
-
-    private static QuizResponse BuildQuizResponse(
-        QuizAttempt quiz,
-        IEnumerable<AIGateway.InternalModels.QuizQuestionDisplay> displayQuestions)
-    {
-        return new QuizResponse
-        {
-            QuizId          = quiz.Id,
-            StageProgressId = quiz.StageProgressId,
-            AttemptNumber   = quiz.AttemptNumber,
-            TotalQuestions  = quiz.TotalQuestions,
-            GeneratedAt     = quiz.GeneratedAt,
-            Questions       = displayQuestions
-                .Select(q => new QuizQuestionItem
-                {
-                    Id      = q.Id,
-                    Text    = q.Text,
-                    Options = q.Options
-                })
-                .ToList()
-        };
-    }
-
-    // Deserializes stored JSON and returns display questions — correct_answer never returned
-    private static List<AIGateway.InternalModels.QuizQuestionDisplay> DeserializeDisplayQuestions(
-        string questionsDataJson)
-    {
-        try
-        {
-            var stored = JsonSerializer.Deserialize<List<StoredQuestionRaw>>(questionsDataJson, _json)
-                         ?? new List<StoredQuestionRaw>();
-
-            return stored
-                .Select(q => new AIGateway.InternalModels.QuizQuestionDisplay
-                {
-                    Id      = q.Id,
-                    Text    = q.Text,
-                    Options = q.Options
-                    // CorrectAnswer intentionally absent
-                })
-                .ToList();
-        }
-        catch
-        {
-            return new List<AIGateway.InternalModels.QuizQuestionDisplay>();
-        }
     }
 
     private static string ExtractDifficultyLevel(string roadmapDataJson)
@@ -314,12 +254,4 @@ public class QuizService : IQuizService
         return "beginner";
     }
 
-    // Used only to strip correct_answer when rebuilding from stored JSON
-    private class StoredQuestionRaw
-    {
-        [JsonPropertyName("id")]      public string       Id      { get; set; } = string.Empty;
-        [JsonPropertyName("text")]    public string       Text    { get; set; } = string.Empty;
-        [JsonPropertyName("options")] public List<string> Options { get; set; } = new();
-        // correct_answer is in the JSON but not mapped here — intentional
-    }
 }
