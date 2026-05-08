@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using MentraAI.API.Common.Middleware;
 using MentraAI.API.Data;
 using MentraAI.API.Modules.AIGateway.Services;
@@ -17,6 +17,8 @@ using MentraAI.API.Modules.Roadmaps.Repositories;
 using MentraAI.API.Modules.Roadmaps.Services;
 using MentraAI.API.Modules.StageProgress.Repositories;
 using MentraAI.API.Modules.StageProgress.Services;
+using MentraAI.API.Modules.Quizzes.Repositories;
+using MentraAI.API.Modules.Quizzes.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -177,6 +179,11 @@ builder.Services.AddScoped<IRoadmapService, RoadmapService>();
 
 builder.Services.AddScoped<IStageProgressRepository, StageProgressRepository>();
 builder.Services.AddScoped<IStageProgressService, StageProgressService>();
+
+// == Quizzes Module ==
+builder.Services.AddScoped<IQuizRepository, QuizRepository>();
+builder.Services.AddScoped<IQuizScoringService, QuizScoringService>();
+builder.Services.AddScoped<IQuizService, QuizService>();
 
 //  Build App 
 var app = builder.Build();
