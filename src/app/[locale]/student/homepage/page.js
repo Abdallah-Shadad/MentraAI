@@ -93,7 +93,7 @@ const mockNextActions = [
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-background ">
+    <div className="min-h-screen bg-background">
       {/* Main */}
       <main className="main-container px-4 py-8">
         <TopBar />
@@ -115,7 +115,7 @@ export default function HomePage() {
                 Your Learning Journey
               </h2>
 
-              <div className="space-y-2">
+              <div className="space-y-2 w-full">
                 {mockModules.map((module, index) => (
                   <ModuleCard
                     key={module.id}

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ArrowRight, TriangleAlert } from "lucide-react";
+import { ArrowRight, TriangleAlert, Eye, EyeOff } from "lucide-react";
 
 export default function SignupForm({ steps, setSteps }) {
   const [form, setForm] = useState({
@@ -15,8 +15,7 @@ export default function SignupForm({ steps, setSteps }) {
 
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
-
+  const [showPassword, setShowPassword] = useState(false);
   // password strength
   const getStrength = () => {
     const v = form.pass;
@@ -44,7 +43,7 @@ export default function SignupForm({ steps, setSteps }) {
     return {
       width: "100%",
       label: "Strong",
-      color: "bg-emerald-500 text-emerald-400",
+      color: "bg-success text-success",
     };
   };
 
@@ -57,7 +56,9 @@ export default function SignupForm({ steps, setSteps }) {
     if (!form.lname) e.lname = "Required";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       e.email = "Invalid email";
-    if (form.pass.length < 8) e.pass = "Min 8 characters";
+    if (form.pass.length < 8)
+      e.pass =
+        "Password must be at least 8 characters with numbers, small and capital letters and symbols";
     if (form.pass2 !== form.pass) e.pass2 = "Passwords do not match";
     if (!form.terms) e.terms = "You must accept terms";
 
@@ -85,7 +86,7 @@ export default function SignupForm({ steps, setSteps }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bg-card/50">
         <div className="text-center">
-          <div className="text-5xl text-emerald-500 mb-2">✦</div>
+          <div className="text-5xl text-success mb-2">✦</div>
           <h2 className="text-xl font-semibold text-white">
             Welcome to MentarAI!
           </h2>
@@ -182,12 +183,25 @@ export default function SignupForm({ steps, setSteps }) {
           {/* password */}
           <div className="grid md:grid-cols-2 gap-4 my-6">
             <div>
-              <input
-                type="password"
-                placeholder="Password"
-                className={inputClass("pass")}
-                onChange={(e) => setForm({ ...form, pass: e.target.value })}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  className={inputClass("pass")}
+                  onChange={(e) => setForm({ ...form, pass: e.target.value })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
 
               {/* strength */}
               <div className="mt-2">
@@ -212,12 +226,25 @@ export default function SignupForm({ steps, setSteps }) {
             </div>
 
             <div>
-              <input
-                type="password"
-                placeholder="Confirm Password"
-                className={inputClass("pass2")}
-                onChange={(e) => setForm({ ...form, pass2: e.target.value })}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Confirm Password"
+                  className={inputClass("pass2")}
+                  onChange={(e) => setForm({ ...form, pass2: e.target.value })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
               {errors.pass2 && (
                 <p className="text-destructive text-xs mt-2 flex items-center gap-1">
                   <span className="text-red-500">
@@ -230,14 +257,17 @@ export default function SignupForm({ steps, setSteps }) {
           </div>
 
           {/* checkbox */}
-          <div className="flex items-start gap-2 mt-6">
-            <input
-              type="checkbox"
-              onChange={(e) => setForm({ ...form, terms: e.target.checked })}
-            />
-            <span className="text-sm text-slate-300">
-              I agree to Terms & Privacy
-            </span>
+          <div>
+            <div className="flex items-start gap-2 mt-6">
+              <input
+                type="checkbox"
+                onChange={(e) => setForm({ ...form, terms: e.target.checked })}
+              />
+              <span className="text-sm text-slate-300">
+                I agree to Terms & Privacy
+              </span>
+            </div>
+
             {errors.terms && (
               <p className="text-destructive text-xs mt-2 flex items-center gap-1">
                 <span className="text-red-500">

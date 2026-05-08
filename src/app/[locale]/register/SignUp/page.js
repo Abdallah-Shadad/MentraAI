@@ -82,8 +82,8 @@ export default function RegisterPage() {
                 isPrimary={true}
                 icon={<Sparkles className="w-7 h-7 text-text-accent" />}
                 onClick={() => {
-                  // setSelectedOption("option2");
-                  // setSteps(3);
+                  setSelectedOption("option2");
+                  setSteps(3);
                 }}
               />
             </motion.div>
@@ -117,6 +117,31 @@ export default function RegisterPage() {
             >
               <TracksList />
             </motion.div>{" "}
+          </div>
+        )}
+
+        {steps === 3 && selectedOption === "option2" && (
+          <div className="w-full max-w-4xl mx-auto mb-6 min-h-screen">
+            <button
+              onClick={() => setSteps(steps - 1)}
+              className="group cursor-pointer mb-4 py-3 text-text-muted font-semibold hover:text-text-foreground disabled:opacity-50 mr-auto"
+            >
+              <span>
+                <ArrowLeft className="inline mx-1 w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                Back
+              </span>
+            </button>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-text-foreground mb-2">
+                AI Quiz
+              </h2>
+              <div className="border border-destructive rounded-lg p-4 mt-10">
+                <p className="text-destructive italic font-bold">
+                  Sorry,We are still working on this feature,please check back
+                  later.
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>

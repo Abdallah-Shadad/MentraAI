@@ -5,6 +5,7 @@ import Image from "next/image";
 //icons
 import { Play } from "lucide-react";
 import { BackgroundNodes } from "../_components/BackgroundNodes";
+import { Link } from "@/lib/i18n/navigation";
 
 export default function HeroSection() {
   return (
@@ -26,17 +27,18 @@ export default function HeroSection() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button
-                size="lg"
-                className="rounded-xl gradient-cta text-text-primary px-8 py-6 text-lg hover:bg-primary/90 transition"
-              >
-                Start Your Free Trial
-              </Button>
-
+              <Link href="/register/SignUp">
+                <Button
+                  size="lg"
+                  className="rounded-xl gradient-cta text-text-primary px-8 py-6 text-lg hover:scale-105 transition-all duration-300 cursor-pointer"
+                >
+                  Start Learning
+                </Button>
+              </Link>
               <Button
                 size="lg"
                 variant="outline"
-                className="flex items-center justify-center rounded-xl border border-border px-8 py-6 text-lg text-text-primary hover:text-primary hover:bg-primary/10 transition"
+                className="flex items-center justify-center rounded-xl border border-border px-8 py-6 text-lg text-text-primary hover:text-primary hover:bg-primary/10 transition-all duration-300 cursor-pointer"
               >
                 <Play size={18} className="mr-2" />
                 Watch Demo

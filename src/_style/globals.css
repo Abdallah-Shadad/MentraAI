@@ -147,6 +147,8 @@
   /*ألوان إضافية*/
   --color-success: #10b981;
   --color-success-foreground: #ffffff;
+  --color-accent: var(--accent);
+  --color-accent-glow: var(--accent-glow);
 
   --color-destructive: #ef4444;
   --color-destructive-foreground: #ffffff;
