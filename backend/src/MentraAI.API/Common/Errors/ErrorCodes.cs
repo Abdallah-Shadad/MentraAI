@@ -1,4 +1,4 @@
-﻿namespace MentraAI.API.Common.Errors;
+namespace MentraAI.API.Common.Errors;
 
 public static class ErrorCodes
 {
@@ -29,6 +29,7 @@ public static class ErrorCodes
     // Quizzes
     public const string QUIZ_NOT_FOUND = "QUIZ_NOT_FOUND";
     public const string QUIZ_ALREADY_SUBMITTED = "QUIZ_ALREADY_SUBMITTED";
+    public const string QUIZ_PENDING_EXISTS = "QUIZ_PENDING_EXISTS";
     public const string STAGE_NOT_ACTIVE = "STAGE_NOT_ACTIVE";
 
     // AI
