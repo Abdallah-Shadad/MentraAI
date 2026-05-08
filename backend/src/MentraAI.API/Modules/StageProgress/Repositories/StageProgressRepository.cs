@@ -1,4 +1,4 @@
-﻿// Modules/StageProgress/Repositories/StageProgressRepository.cs
+// Modules/StageProgress/Repositories/StageProgressRepository.cs
 using Microsoft.EntityFrameworkCore;
 using MentraAI.API.Data;
 using MentraAI.API.Modules.StageProgress.Models;
@@ -69,7 +69,7 @@ public class StageProgressRepository : IStageProgressRepository
     }
 
 
-    // Temporary stub until Quizzes module is built — always returns false for now
-    public Task<bool> HasPendingQuizAsync(Guid stageProgressId)
-        => Task.FromResult(false); // always returns false for now
+    public async Task<bool> HasPendingQuizAsync(Guid stageProgressId) =>
+        await _db.QuizAttempts
+            .AnyAsync(q => q.StageProgressId == stageProgressId && !q.IsSubmitted);
 }
