@@ -1,4 +1,4 @@
-﻿using MentraAI.API.Common.Exceptions;
+using MentraAI.API.Common.Exceptions;
 using MentraAI.API.Modules.AIGateway.DTOs.Requests;
 using MentraAI.API.Modules.AIGateway.DTOs.Responses;
 using MentraAI.API.Modules.AIGateway.InternalModels;
@@ -170,16 +170,73 @@ public class AIGatewayService : IAIGatewayService
     }
 
     // =====================================================================
-    // GENERATE QUIZ  —  future Phase stub (Issue 5 Fix)
+    // GENERATE QUIZ  —  Phase 5
     // =====================================================================
-    public Task<QuizGenerationResult> GenerateQuizAsync(
+    public async Task<QuizGenerationResult> GenerateQuizAsync(
         string userId,
         string careerTrack,
         string aiStageId,
         string stageName,
         string difficultyLevel,
         CancellationToken ct = default)
-        => throw new NotImplementedException("GenerateQuizAsync — implemented in Phase 5"); // Stub restored[cite: 1]
+    {
+        var request = new QuizCreateAIRequest
+        {
+            UserId          = userId,
+            CareerTrack     = careerTrack,
+            AiStageId       = aiStageId,
+            StageName       = stageName,
+            DifficultyLevel = difficultyLevel
+        };
+
+        var response = await _http.PostAsJsonAsync("/api/v1/quiz/create", request, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogError("AI quiz error {Status}: {Body}", response.StatusCode, body);
+            throw new AIServiceException($"AI returned {(int)response.StatusCode}");
+        }
+
+        var rawBody = await response.Content.ReadAsStringAsync(ct);
+
+        QuizAIResponse? aiResponse;
+        try
+        {
+            aiResponse = JsonSerializer.Deserialize<QuizAIResponse>(rawBody);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning("AI quiz returned invalid JSON. Body: {Body}", rawBody);
+            throw new AIValidationException($"AI returned invalid JSON: {ex.Message}");
+        }
+
+        QuizAIResponseValidator.Validate(aiResponse!);
+
+        // QuestionsDataJson stores full questions WITH correct_answer — only goes to DB, never to frontend
+        var questionsDataJson = JsonSerializer.Serialize(aiResponse!.Quiz!.Questions);
+
+        // Display questions strip correct_answer
+        var displayQuestions = aiResponse.Quiz.Questions
+            .Select(q => new QuizQuestionDisplay
+            {
+                Id      = q.Id,
+                Text    = q.Text,
+                Options = q.Options
+            })
+            .ToList();
+
+        _logger.LogInformation(
+            "Quiz generated for user {UserId}, stage {StageId}, {Count} questions",
+            userId, aiStageId, displayQuestions.Count);
+
+        return new QuizGenerationResult
+        {
+            QuestionsDataJson = questionsDataJson,
+            TotalQuestions    = displayQuestions.Count,
+            Questions         = displayQuestions
+        };
+    }
 
     // =====================================================================
     // GET ADAPTED ROADMAP  —  future Phase stub
