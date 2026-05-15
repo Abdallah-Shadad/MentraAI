@@ -16,15 +16,33 @@ roadmap_router = APIRouter(
     tags=["roadmap"]
 )
 
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
+
+class RoadmapRequest(BaseModel):
+    user_id: str
+    career_track: str
+    weekly_hours: int
+    is_stage_progression: Optional[bool] = False
+    # --- Stage Progression fields ---
+    # Option A (preferred): send the stage directly — no need for full curriculum
+    current_stage: Optional[Dict[str, Any]] = None
+    # Option B (legacy): send full curriculum + index — StageExtractor will slice it
+    curriculum: Optional[Dict[str, Any]] = None
+    current_stage_index: Optional[int] = None
+    learner_progress: Optional[Dict[str, Any]] = None
+
 @roadmap_router.post("/")
-async def roadmap(request: Request,app_settings: Settings = Depends(get_settings)):
+async def roadmap(request_body: RoadmapRequest, app_settings: Settings = Depends(get_settings)):
     try:
-        data = await request.json()
-        user_id = data.get("user_id")
-        career_track = data.get("career_track")
-        weekly_hours = data.get("weekly_hours")
-        is_stage_progression = data.get("is_stage_progression")
-        print("RAW BODY:", data)
+        user_id = request_body.user_id
+        career_track = request_body.career_track
+        weekly_hours = request_body.weekly_hours
+        is_stage_progression = request_body.is_stage_progression
+        curriculum = request_body.curriculum
+        current_stage_index = request_body.current_stage_index
+        learner_progress = request_body.learner_progress
+        print("RAW BODY:", request_body.model_dump())
         if not user_id or not career_track or not weekly_hours:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -33,35 +51,48 @@ async def roadmap(request: Request,app_settings: Settings = Depends(get_settings
                 }
             )
         
-        config = {
-            "api_key": "sk-wfonewfofoofe",
-            "base_url": "https://8ae4-34-187-223-8.ngrok-free.app/v1/",
-            "max_output_tokens": 100000,
-            "temperature": 0.1,
-            "model": "qwen3:8b",
-        }
+        from helpers.config import get_llm_config
+        config = get_llm_config()
 
-        # my_llm = OpenAIProvider(
-        #     api_key=config["api_key"],  
-        #     base_url=config["base_url"],
-        #     max_output_tokens=config["max_output_tokens"],
-        #     temperature=config["temperature"],
-        # )
+        # The Supervisor uses its OWN dedicated key so it doesn't eat into
+        # any individual agent's quota. Falls back to the default key if
+        # GEMINI_API_KEY_SUPERVISOR is not set.
+        supervisor_key = (
+            getattr(app_settings, "GEMINI_API_KEY_SUPERVISOR", "") 
+            or app_settings.GEMINI_API_KEY
+        )
         my_llm = GeminiProvider(
-            api_key=app_settings.GEMINI_API_KEY,
-            max_output_tokens=100000,
+            api_key=supervisor_key,
+            max_output_tokens=8192,   # Supervisor only needs routing decisions, not huge outputs
             temperature=0.1,
         )
         my_llm.set_generation_model("gemini-2.5-flash")
 
-
         agent_factory = AgentProviderFactory(config)
+        
+        current_stage = request_body.current_stage
+
+        # ── Smart flags: skip agents that are not needed ──────────────────────
+        # If current_stage is sent directly, there's no need to run
+        # CurriculumGenerator or StageExtractor — go straight to ResourceCurator.
+        skip_to_resources = bool(is_stage_progression and current_stage)
+
+        # Build initial state and drop None values
         initial_state: RoadmapState = {
             "user_id": user_id,
             "career_track": career_track,
             "weekly_hours": weekly_hours,
-            "is_stage_progression": is_stage_progression
+            "is_stage_progression": is_stage_progression,
+            "current_stage": current_stage,             # Option A: direct stage
+            "curriculum": curriculum,                   # Option B: full curriculum (legacy)
+            "current_stage_index": current_stage_index,
+            "learner_progress": learner_progress,
+            # Pre-mark agents as done so Supervisor skips them
+            "curriculum_agent_done":  skip_to_resources,
+            "stage_extractor_done":   skip_to_resources,
         }
+
+        initial_state = {k: v for k, v in initial_state.items() if v is not None}
         graph = RoadmapGraph(
             config=config,
             agent_factory=agent_factory,
@@ -73,6 +104,7 @@ async def roadmap(request: Request,app_settings: Settings = Depends(get_settings
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content=jsonable_encoder({
+                "signal": "201_Created",
                 "message": "Roadmap generated successfully",
                 "roadmap": final_state.get("api_response", final_state)
             })

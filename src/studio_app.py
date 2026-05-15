@@ -3,20 +3,8 @@ from stores.llm.providers.OpenAIProvider import OpenAIProvider
 from stores.llm.providers.GeminiProvider import GeminiProvider
 from stores.multi_agents.AgentProviderFactory import AgentProviderFactory
 
-config = {
-    "api_key": "null",
-    "base_url": "https://8ae4-34-187-223-8.ngrok-free.app/v1/",
-    "max_output_tokens": 100000,
-    "temperature": 0.1,
-    "model": "qwen3.5:9b",
-}
-
-# my_llm = OpenAIProvider(
-#     api_key=config["api_key"],  
-#     base_url=config["base_url"],
-#     max_output_tokens=config["max_output_tokens"],
-#     temperature=config["temperature"],
-# )
+from helpers.config import get_llm_config
+config = get_llm_config()
 
 my_llm = GeminiProvider(
     api_key=config["api_key"],  

@@ -113,7 +113,12 @@ class AgentProviderFactory:
             )
 
         self.logger.info(f"[AgentProviderFactory] Creating agent: {agent_type.value}")
-        return agent_class(config=self.config, **kwargs)
+        
+        # Inject LLMManager for load balancing and fallbacks
+        from ..llm.LLMManager import LLMManager
+        llm_manager = LLMManager(self.config)
+        
+        return agent_class(config=self.config, llm_manager=llm_manager, **kwargs)
 
     @staticmethod
     def list_available() -> list:

@@ -1,0 +1,261 @@
+{
+  "message": "Roadmap generated successfully",
+  "roadmap": {
+    "status": "success",
+    "mode": "roadmap_overview",
+    "user_id": "user_123",
+    "career_track": "Frontend Developer",
+    "data": {
+      "curriculum": {
+        "stages": [
+          {
+            "id": "stage_1",
+            "name": "HTML5 Fundamentals",
+            "topics": [
+              "HTML Document Structure",
+              "Semantic HTML Tags",
+              "Forms and Input Types",
+              "Multimedia Embedding (Audio/Video)",
+              "Accessibility Basics (ARIA, alt text)"
+            ],
+            "learning_objectives": {
+              "Construct a well-structured static webpage using HTML5 boilerplate and semantic tags.": "Demonstrate the ability to use header, nav, main, article, section, aside, footer tags appropriately.",
+              "Implement interactive forms with various input types and validation attributes.": "Create a contact form including text, email, number, checkbox, radio, and submit inputs with required attributes.",
+              "Embed and control multimedia content (images, audio, video) within a webpage.": "Integrate an image gallery, an audio player, and a video player using HTML5 tags.",
+              "Apply basic accessibility principles to HTML structures.": "Ensure all images have descriptive alt text and form inputs have associated labels."
+            },
+            "estimated_weeks": 2
+          },
+          {
+            "id": "stage_2",
+            "name": "CSS3 Styling Essentials",
+            "topics": [
+              "CSS Selectors (Class, ID, Element, Attribute)",
+              "Box Model (Margin, Border, Padding, Content)",
+              "Typography and Text Styling",
+              "Colors and Backgrounds",
+              "Flexbox Layout Basics"
+            ],
+            "learning_objectives": {
+              "Style HTML elements using various CSS selectors to achieve specific visual designs.": "Apply styles to elements based on their tag, class, ID, and attribute.",
+              "Manipulate the box model properties to control element spacing and dimensions.": "Adjust margins, padding, and borders to create desired layouts and visual separation.",
+              "Customize text appearance with fonts, sizes, weights, and line spacing.": "Implement custom web fonts and control text alignment, decoration, and transformation.",
+              "Create basic page layouts using Flexbox for one-dimensional alignment.": "Arrange navigation items horizontally and content sections vertically using Flexbox properties."
+            },
+            "estimated_weeks": 2
+          },
+          {
+            "id": "stage_3",
+            "name": "Responsive Web Design Principles",
+            "topics": [
+              "Viewport Meta Tag",
+              "Media Queries",
+              "Fluid Grids and Images",
+              "Mobile-First Approach",
+              "Relative Units (em, rem, vw, vh)"
+            ],
+            "learning_objectives": {
+              "Implement media queries to adapt layouts for different screen sizes.": "Create distinct CSS rules for mobile, tablet, and desktop viewports.",
+              "Design and build a website using a mobile-first approach.": "Start styling for smaller screens and progressively enhance for larger screens.",
+              "Ensure images and other media scale appropriately across devices.": "Utilize CSS properties like max-width: 100% and srcset for responsive images.",
+              "Utilize relative units for scalable and flexible designs.": "Apply 'em', 'rem', 'vw', and 'vh' units for typography and element sizing."
+            },
+            "estimated_weeks": 2
+          },
+          {
+            "id": "stage_4",
+            "name": "JavaScript Core Concepts",
+            "topics": [
+              "Variables and Data Types",
+              "Operators and Expressions",
+              "Control Flow (If/Else, Switch)",
+              "Functions (Declaration, Expression, Arrow)",
+              "DOM Manipulation (Selecting, Modifying, Events)"
+            ],
+            "learning_objectives": {
+              "Write JavaScript code to declare variables, use different data types, and perform operations.": "Create variables for strings, numbers, booleans, arrays, and objects, and perform arithmetic and logical operations.",
+              "Implement conditional logic and loops to control program flow.": "Use if/else statements and switch cases for decision making, and for/while loops for iteration.",
+              "Define and invoke functions to encapsulate reusable code blocks.": "Create functions with parameters and return values to perform specific tasks.",
+              "Interact with the Document Object Model (DOM) to dynamically modify web page content and styles.": "Select elements, change their text content, modify attributes, and attach event listeners for user interactions."
+            },
+            "estimated_weeks": 3
+          },
+          {
+            "id": "stage_5",
+            "name": "Version Control with Git & GitHub",
+            "topics": [
+              "Git Repository Initialization",
+              "Staging and Committing Changes",
+              "Branching and Merging",
+              "Remote Repositories (GitHub)",
+              "Pull Requests and Collaboration"
+            ],
+            "learning_objectives": {
+              "Initialize a Git repository and track changes to project files.": "Use 'git init', 'git add', and 'git commit' commands to manage project history.",
+              "Create and manage branches for feature development and merge them back into the main branch.": "Demonstrate branching workflows for new features and bug fixes.",
+              "Connect a local Git repository to a remote repository on GitHub.": "Push local commits to GitHub and pull changes from a remote repository.",
+              "Collaborate on a project using GitHub by creating pull requests and resolving merge conflicts.": "Submit a pull request, review code, and successfully merge changes."
+            },
+            "estimated_weeks": 2
+          },
+          {
+            "id": "stage_6",
+            "name": "Advanced JavaScript & ES6+",
+            "topics": [
+              "Arrays and Array Methods (map, filter, reduce)",
+              "Objects and Object Destructuring",
+              "ES6+ Features (Arrow Functions, Template Literals, Spread/Rest Operators)",
+              "Asynchronous JavaScript (Callbacks, Promises, Async/Await)",
+              "Error Handling (Try/Catch)"
+            ],
+            "learning_objectives": {
+              "Utilize advanced array methods to transform and manipulate data efficiently.": "Apply map, filter, and reduce to process arrays of objects or numbers.",
+              "Implement modern JavaScript features (ES6+) for cleaner and more concise code.": "Use arrow functions, template literals, and destructuring in practical scenarios.",
+              "Handle asynchronous operations using Promises and Async/Await syntax.": "Fetch data from an API and display it on a webpage using modern asynchronous patterns.",
+              "Implement robust error handling mechanisms in JavaScript applications.": "Use try/catch blocks to gracefully manage potential errors in asynchronous operations."
+            },
+            "estimated_weeks": 3
+          },
+          {
+            "id": "stage_7",
+            "name": "Browser Developer Tools & Debugging",
+            "topics": [
+              "Elements Panel (DOM Inspection, CSS Modification)",
+              "Console Panel (Logging, JavaScript Execution)",
+              "Sources Panel (Breakpoints, Step-through Debugging)",
+              "Network Panel (API Calls, Performance)",
+              "Performance and Lighthouse Audits"
+            ],
+            "learning_objectives": {
+              "Inspect and modify HTML and CSS in real-time using the Elements panel.": "Change element styles and attributes directly in the browser to test design variations.",
+              "Utilize the Console panel for logging information and executing JavaScript commands.": "Debug JavaScript code by printing variable values and testing functions.",
+              "Debug JavaScript code effectively using breakpoints and step-through execution in the Sources panel.": "Identify and fix logical errors in JavaScript functions by tracing execution flow.",
+              "Analyze network requests and responses using the Network panel.": "Monitor API calls, check request/response headers, and identify performance bottlenecks."
+            },
+            "estimated_weeks": 1
+          },
+          {
+            "id": "stage_8",
+            "name": "Introduction to React.js",
+            "topics": [
+              "React Component Structure (Functional Components)",
+              "JSX Syntax",
+              "Props for Data Flow",
+              "State Management with `useState` Hook",
+              "Event Handling in React",
+              "Conditional Rendering"
+            ],
+            "learning_objectives": {
+              "Create reusable functional components using JSX to build UI elements.": "Develop a component hierarchy for a simple application like a to-do list or counter.",
+              "Pass data between components using props.": "Design components that accept and display dynamic data passed from parent components.",
+              "Manage component-specific state using the `useState` hook.": "Implement interactive features where component data changes based on user actions.",
+              "Handle user interactions (clicks, input changes) within React components.": "Attach event listeners to JSX elements and update component state accordingly."
+            },
+            "estimated_weeks": 3
+          },
+          {
+            "id": "stage_9",
+            "name": "React.js Advanced Concepts & Routing",
+            "topics": [
+              "`useEffect` Hook (Lifecycle, Data Fetching)",
+              "Context API for Global State",
+              "React Router for Client-Side Routing",
+              "Forms in React (Controlled Components)",
+              "Custom Hooks"
+            ],
+            "learning_objectives": {
+              "Manage side effects and data fetching using the `useEffect` hook.": "Fetch data from an external API when a component mounts and update state.",
+              "Implement client-side navigation using React Router.": "Create a multi-page React application with distinct routes and navigation links.",
+              "Manage form inputs and submissions using controlled components in React.": "Build a user registration or login form with input validation.",
+              "Develop custom hooks to encapsulate reusable stateful logic.": "Create a custom hook for common functionalities like form handling or local storage interaction."
+            },
+            "estimated_weeks": 3
+          },
+          {
+            "id": "stage_10",
+            "name": "Frontend Tooling & Optimization",
+            "topics": [
+              "Package Managers (npm/yarn)",
+              "Module Bundlers (Vite/Webpack basics)",
+              "Transpilers (Babel)",
+              "Linting (ESLint)",
+              "Basic Performance Optimization (Code Splitting, Image Optimization)"
+            ],
+            "learning_objectives": {
+              "Manage project dependencies and scripts using npm or yarn.": "Install, update, and remove packages, and define custom scripts in package.json.",
+              "Set up a modern development environment using a module bundler like Vite.": "Configure a basic Vite project for a React application.",
+              "Configure ESLint to enforce code style and identify potential errors.": "Integrate ESLint into a project and resolve linting warnings.",
+              "Apply basic performance optimization techniques to a web application.": "Implement lazy loading for components and optimize image assets."
+            },
+            "estimated_weeks": 2
+          },
+          {
+            "id": "stage_11",
+            "name": "State Management with Redux Toolkit",
+            "topics": [
+              "Redux Core Principles (Store, Actions, Reducers)",
+              "Redux Toolkit Setup",
+              "Slices and Reducers",
+              "Asynchronous Logic with Thunks",
+              "Connecting React Components to Redux Store"
+            ],
+            "learning_objectives": {
+              "Understand the core principles of Redux for predictable state management.": "Explain the Redux data flow and its components (actions, reducers, store).",
+              "Implement global state management in a React application using Redux Toolkit.": "Configure a Redux store and create slices for different parts of the application state.",
+              "Handle asynchronous operations (e.g., API calls) using Redux Thunks.": "Fetch data from an API and update the Redux store with the fetched data.",
+              "Connect React components to the Redux store to dispatch actions and select state.": "Display data from the Redux store and update it via user interactions."
+            },
+            "estimated_weeks": 2
+          }
+        ],
+        "dependencies": {
+          "stage_2": [
+            "stage_1"
+          ],
+          "stage_3": [
+            "stage_2"
+          ],
+          "stage_4": [
+            "stage_3"
+          ],
+          "stage_5": [
+            "stage_3"
+          ],
+          "stage_6": [
+            "stage_4"
+          ],
+          "stage_7": [
+            "stage_4"
+          ],
+          "stage_8": [
+            "stage_6",
+            "stage_5"
+          ],
+          "stage_9": [
+            "stage_8"
+          ],
+          "stage_10": [
+            "stage_9"
+          ],
+          "stage_11": [
+            "stage_9"
+          ]
+        },
+        "total_weeks": 25
+      },
+      "difficulty_level": "beginner",
+      "skill_gaps": [
+        "HTML",
+        "CSS",
+        "JavaScript",
+        "React",
+        "Version Control (Git)",
+        "Responsive Design",
+        "Build Tools (Webpack/Vite)",
+        "Browser Developer Tools"
+      ],
+      "total_weeks": 48
+    },
+    "error": null
+  }
+}
