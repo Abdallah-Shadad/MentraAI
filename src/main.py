@@ -5,6 +5,7 @@ from stores.graph   import GraphProviderFactory
 from routes import roadmap
 from routes.AdaptionEngine import adaptation_router
 from routes.quiz import quiz_router
+from routes.project import project_router
 
 app = FastAPI()
 
@@ -23,4 +24,5 @@ app.on_event("shutdown")(shutdown_span)
 app.include_router(base.base_router)
 app.include_router(roadmap.roadmap_router)
 app.include_router(adaptation_router)
-app.include_router(quiz_router)
+app.include_router(quiz_router)
+app.include_router(project_router)

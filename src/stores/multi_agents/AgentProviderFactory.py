@@ -13,6 +13,9 @@ from .RoadmapMultiAgent.agents.AdaptationEngine import AdaptationEngine
 # ── Quiz agents ──────────────────────────────────────────────────────────
 from .QuizAgent.agents.QuestionGenerator import QuestionGenerator
 
+# ── Project agents ───────────────────────────────────────────────────────
+from .ProjectAgent.agents.ProjectRecommender import ProjectRecommender
+
 # ── Capstone agents (uncomment when implemented) ────────────────────────
 # from .CapstoneMultiAgent.agents.ProjectIdeator import ProjectIdeator
 # from .CapstoneMultiAgent.agents.ImplementationGuide import ImplementationGuide
@@ -52,6 +55,9 @@ class AgentProviderFactory:
 
         # ── Quiz ──────────────────────────────────────────────────────────
         AgentType.QUESTION_GENERATOR:   QuestionGenerator,
+
+        # ── Project ───────────────────────────────────────────────────────
+        AgentType.PROJECT_RECOMMENDER:  ProjectRecommender,
 
         # ── Capstone (add when ready) ──────────────────────────────────
         # AgentType.PROJECT_IDEATOR:      ProjectIdeator,
