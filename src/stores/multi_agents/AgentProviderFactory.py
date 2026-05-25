@@ -10,13 +10,8 @@ from .RoadmapMultiAgent.agents.CurriculumGenerator import CurriculumGenerator
 from .RoadmapMultiAgent.agents.ResourceCurator import ResourceCurator
 from .RoadmapMultiAgent.agents.AdaptationEngine import AdaptationEngine
 
-# ── Quiz agents (uncomment when implemented) ────────────────────────────
-# from .QuizMultiAgent.agents.QuestionGenerator import QuestionGenerator
-# from .QuizMultiAgent.agents.AnswerEvaluator import AnswerEvaluator
-# from .QuizMultiAgent.agents.HintProvider import HintProvider
-# from .QuizMultiAgent.agents.QuizGrader import QuizGrader
-# from .QuizMultiAgent.agents.FeedbackGenerator import FeedbackGenerator
-# from .QuizMultiAgent.agents.RemediationPlanner import RemediationPlanner
+# ── Quiz agents ──────────────────────────────────────────────────────────
+from .QuizAgent.agents.QuestionGenerator import QuestionGenerator
 
 # ── Capstone agents (uncomment when implemented) ────────────────────────
 # from .CapstoneMultiAgent.agents.ProjectIdeator import ProjectIdeator
@@ -55,13 +50,8 @@ class AgentProviderFactory:
         AgentType.RESOURCE_CURATOR:     ResourceCurator,
         AgentType.ADAPTATION_ENGINE:    AdaptationEngine,
 
-        # ── Quiz (add when ready) ──────────────────────────────────────
-        # AgentType.QUESTION_GENERATOR:   QuestionGenerator,
-        # AgentType.ANSWER_EVALUATOR:     AnswerEvaluator,
-        # AgentType.HINT_PROVIDER:        HintProvider,
-        # AgentType.QUIZ_GRADER:          QuizGrader,
-        # AgentType.FEEDBACK_GENERATOR:   FeedbackGenerator,
-        # AgentType.REMEDIATION_PLANNER:  RemediationPlanner,
+        # ── Quiz ──────────────────────────────────────────────────────────
+        AgentType.QUESTION_GENERATOR:   QuestionGenerator,
 
         # ── Capstone (add when ready) ──────────────────────────────────
         # AgentType.PROJECT_IDEATOR:      ProjectIdeator,
