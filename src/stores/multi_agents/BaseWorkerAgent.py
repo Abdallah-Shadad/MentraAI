@@ -53,9 +53,11 @@ class BaseWorkerAgent(AgentInterface):
         config: Any = None,
         llm: Any = None,
         tools: Optional[List[BaseTool]] = None,
+        llm_manager: Any = None,
     ) -> None:
         self.config = config
         self.llm = llm
+        self.llm_manager = llm_manager
         self.tools: List[BaseTool] = tools or []
         self._system_prompt: str = self._DEFAULT_SYSTEM_PROMPT
         # Logger name = concrete class name (e.g. "CurriculumGenerator")
@@ -105,9 +107,9 @@ class BaseWorkerAgent(AgentInterface):
         """
         agent_name = self.__class__.__name__
 
-        if self.llm is None:
+        if self.llm is None and self.llm_manager is None:
             raise RuntimeError(
-                f"{agent_name} requires an LLM. Call set_llm() first."
+                f"{agent_name} requires an LLM or LLMManager. Call set_llm() first."
             )
 
         self.logger.info(f"[{agent_name}] Starting execution.")
@@ -117,8 +119,13 @@ class BaseWorkerAgent(AgentInterface):
             # ── Tool-calling loop (skipped when no tools are registered) ──
             if self.tools:
                 schema_name = self._output_schema().__name__
+                
                 # Bind regular tools + the output schema as a tool
-                llm_with_tools = self.llm.client.bind_tools(self.tools + [self._output_schema()])
+                if self.llm_manager is not None:
+                    llm_with_tools = self.llm_manager.get_tool_chain(agent_name, self.tools + [self._output_schema()])
+                else:
+                    llm_with_tools = self.llm.client.bind_tools(self.tools + [self._output_schema()])
+                    
                 self.logger.info(f"[{agent_name}] Running with {len(self.tools)} tool(s) + {schema_name} schema.")
 
                 # Instruct the model to use the schema tool for its final answer
@@ -133,8 +140,6 @@ class BaseWorkerAgent(AgentInterface):
                     messages.append(ai_msg)
 
                     if not ai_msg.tool_calls:
-                        # The LLM didn't call any tools. It might have output the JSON as plain text anyway.
-                        # Let's try to parse it directly to avoid a redundant LLM call via structured_chain.
                         try:
                             content = ai_msg.content.strip()
                             if content.startswith("```json"):
@@ -145,8 +150,12 @@ class BaseWorkerAgent(AgentInterface):
                             parsed_data = json.loads(content)
                             response = self._output_schema()(**parsed_data)
                             self.logger.info(f"[{agent_name}] Parsed structured output directly from plain text.")
+                            
+                            output_dict = response.model_dump() if hasattr(response, "model_dump") else response.dict() if hasattr(response, "dict") else {}
+                            
                             return {
                                 **state,
+                                **output_dict,
                                 self._output_key(): response,
                                 self._done_key(): True,
                             }
@@ -160,8 +169,12 @@ class BaseWorkerAgent(AgentInterface):
                         self.logger.info(f"[{agent_name}] Final output schema tool called.")
                         try:
                             response = self._output_schema()(**schema_call["args"])
+                            
+                            output_dict = response.model_dump() if hasattr(response, "model_dump") else response.dict() if hasattr(response, "dict") else {}
+                            
                             return {
                                 **state,
+                                **output_dict,
                                 self._output_key(): response,
                                 self._done_key(): True,
                             }
@@ -181,14 +194,19 @@ class BaseWorkerAgent(AgentInterface):
                         messages.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
 
             # ── Final structured output (Fallback or No-Tools Path) ──
-            # Use self.llm.client directly so we don't mutate self.llm in-place.
-            # (GeminiProvider.with_structured_output replaces self.client in-place,
-            # which would break on the second invocation.)
-            structured_chain = self.llm.client.with_structured_output(self._output_schema())
+            if self.llm_manager is not None:
+                structured_chain = self.llm_manager.get_structured_chain(agent_name, self._output_schema())
+            else:
+                structured_chain = self.llm.client.with_structured_output(self._output_schema())
+                
             response = structured_chain.invoke(messages)
             self.logger.info(f"[{agent_name}] Completed successfully.")
+            
+            output_dict = response.model_dump() if hasattr(response, "model_dump") else response.dict() if hasattr(response, "dict") else {}
+            
             return {
                 **state,
+                **output_dict,
                 self._output_key(): response,
                 self._done_key(): True,
             }
