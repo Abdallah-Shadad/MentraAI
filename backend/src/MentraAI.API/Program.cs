@@ -147,7 +147,15 @@ builder.Services.AddAuthorization();
 // === CORS ===
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("Frontend", policy =>
+    // development: allow all origins (for ease of testing with various frontends)
+    options.AddPolicy("DevPolicy", policy =>
+        policy.SetIsOriginAllowed(_ => true)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials());
+
+    // production: restrict to allowed origins
+    options.AddPolicy("ProdPolicy", policy =>
         policy.WithOrigins(
                 builder.Configuration["Cors:AllowedOrigins"]!
                     .Split(',', StringSplitOptions.RemoveEmptyEntries))
@@ -155,6 +163,20 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowCredentials());
 });
+
+
+
+
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("Frontend", policy =>
+//        policy.WithOrigins(
+//                builder.Configuration["Cors:AllowedOrigins"]!
+//                    .Split(',', StringSplitOptions.RemoveEmptyEntries))
+//              .AllowAnyHeader()
+//              .AllowAnyMethod()
+//              .AllowCredentials());
+//});
 
 //  AutoMapper
 builder.Services.AddAutoMapper(typeof(Program).Assembly);
@@ -197,8 +219,21 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-app.UseCors("Frontend");
+// HTTPS redirection (optional, but recommended in production)
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+// CORS must be before auth/authorization and after exception handling
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("DevPolicy"); // allow all origins in development for ease of testing with various frontends  
+}
+else
+{
+    app.UseCors("ProdPolicy"); // restrict to allowed origins in production for security  
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
