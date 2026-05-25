@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
+from typing import Optional
 
 from helpers.config import get_settings, Settings
 from stores.multi_agents.ChatAgent.embedder import Embedder
 from stores.multi_agents.ChatAgent.ChatRouter import ChatRouter
+from stores.multi_agents.ChatAgent.MentorContext import MentorContext
 
 import logging
 
@@ -24,8 +26,39 @@ chat_router = APIRouter(
 # ─────────────────────────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
-    user_id: str  = Field(..., description="Unique identifier for the user / session.")
-    query:   str  = Field(..., min_length=1, description="The user's message.")
+    # ── Required ───────────────────────────────────────────────
+    user_id:         str = Field(..., description="Unique identifier for the user.")
+    conversation_id: str = Field(..., description="Conversation bucket ID. Same ID continues history; new ID starts fresh.")
+    query:           str = Field(..., min_length=1, description="The user's message.")
+
+    # ── Optional learner state (sent progressively as user makes progress) ──
+    career_track: Optional[str] = Field(
+        None,
+        description="Learner's career path, e.g. 'backend', 'frontend', 'data'.",
+    )
+    stage: Optional[str] = Field(
+        None,
+        description="Current learning stage, e.g. 'advanced_python', 'django_basics'.",
+    )
+    lesson_id: Optional[str] = Field(
+        None,
+        description="Active lesson identifier, e.g. 'decorators_intro'.",
+    )
+    quiz_details: Optional[str] = Field(
+        None,
+        description="Quiz label, e.g. 'quiz_title+quiz_lesson'.",
+    )
+    quiz_score: Optional[int] = Field(
+        None,
+        ge=0,
+        le=100,
+        description="Most recent quiz score (0-100). Null = no quiz taken yet.",
+    )
+
+
+class ClearMemoryRequest(BaseModel):
+    user_id:         str = Field(..., description="User whose conversation should be cleared.")
+    conversation_id: str = Field(..., description="The specific conversation to clear.")
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -65,18 +98,35 @@ async def chat(
             content={"error": "query must not be empty."},
         )
 
-    # ── Eagerly resolve cache status BEFORE streaming starts ─────────────
-    # resolve() awaits the cache check and returns (hit: bool, stream).
-    # This lets us set the X-Cache header before any bytes are sent.
+    # ── Build MentorContext from the request body ────────────────────────
+    ctx = MentorContext(
+        user_id=body.user_id,
+        conversation_id=body.conversation_id,
+        career_track=body.career_track,
+        stage=body.stage,
+        lesson_id=body.lesson_id,
+        quiz_details=body.quiz_details,
+        quiz_score=body.quiz_score,
+    )
+
+    # ── Eagerly resolve cache status BEFORE streaming starts ────────────
+    # resolve() awaits both the classifier and the cache check, returning
+    # (hit: bool, stream) so we can set X-Cache before any bytes are sent.
     try:
         is_cache_hit, token_stream = await _chat_router_instance.resolve(
-            user_id=body.user_id,
+            ctx=ctx,
             query=body.query.strip(),
         )
-        logger.info("chat — X-Cache: %s  user=%s", "HIT" if is_cache_hit else "MISS", body.user_id)
+        logger.info(
+            "chat — X-Cache: %s  user=%s  conv=%s",
+            "HIT" if is_cache_hit else "MISS",
+            body.user_id,
+            body.conversation_id,
+        )
     except Exception as exc:
         logger.error(
-            "chat endpoint — resolve error (user=%s): %s", body.user_id, exc
+            "chat endpoint — resolve error (user=%s  conv=%s): %s",
+            body.user_id, body.conversation_id, exc,
         )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -89,7 +139,8 @@ async def chat(
                 yield chunk
         except Exception as exc:
             logger.error(
-                "chat endpoint — stream error (user=%s): %s", body.user_id, exc
+                "chat endpoint — stream error (user=%s  conv=%s): %s",
+                body.user_id, body.conversation_id, exc,
             )
             yield "\n[Error: an internal error occurred.]"
 
@@ -98,6 +149,7 @@ async def chat(
         media_type="text/plain",
         headers={
             "X-Cache":           "HIT" if is_cache_hit else "MISS",
+            "X-Conversation-Id": body.conversation_id,
             "X-Accel-Buffering": "no",       # disable Nginx proxy buffering
             "Cache-Control":     "no-cache", # prevent client-side caching of the stream
         },
@@ -105,23 +157,37 @@ async def chat(
 
 
 # ─────────────────────────────────────────────────────────────────
-# DELETE /api/v1/chat/memory/{user_id}
+# DELETE /api/v1/chat/memory
 # ─────────────────────────────────────────────────────────────────
 
 @chat_router.delete(
-    "/memory/{user_id}",
-    summary="Clear user conversation memory",
-    description="Wipe all Redis conversation history for the given user.",
+    "/memory",
+    summary="Clear conversation memory",
+    description=(
+        "Wipe Redis conversation history for a specific user + conversation pair. "
+        "Other conversations for the same user are NOT affected."
+    ),
 )
-async def clear_memory(user_id: str):
+async def clear_memory(body: ClearMemoryRequest):
     try:
-        await _chat_router_instance.clear_user_memory(user_id)
+        await _chat_router_instance.clear_conversation(
+            user_id=body.user_id,
+            conversation_id=body.conversation_id,
+        )
         return JSONResponse(
             status_code=status.HTTP_200_OK,
-            content={"message": f"Memory cleared for user '{user_id}'."},
+            content={
+                "message": (
+                    f"Memory cleared for user '{body.user_id}' "
+                    f"conversation '{body.conversation_id}'."
+                )
+            },
         )
     except Exception as exc:
-        logger.error("clear_memory error (user=%s): %s", user_id, exc)
+        logger.error(
+            "clear_memory error (user=%s  conv=%s): %s",
+            body.user_id, body.conversation_id, exc,
+        )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"error": str(exc)},

@@ -2,14 +2,20 @@
 Redis-backed Conversation Memory Manager
 ==========================================
 
-Per-user memory stored entirely in Redis — survives FastAPI restarts.
+Per-user, per-conversation memory stored entirely in Redis.
+Survives FastAPI restarts.
 
-Redis keys (all scoped to user_id):
+Redis keys (scoped to BOTH user_id AND conversation_id):
 ────────────────────────────────────────────────────────────────
-  chat:memory:{user_id}:messages   LIST    raw messages (JSON)
-  chat:memory:{user_id}:summary    STRING  rolling summary text
-  chat:memory:{user_id}:msg_count  STRING  total messages added
+  chat:memory:{uid}:{conv_id}:messages   LIST    raw messages (JSON)
+  chat:memory:{uid}:{conv_id}:summary    STRING  rolling summary text
+  chat:memory:{uid}:{conv_id}:msg_count  STRING  total messages added
 ────────────────────────────────────────────────────────────────
+
+Conversation isolation:
+  • Same conversation_id  → history continues in the same bucket.
+  • New  conversation_id  → a fresh empty bucket; no bleed between chats.
+  • clear_conversation()  → wipes only one specific conversation bucket.
 
 Behaviour:
   • RPUSH  — new messages are appended to the tail.
@@ -35,9 +41,11 @@ logger   = logging.getLogger(__name__)
 settings = get_settings()
 
 # ── Key builders ────────────────────────────────────────────────
-_KEY_MESSAGES  = "chat:memory:{uid}:messages"
-_KEY_SUMMARY   = "chat:memory:{uid}:summary"
-_KEY_MSG_COUNT = "chat:memory:{uid}:msg_count"
+# Keys are scoped to BOTH user_id and conversation_id so each
+# conversation gets its own isolated history bucket.
+_KEY_MESSAGES  = "chat:memory:{uid}:{conv_id}:messages"
+_KEY_SUMMARY   = "chat:memory:{uid}:{conv_id}:summary"
+_KEY_MSG_COUNT = "chat:memory:{uid}:{conv_id}:msg_count"
 
 _SUMMARIZE_PROMPT = (
     "You are a conversation summarizer.\n"
@@ -82,12 +90,14 @@ class RedisMemoryManager:
     # ─────────────────────────────────────────────
 
     @staticmethod
-    def _keys(user_id: str) -> tuple[str, str, str]:
-        uid = user_id.strip()
+    def _keys(user_id: str, conversation_id: str) -> tuple[str, str, str]:
+        """Build the three Redis key names for a specific (user, conversation) pair."""
+        uid     = user_id.strip()
+        conv_id = conversation_id.strip()
         return (
-            _KEY_MESSAGES.format(uid=uid),
-            _KEY_SUMMARY.format(uid=uid),
-            _KEY_MSG_COUNT.format(uid=uid),
+            _KEY_MESSAGES.format(uid=uid, conv_id=conv_id),
+            _KEY_SUMMARY.format(uid=uid, conv_id=conv_id),
+            _KEY_MSG_COUNT.format(uid=uid, conv_id=conv_id),
         )
 
     # ─────────────────────────────────────────────
@@ -106,16 +116,26 @@ class RedisMemoryManager:
     # Public API
     # ─────────────────────────────────────────────
 
-    async def get_context(self, user_id: str, system_prompt: str) -> list:
+    async def get_context(
+        self,
+        user_id: str,
+        conversation_id: str,
+        system_prompt: str,
+    ) -> list:
         """
         Build the message list for the LLM call.
+
+        Args:
+            user_id:         Unique user identifier.
+            conversation_id: Scopes the memory bucket to a specific conversation.
+            system_prompt:   The full system prompt (tier + mentor prefix already merged).
 
         Returns:
             [SystemMessage(system_prompt + "\n\n" + summary)]   ← merged
             + [HumanMessage | AIMessage …]                      ← recent window
         """
         redis = await self._get_redis()
-        key_msgs, key_summary, _ = self._keys(user_id)
+        key_msgs, key_summary, _ = self._keys(user_id, conversation_id)
 
         # ── 1. Load summary + raw messages in parallel ──
         summary_raw, raw_msgs = await asyncio.gather(
@@ -143,14 +163,15 @@ class RedisMemoryManager:
                 messages.append(AIMessage(content=msg["content"]))
 
         logger.debug(
-            "Memory GET — user=%s  summary=%s  window=%d messages",
-            user_id, "yes" if summary_raw else "no", len(raw_msgs),
+            "Memory GET — user=%s  conv=%s  summary=%s  window=%d messages",
+            user_id, conversation_id, "yes" if summary_raw else "no", len(raw_msgs),
         )
         return messages
 
     async def add_messages(
         self,
         user_id: str,
+        conversation_id: str,
         human_text: str,
         ai_text: str,
         summarizer_provider,          # LLMInterface — the simple-tier provider
@@ -160,13 +181,14 @@ class RedisMemoryManager:
 
         Args:
             user_id:              Unique user identifier.
+            conversation_id:      Scopes the memory bucket to a specific conversation.
             human_text:           The user's query.
             ai_text:              The LLM's full response.
             summarizer_provider:  A ready-to-use LLM provider for summarization.
                                   (Runs in thread pool to avoid blocking the loop.)
         """
         redis = await self._get_redis()
-        key_msgs, key_summary, key_count = self._keys(user_id)
+        key_msgs, key_summary, key_count = self._keys(user_id, conversation_id)
 
         # ── 1. Push human + AI messages ──
         pipe = redis.pipeline()
@@ -180,8 +202,8 @@ class RedisMemoryManager:
         new_count = int(results[-1])
 
         logger.debug(
-            "Memory SET — user=%s  total_count=%d  window_limit=%d",
-            user_id, new_count, self.max_window,
+            "Memory SET — user=%s  conv=%s  total_count=%d  window_limit=%d",
+            user_id, conversation_id, new_count, self.max_window,
         )
 
         # ── 2. Recompute summary every SUMMARY_INTERVAL messages ──
@@ -225,12 +247,19 @@ class RedisMemoryManager:
         except Exception as exc:
             logger.error("Summary recomputation failed: %s", exc)
 
-    async def clear(self, user_id: str) -> None:
-        """Delete all memory keys for a user (conversation reset)."""
+    async def clear_conversation(self, user_id: str, conversation_id: str) -> None:
+        """
+        Delete all memory keys for a specific (user, conversation) pair.
+
+        Only the three keys that belong to this exact conversation are removed;
+        all other conversations for the same user remain intact.
+        """
         redis = await self._get_redis()
-        key_msgs, key_summary, key_count = self._keys(user_id)
+        key_msgs, key_summary, key_count = self._keys(user_id, conversation_id)
         await redis.delete(key_msgs, key_summary, key_count)
-        logger.info("Memory CLEARED — user=%s", user_id)
+        logger.info(
+            "Memory CLEARED — user=%s  conv=%s", user_id, conversation_id
+        )
 
     async def health_check(self) -> bool:
         """Verify Redis is reachable."""
