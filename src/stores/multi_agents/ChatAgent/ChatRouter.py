@@ -4,16 +4,37 @@ ChatRouter — Async Streaming Router with Semantic Cache & Redis Memory
 
 Entry-point for all chat requests.  Exposes two public methods:
 
-  resolve(user_id, query) → (cache_hit: bool, stream: AsyncGenerator)
+  resolve(ctx, query) → (cache_hit: bool, stream: AsyncGenerator)
+      ctx   – MentorContext carrying user_id, conversation_id, and optional
+              learner state (career_track, stage, lesson_id, quiz_*).
       Checks the semantic cache eagerly, BEFORE yielding any tokens.
       Returns the cache status immediately so callers can set response
       headers (e.g. X-Cache: HIT/MISS) before streaming begins.
 
-  chat(user_id, query) → AsyncGenerator[str, None]
+  chat(ctx, query) → AsyncGenerator[str, None]
       Thin wrapper around resolve() — kept for backward compatibility.
 
+Cache key strategy (Context-Enriched Semantic Query):
+
+    The raw query is enriched with available learner context tags before
+    being embedded and stored.  This means semantically similar queries
+    asked at different learning stages or in different career tracks produce
+    DIFFERENT cache entries, so:
+
+      • "what is looping? [track:backend | stage:python_basics]" → Python answer
+      • "what is looping? [track:frontend | stage:javascript_basics]" → JS answer
+
+    Two learners at the same stage asking the same question still get a
+    cache HIT (the enriched strings are semantically identical → high
+    cosine similarity).
+
+    quiz_score is intentionally excluded from the enriched query — it
+    affects the tone/framing of the answer (handled by the system prompt
+    mentor prefix), NOT the factual content.  Caching by quiz score would
+    fragment the cache and reduce hit rate with no correctness benefit.
+
 FastAPI usage (preferred — exposes X-Cache header):
-    is_hit, stream = await router.resolve(user_id, query)
+    is_hit, stream = await router.resolve(ctx, query)
     return StreamingResponse(
         stream,
         headers={"X-Cache": "HIT" if is_hit else "MISS"},
@@ -29,6 +50,7 @@ from langchain_core.messages import HumanMessage
 
 from .ClassifyAgent import ClassifyAgent
 from .Llm_worker import LlmWorker
+from .MentorContext import MentorContext, build_mentor_prefix
 from .cache.Cache import semantic_cache
 from .cache.RedisMemory import RedisMemoryManager
 from .ChatEnums import ChatTypes
@@ -45,6 +67,44 @@ _TIER_PROMPTS: dict[str, str] = {
 
 # ── Cache replay chunk size (characters per yielded chunk) ──────
 _REPLAY_CHUNK_SIZE = 32
+
+
+def _build_cache_query(query: str, ctx: MentorContext) -> str:
+    """
+    Build a context-enriched query string for semantic cache lookup & storage.
+
+    The raw query is extended with available learner context tags so the
+    Cohere embedder produces DIFFERENT vectors for different learning contexts.
+
+    Examples
+    --------
+    No context (new user):
+        "what is looping?"
+
+    With context:
+        "what is looping? [track:backend | stage:python_basics | lesson:loops_intro]"
+        "what is looping? [track:frontend | stage:javascript_basics | lesson:loops_intro]"
+
+    The two context-enriched strings above will have low cosine similarity
+    despite sharing the same raw question — they will NOT hit each other's
+    cache entries.
+
+    Note: quiz_score is deliberately excluded.  It only affects the tone
+    of the answer (handled by the system prompt), not the factual content.
+    Caching by score would fragment the cache without correctness benefit.
+    """
+    tags: list[str] = []
+    if ctx.career_track:
+        tags.append(f"track:{ctx.career_track}")
+    if ctx.stage:
+        tags.append(f"stage:{ctx.stage}")
+    if ctx.lesson_id:
+        tags.append(f"lesson:{ctx.lesson_id}")
+
+    if not tags:
+        return query.strip()   # new user — no context, plain query
+
+    return f"{query.strip()} [{' | '.join(tags)}]"
 
 
 class ChatRouter:
@@ -93,19 +153,19 @@ class ChatRouter:
 
     async def resolve(
         self,
-        user_id: str,
+        ctx: MentorContext,
         query: str,
     ) -> tuple[bool, AsyncGenerator[str, None]]:
         """
         Eagerly check the semantic cache, then return the stream.
 
-        The cache lookup is awaited **before** any token is yielded, so
-        the caller knows the cache status immediately and can include it
-        in HTTP response headers before streaming begins.
+        Cache is checked BEFORE any token is yielded so the caller can include
+        the X-Cache header in the HTTP response before streaming begins.
 
         Args:
-            user_id: Unique identifier for the user.
-            query:   The raw user message.
+            ctx:   MentorContext holding user_id, conversation_id, and optional
+                   learner state fields.
+            query: The raw user message.
 
         Returns:
             (cache_hit, stream) where:
@@ -113,24 +173,39 @@ class ChatRouter:
               stream    – AsyncGenerator that yields text chunks.
 
         FastAPI usage:
-            is_hit, stream = await router.resolve(uid, q)
+            is_hit, stream = await router.resolve(ctx, q)
             return StreamingResponse(
                 stream,
                 headers={"X-Cache": "HIT" if is_hit else "MISS"},
                 media_type="text/plain",
             )
         """
-        cached = await semantic_cache.get(query)
+        # ── Step 1: Classify first (needed for routing tier) ────────
+        chat_type = await self.classifier.classify_chat(query)
+
+        # ── Step 2: Build context-enriched query for semantic cache ──
+        # career_track + stage + lesson_id change the CONTENT of the answer.
+        # quiz_score only changes the tone — excluded from cache key.
+        enriched_query = _build_cache_query(query, ctx)
+
+        # ── Step 3: Check semantic cache with enriched query ─────────
+        cached = await semantic_cache.get(enriched_query)
         if cached:
-            logger.info("ChatRouter — cache HIT for user=%s", user_id)
+            logger.info(
+                "ChatRouter — cache HIT  user=%s  conv=%s  tier=%s  enriched_q='%.60s'",
+                ctx.user_id, ctx.conversation_id, chat_type, enriched_query,
+            )
             return True, self._replay_stream(cached)
 
-        logger.info("ChatRouter — cache MISS for user=%s", user_id)
-        return False, self._live_stream(user_id, query)
+        logger.info(
+            "ChatRouter — cache MISS user=%s  conv=%s  tier=%s  enriched_q='%.60s'",
+            ctx.user_id, ctx.conversation_id, chat_type, enriched_query,
+        )
+        return False, self._live_stream(ctx, query, enriched_query, chat_type)
 
     async def chat(
         self,
-        user_id: str,
+        ctx: MentorContext,
         query: str,
     ) -> AsyncGenerator[str, None]:
         """
@@ -139,7 +214,7 @@ class ChatRouter:
         Prefer `resolve()` in FastAPI endpoints so you can set the
         X-Cache response header before streaming begins.
         """
-        _, stream = await self.resolve(user_id, query)
+        _, stream = await self.resolve(ctx, query)
         async for chunk in stream:
             yield chunk
 
@@ -149,27 +224,40 @@ class ChatRouter:
 
     async def _live_stream(
         self,
-        user_id: str,
+        ctx: MentorContext,
         query: str,
+        enriched_query: str,         # pre-built in resolve() — used for cache.set()
+        chat_type: str,              # already classified in resolve()
     ) -> AsyncGenerator[str, None]:
         """
-        Classify → build context → stream LLM → persist.
+        Build context → stream LLM → persist.
+
+        `chat_type` is passed in from resolve() to avoid classifying twice
+        (resolve() already ran the classifier to compute the cache key).
 
         Called only on a cache miss.  Runs the full pipeline and
         fires-and-forgets cache + memory persistence after streaming.
         """
-        # ── Step 1: Classify query complexity ───────────────────
-        chat_type = await self.classifier.classify_chat(query)
+        user_id         = ctx.user_id
+        conversation_id = ctx.conversation_id
+
         logger.info(
-            "ChatRouter — classified as '%s' for user=%s", chat_type, user_id
+            "ChatRouter — classified as '%s' for user=%s  conv=%s",
+            chat_type, user_id, conversation_id,
         )
 
-        # ── Step 2: Build context (system prompt + memory + query) ──
-        system_prompt = _TIER_PROMPTS.get(chat_type, SIMPLE_CHAT_PROMPT)
-        messages      = await self.memory.get_context(user_id, system_prompt)
+        # ── Step 1: Build system prompt = mentor prefix + tier prompt ───
+        tier_prompt   = _TIER_PROMPTS.get(chat_type, SIMPLE_CHAT_PROMPT)
+        mentor_prefix = build_mentor_prefix(ctx)          # "" for new users
+        system_prompt = mentor_prefix + tier_prompt
+
+        # ── Step 2: Load conversation memory ───────────────────────────
+        messages = await self.memory.get_context(
+            user_id, conversation_id, system_prompt
+        )
         messages.append(HumanMessage(content=query))
 
-        # ── Step 3: Stream LLM response ─────────────────────────
+        # ── Step 3: Stream LLM response ──────────────────────────────
         chunks: list[str] = []
         try:
             async for chunk in self.llm_worker.stream(chat_type, messages):
@@ -177,8 +265,8 @@ class ChatRouter:
                 yield chunk
         except Exception as exc:
             logger.error(
-                "ChatRouter — LLM stream error (user=%s tier=%s): %s",
-                user_id, chat_type, exc,
+                "ChatRouter — LLM stream error (user=%s conv=%s tier=%s): %s",
+                user_id, conversation_id, chat_type, exc,
             )
             yield "\n[Error: failed to generate response. Please try again.]"
             return
@@ -196,7 +284,14 @@ class ChatRouter:
             user_id, chat_type, len(full_response),
         )
         asyncio.create_task(
-            self._persist(user_id, query, full_response, chat_type)
+            self._persist(
+                ctx.user_id,
+                ctx.conversation_id,
+                query,
+                enriched_query,          # context-enriched — used as cache key
+                full_response,
+                chat_type,
+            )
         )
 
     # ─────────────────────────────────────────────
@@ -206,12 +301,18 @@ class ChatRouter:
     async def _persist(
         self,
         user_id: str,
+        conversation_id: str,
         query: str,
+        enriched_query: str,
         full_response: str,
         chat_type: str,
     ) -> None:
         """
-        Save the completed exchange to cache + memory.
+        Save the completed exchange to semantic cache + Redis memory.
+
+        Cache: stored with the ENRICHED query so future lookups with the
+        same learner context (career_track + stage + lesson_id) get a HIT.
+        Memory: stored with the RAW query so conversation history is human-readable.
 
         Runs as an asyncio Task (fire-and-forget) so the HTTP response
         is not delayed by post-processing I/O.
@@ -219,17 +320,20 @@ class ChatRouter:
         summarizer = self.llm_worker.get_provider(ChatTypes.SIMPLE.value)
         try:
             await asyncio.gather(
-                semantic_cache.set(query, full_response),
+                semantic_cache.set(enriched_query, full_response),  # enriched key
                 self.memory.add_messages(
-                    user_id, query, full_response, summarizer
+                    user_id, conversation_id, query, full_response, summarizer
                 ),
             )
             logger.info(
-                "ChatRouter — persisted exchange for user=%s tier=%s",
-                user_id, chat_type,
+                "ChatRouter — persisted  user=%s  conv=%s  tier=%s  cache_q='%.60s'",
+                user_id, conversation_id, chat_type, enriched_query,
             )
         except Exception as exc:
-            logger.error("ChatRouter — persist error (user=%s): %s", user_id, exc)
+            logger.error(
+                "ChatRouter — persist error (user=%s  conv=%s): %s",
+                user_id, conversation_id, exc,
+            )
 
     @staticmethod
     async def _replay_stream(
@@ -250,10 +354,17 @@ class ChatRouter:
     # Maintenance
     # ─────────────────────────────────────────────
 
-    async def clear_user_memory(self, user_id: str) -> None:
-        """Wipe all conversation history for a user (e.g. on session reset)."""
-        await self.memory.clear(user_id)
-        logger.info("ChatRouter — memory cleared for user=%s", user_id)
+    async def clear_conversation(
+        self,
+        user_id: str,
+        conversation_id: str,
+    ) -> None:
+        """Wipe conversation history for a specific (user, conversation) pair."""
+        await self.memory.clear_conversation(user_id, conversation_id)
+        logger.info(
+            "ChatRouter — memory cleared for user=%s  conv=%s",
+            user_id, conversation_id,
+        )
 
     async def health_check(self) -> dict:
         """Return health status of cache and memory subsystems."""
