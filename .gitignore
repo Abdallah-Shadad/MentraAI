@@ -1,5 +1,6 @@
 Notes.txt
 .env
+.env/
 __pycache__
 Explanation.md
 Explanation2.md
