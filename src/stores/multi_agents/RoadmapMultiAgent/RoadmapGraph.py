@@ -53,7 +53,7 @@ from ..AgentEnums import AgentType
 from ..AgentProviderFactory import AgentProviderFactory
 from ...graph import GraphInterface
 from ...graph.GraphEnums import GraphType, NodeName
-from .agents.schemas.AdaptationEngine import Resource
+from .agents.schemas.AdaptationEngine import RemediationResource
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1. SHARED STATE
@@ -91,9 +91,14 @@ class RoadmapState(TypedDict, total=False):
 
     # ── Adaptation Engine outputs (optional / triggered by progress) ─────
     struggling_topics: Annotated[Optional[List[str]], "List of topics the user is struggling with. that get from user feedback and quiz attempts. Produced by Adaptation Engine."]
-    adapted_recommended_resources: Annotated[Optional[List[Resource]], "List of recommended resources based on user's struggling topics. Produced by Adaptation Engine."]
+    adapted_recommended_resources: Annotated[Optional[List[RemediationResource]], "List of recommended resources based on user's struggling topics. Produced by Adaptation Engine."]
     adaptation_agent_done: Annotated[bool, "Signals completion of Adaptation Engine execution. Used by Supervisor for routing."]
     adaptation_summary: Annotated[str, "Summary of the adaptation. Produced by Adaptation Engine."]
+
+    # ── Quiz / Adaptation-mode inputs ───────────────────────────────────
+    stage_id: Annotated[Optional[str], "ID of the stage the learner just attempted (e.g. 'stage_0'). Used in adaptation mode."]
+    topic: Annotated[Optional[str], "Specific topic the learner is struggling with. Used in adaptation mode."]
+    is_adaptation_mode: Annotated[bool, "When True the Supervisor skips full pipeline and routes only to AdaptationEngine → ResponseFormatter."]
 
     # ── Supervisor control ──────────────────────────────────────────────
     next_agent: Annotated[str, "Name of the next agent to route to, or 'FINISH'. Set by Supervisor, read by Router."]
@@ -111,6 +116,9 @@ class RoadmapState(TypedDict, total=False):
     stage_extractor_done: Annotated[bool, "Signals completion of Stage Extractor execution. Used by Supervisor for routing."]
     stage_resources: Annotated[Optional[Any], "Array of curated resources for current_stage ONLY. Produced by Resource Curator."]
     completed_stages: Annotated[List[str], "List of stage IDs the user has successfully finished."]
+
+    # ── Final formatted response (written by ResponseFormatter) ────────
+    api_response: Annotated[Optional[Dict[str, Any]], "Frontend-ready JSON built by ResponseFormatter node. This is what the API endpoint returns."]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -136,24 +144,27 @@ to build a personalised learning roadmap for a user.
 
 You must decide which agent to invoke next based on the current state.
 
-Available agents and when to call them:
-- "profile_analyzer"     : Always first. Analyses user background & skill gaps.
-- "curriculum_generator" : After profile analysis. Builds stage-by-stage curriculum.
-- "stage_extractor"      : After curriculum. Extracts the single current stage from all_stages by index.
-- "resource_curator"     : After stage_extractor. Finds learning materials for each stage.
-- "adaptation_engine"    : Only if learner_progress data exists. Adapts the roadmap.
-- "response_formatter"   : Always last. Builds the frontend-ready JSON.
-- "FINISH"               : When the roadmap is complete (all required agents done).
+## ADAPTATION MODE (is_adaptation_mode = true)
+When `is_adaptation_mode` is true, the learner has FAILED a stage quiz (score < 50%).
+In this case you MUST follow this short pipeline ONLY:
+  1. Route to "adaptation_engine"  (if adaptation_agent_done is false)
+  2. Route to "response_formatter" (once adaptation_agent_done is true)
+  3. Set "FINISH" after response_formatter completes.
 
-Rules:
-1. Always start with profile_analyzer if profile_agent_done is false/missing.
-2. Move to curriculum_generator once profile_agent_done is true.
-3. Move to stage_extractor once curriculum_agent_done is true AND stage_extractor_done is false.
-4. Move to resource_curator once stage_extractor_done is true.
-5. Move to adaptation_engine ONLY if learner_progress is provided AND adaptation_agent_done is false.
-6. Move to response_formatter once resource_agent_done is true.
-7. Set "FINISH" when response_formatter is true (and adaptation is done or not needed).
-8. repeat an agent if quality of output is not Enough and need more Resources and quality.
+## INITIAL BUILD MODE (is_stage_progression = false)
+When building the roadmap for the first time:
+1. Always start with "profile_analyzer" if profile_agent_done is false/missing.
+2. Move to "curriculum_generator" once profile_agent_done is true AND curriculum_agent_done is false.
+3. Move to "response_formatter" once curriculum_agent_done is true.
+
+## STAGE PROGRESSION MODE (is_stage_progression = true)
+When the user is advancing to the next stage and needs resources:
+1. Call "curriculum_generator" if curriculum_agent_done is false (to load the curriculum).
+2. Move to "stage_extractor" once curriculum_agent_done is true AND stage_extractor_done is false.
+3. Move to "adaptation_engine" IF has_learner_progress is true AND adaptation_agent_done is false. DO NOT move to resource_curator until this is done.
+4. Move to "resource_curator" ONLY IF stage_extractor_done is true AND (has_learner_progress is false OR adaptation_agent_done is true).
+5. Move to "response_formatter" once resource_agent_done is true.
+6. Set "FINISH" when response_formatter is done.
 
 Respond with ONLY a JSON object:
 {"next_agent": "<agent_name_or_FINISH>", "reason": "<one line explanation>"}
@@ -297,15 +308,22 @@ Respond with ONLY a JSON object:
         """
         self.logger.info("[Supervisor] Deciding next agent...")
 
+        # ── Prevent Infinite Loops ──
+        if state.get("error"):
+            self.logger.error(f"[Supervisor] Found error in state: {state.get('error')}. Routing to FINISH to prevent infinite loop.")
+            return {**state, "next_agent": "FINISH"}
+
         if self.llm is None:
             # Fallback: deterministic rule-based routing (no LLM needed)
             return self._deterministic_routing(state)
 
         # Build a compact state summary for the LLM
         state_summary = {
+            "is_stage_progression":    state.get("is_stage_progression", False),
+            "is_adaptation_mode":      state.get("is_adaptation_mode", False),
             "profile_agent_done":      state.get("profile_agent_done", False),
             "curriculum_agent_done":   state.get("curriculum_agent_done", False),
-            "stage_extractor_done":    state.get("stage_extractor_done", False),  # FIX: was missing — caused infinite loop
+            "stage_extractor_done":    state.get("stage_extractor_done", False),
             "resource_agent_done":     state.get("resource_agent_done", False),
             "adaptation_agent_done":   state.get("adaptation_agent_done", False),
             "has_learner_progress":    bool(state.get("learner_progress")),
@@ -346,7 +364,29 @@ Respond with ONLY a JSON object:
         """
         Fallback supervisor logic — pure rule-based, no LLM required.
         This guarantees correct routing even if the LLM is not set.
+
+        Mode 0 — Adaptation only  (is_adaptation_mode=True)
+        ─────────────────────────────────────────────────────
+        Learner failed a quiz (score < 50 %).  Skip the full pipeline;
+        route straight to AdaptationEngine then ResponseFormatter.
+
+        Mode 1 — Initial roadmap build  (is_stage_progression=False)
+        ───────────────────────────────────────────────────────────────
+        ProfileAnalyzer → CurriculumGenerator → FINISH
+
+        Mode 2 — Stage progression  (is_stage_progression=True)
+        ──────────────────────────────────────────────────────────
+        CurriculumGenerator → StageExtractor → [AdaptationEngine] → ResourceCurator → FINISH
         """
+        # ── MODE 0: Adaptation-only (quiz failure < 50 %) ──────────────────────
+        if state.get("is_adaptation_mode", False):
+            if not state.get("adaptation_agent_done"):
+                next_agent = NodeName.ADAPTATION_ENGINE.value
+            else:
+                # Adaptation done — format and finish
+                next_agent = NodeName.RESPONSE_FORMATTER.value
+            return {**state, "next_agent": next_agent}
+
         is_progression = state.get("is_stage_progression", False)
 
         if not is_progression:
@@ -362,7 +402,7 @@ Respond with ONLY a JSON object:
             # ── MODE 2: Stage progression ──────────────────────────
             if not state.get("curriculum_agent_done"):
                 next_agent = NodeName.CURRICULUM_GENERATOR.value
-            elif not state.get("stage_extractor_done"):          # FIX: was skipped entirely
+            elif not state.get("stage_extractor_done"):
                 next_agent = NodeName.STAGE_EXTRACTOR.value
             elif state.get("learner_progress") and not state.get("adaptation_agent_done"):
                 next_agent = NodeName.ADAPTATION_ENGINE.value
@@ -426,8 +466,28 @@ Respond with ONLY a JSON object:
 
 
     def _stage_extractor_node(self, state: RoadmapState) -> Dict[str, Any]:
-        """Extracts the single current stage from all_stages by index."""
+        """Extracts the single current stage from all_stages by index.
+
+        SHORT-CIRCUIT: If the caller already supplied ``current_stage`` directly
+        in the request body, skip all extraction logic and use it as-is.
+        This is the preferred (Option A) path — no full curriculum needed.
+        """
         self.logger.info("[Node] Running StageExtractor…")
+
+        # ── Option A: current_stage was sent directly in the request ──────────
+        if state.get("current_stage"):
+            current_stage = state["current_stage"]
+            self.logger.info(
+                f"[StageExtractor] current_stage provided directly: '{current_stage.get('name')}' — skipping extraction."
+            )
+            return {
+                **state,
+                "current_stage": current_stage,
+                "stage_extractor_done": True,
+                "resource_agent_done": False,
+            }
+
+        # ── Option B (legacy): extract from full curriculum by index ──────────
         all_stages = state.get("all_stages", [])
         idx = state.get("current_stage_index", 0)
 
@@ -466,21 +526,50 @@ Respond with ONLY a JSON object:
             **state,
             "all_stages": all_stages,
             "current_stage": current_stage,
-            "stage_extractor_done": True,   # FIX: signal to supervisor that extraction is complete
-            "resource_agent_done": False,   # reset so ResourceCurator runs fresh
+            "stage_extractor_done": True,
+            "resource_agent_done": False,
         }
 
-    def _response_formatter_node(self, state: RoadmapState) -> Dict[str, Any]:
-        """Always last node before END. Builds the frontend-ready JSON."""
-        mode = "stage_resources" if state.get("is_stage_progression") else "roadmap_overview"
 
+    def _response_formatter_node(self, state: RoadmapState) -> Dict[str, Any]:
+        """Always last node before END. Builds the frontend-ready JSON response.
+
+        For every mode that produces resources (Mode 0 — adaptation, Mode 2 — stage
+        progression), this node first **injects** those resources into the matching
+        stage inside the curriculum dict, then returns the **full updated roadmap**
+        so the backend can replace its JSONB record with a single write.
+
+        Modes
+        -----
+        Mode 0 — adaptation (is_adaptation_mode=True)
+            Patches the failing stage with ``remedial_resources`` from
+            AdaptationEngineOutput (tagged ``resource_type=remedial``).
+            Returns full curriculum + adaptation metadata.
+
+        Mode 2 — stage_resources (is_stage_progression=True)
+            Patches the current stage with ``stage_resources`` from ResourceCurator.
+            Returns full curriculum + stage-level metadata.
+
+        Mode 1 — roadmap_overview (initial build)
+            No injection — curriculum returned as-is.
+        """
+        is_adaptation  = state.get("is_adaptation_mode", False) or bool(state.get("adapted_curriculum"))
+        is_progression = state.get("is_stage_progression", False)
+
+        mode = (
+            "adaptation"      if is_adaptation  else
+            "stage_resources" if is_progression else
+            "roadmap_overview"
+        )
+
+        # ── Serialiser ────────────────────────────────────────────────────────
         def to_serializable(obj):
-            """Recursively convert Pydantic models and other non-serializable objects to dicts."""
+            """Recursively convert Pydantic models to plain dicts/lists."""
             if obj is None:
                 return None
-            if hasattr(obj, "model_dump"):   # Pydantic v2
+            if hasattr(obj, "model_dump"):
                 return obj.model_dump()
-            if hasattr(obj, "dict"):         # Pydantic v1
+            if hasattr(obj, "dict"):
                 return obj.dict()
             if isinstance(obj, list):
                 return [to_serializable(i) for i in obj]
@@ -488,26 +577,130 @@ Respond with ONLY a JSON object:
                 return {k: to_serializable(v) for k, v in obj.items()}
             return obj
 
+        # ── Get mutable plain-dict copy of the curriculum ─────────────────────
+        curriculum: Dict = to_serializable(state.get("curriculum")) or {}
+        stages: List[Dict] = curriculum.get("stages", [])
+
+        # ══════════════════════════════════════════════════════════════════════
+        # MODE 0 — ADAPTATION: inject remedial resources into the failing stage
+        # ══════════════════════════════════════════════════════════════════════
+        if is_adaptation:
+            adapted      = to_serializable(state.get("adapted_curriculum")) or {}
+            stage_id     = state.get("stage_id")
+            remedial     = adapted.get("remedial_resources", [])
+            adjustments  = adapted.get("stage_adjustments",  [])
+            summary_text = adapted.get("summary",             "")
+            score        = adapted.get("score")
+            struggling   = adapted.get("struggling_topics",   [])
+            failed_qs    = adapted.get("failed_questions",    [])
+            next_action  = adapted.get("recommended_next_action", "retry_stage")
+
+            # Tag each remedial resource so the frontend can visually distinguish them
+            tagged = [{**r, "resource_type": "remedial"} for r in remedial]
+
+            # Patch the matching stage
+            patched = False
+            for stage in stages:
+                if stage.get("id") == stage_id:
+                    stage["resources"]          = stage.get("resources", []) + tagged
+                    stage["adapted"]            = True
+                    stage["adaptation_summary"] = summary_text
+                    patched = True
+                    break
+
+            if not patched and stages:
+                self.logger.warning(
+                    f"[ResponseFormatter] stage_id='{stage_id}' not found — "
+                    "injecting into stages[0] as fallback."
+                )
+                stages[0]["resources"]          = stages[0].get("resources", []) + tagged
+                stages[0]["adapted"]            = True
+                stages[0]["adaptation_summary"] = summary_text
+
+            curriculum["stages"]             = stages
+            curriculum["last_adapted_stage"] = stage_id
+
+            data = {
+                # Full updated roadmap — backend replaces its JSONB record with this
+                "curriculum":              curriculum,
+                # Adaptation metadata
+                "stage_id":                stage_id,
+                "topic":                   state.get("topic"),
+                "score":                   score,
+                "struggling_topics":       struggling,
+                "failed_questions":        failed_qs,
+                "stage_adjustments":       adjustments,
+                "summary":                 summary_text,
+                "recommended_next_action": next_action,
+            }
+
+        # ══════════════════════════════════════════════════════════════════════
+        # MODE 2 — STAGE PROGRESSION: inject curated resources into current stage
+        # ══════════════════════════════════════════════════════════════════════
+        elif is_progression:
+            stage_resources  = to_serializable(state.get("stage_resources")) or []
+            current_stage    = to_serializable(state.get("current_stage"))   or {}
+            current_stage_id = current_stage.get("id")
+
+            patched = False
+            for stage in stages:
+                if stage.get("id") == current_stage_id:
+                    stage["resources"] = stage_resources
+                    patched = True
+                    break
+
+            if not patched and stages:
+                self.logger.warning(
+                    f"[ResponseFormatter] current_stage id='{current_stage_id}' not found — "
+                    "injecting into stages[0] as fallback."
+                )
+                stages[0]["resources"] = stage_resources
+
+            curriculum["stages"] = stages
+
+            data = {
+                # Full updated roadmap — backend replaces its JSONB record with this
+                "curriculum":    curriculum,
+                # Stage-level metadata
+                "current_stage": current_stage,
+                "stage_index":   state.get("current_stage_index"),
+                "stage_resources": stage_resources,
+            }
+
+        # ══════════════════════════════════════════════════════════════════════
+        # MODE 1 — INITIAL ROADMAP BUILD (no resource injection needed)
+        # ══════════════════════════════════════════════════════════════════════
+        else:
+            data = {
+                "curriculum": curriculum,
+            }
+
+        # ── Pull requested metadata out of curriculum/state into root data ──
+        # Backend requested `total_weeks`, `difficulty_level`, and `skill_gaps`
+        # at the root level so they can be stored in separate DB columns.
+        
+        # Determine total_weeks (may be in state or curriculum)
+        total_w = state.get("estimated_duration_weeks")
+        if total_w is None:
+            total_w = curriculum.get("total_weeks")
+            
+        data["total_weeks"]      = total_w
+        data["difficulty_level"] = state.get("difficulty_level")
+        data["skill_gaps"]       = state.get("skill_gaps", [])
+
+        # Optionally remove total_weeks from inside the curriculum to keep it DRY
+        if "total_weeks" in curriculum:
+            del curriculum["total_weeks"]
+
         return {
             **state,
             "api_response": {
-                "status": "success",
-                "mode": mode,
-                "user_id": state.get("user_id"),
+                "status":       "success",
+                "mode":         mode,
+                "user_id":      state.get("user_id"),
                 "career_track": state.get("career_track"),
-                "data": {
-                    # Mode 1 — initial build
-                    "curriculum":       to_serializable(state.get("curriculum")),
-                    "difficulty_level": state.get("difficulty_level"),
-                    "skill_gaps":       state.get("skill_gaps"),
-                    "total_weeks":      state.get("estimated_duration_weeks"),
-
-                    # Mode 2 — stage progression
-                    "current_stage":    to_serializable(state.get("current_stage")),
-                    "stage_index":      state.get("current_stage_index"),
-                    "stage_resources":  to_serializable(state.get("stage_resources")),
-                    "adapted":          bool(state.get("adapted_curriculum")),
-                },
-                "error": state.get("error"),
-            }
+                "data":         data,
+                "error":        state.get("error"),
+            },
         }
+

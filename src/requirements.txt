@@ -16,6 +16,8 @@ uvicorn[standard]==0.42.0
 python-multipart==0.0.22
 langgraph-cli==0.4.19
 langgraph-api==0.8.0
+psycopg2==2.9.12
+langgraph-api==0.8.0
 
 
 nltk==3.9.3
