@@ -18,21 +18,35 @@ public static class QuizAIResponseValidator
 
         foreach (var q in r.Quiz.Questions)
         {
-            if (string.IsNullOrWhiteSpace(q.Id))
-                throw new AIValidationException("A question has no id.");
+            if (string.IsNullOrWhiteSpace(q.QuestionId))
+                throw new AIValidationException("A question has no question_id.");
 
-            if (string.IsNullOrWhiteSpace(q.Text))
-                throw new AIValidationException($"Question {q.Id} has no text.");
+            if (string.IsNullOrWhiteSpace(q.QuestionText))
+                throw new AIValidationException($"Question {q.QuestionId} has no question_text.");
 
-            if (q.Options is null || q.Options.Count != 4)
-                throw new AIValidationException($"Question {q.Id} must have exactly 4 options.");
+            if (q.Choices is null || q.Choices.Count != 4)
+                throw new AIValidationException(
+                    $"Question {q.QuestionId} must have exactly 4 choices.");
 
             if (string.IsNullOrWhiteSpace(q.CorrectAnswer))
-                throw new AIValidationException($"Question {q.Id} has no correct_answer.");
+                throw new AIValidationException($"Question {q.QuestionId} has no correct_answer.");
 
-            if (!q.Options.Contains(q.CorrectAnswer, StringComparer.OrdinalIgnoreCase))
+            // correct_answer must be one of the choice labels (A, B, C, D)
+            var validLabels = q.Choices
+                .Select(c => c.Label)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (!validLabels.Contains(q.CorrectAnswer))
                 throw new AIValidationException(
-                    $"Question {q.Id}: correct_answer is not one of the options.");
+                    $"Question {q.QuestionId}: correct_answer '{q.CorrectAnswer}' " +
+                    $"is not a valid choice label.");
+
+            // Exactly one choice must be marked is_correct
+            var correctChoices = q.Choices.Count(c => c.IsCorrect);
+            if (correctChoices != 1)
+                throw new AIValidationException(
+                    $"Question {q.QuestionId}: expected exactly 1 is_correct=true, " +
+                    $"found {correctChoices}.");
         }
     }
 }

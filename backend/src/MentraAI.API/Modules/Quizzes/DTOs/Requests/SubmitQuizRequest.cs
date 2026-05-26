@@ -24,7 +24,8 @@ public class SubmitQuizRequest
 public class QuizAnswerItem
 {
     public string QuestionId { get; set; } = string.Empty;
-    public string Answer     { get; set; } = string.Empty;
+    // Now carries the LABEL ("A", "B", "C", "D") not the full text
+    public string Answer { get; set; } = string.Empty;
 }
 
 public class SubmitQuizRequestValidator : AbstractValidator<SubmitQuizRequest>

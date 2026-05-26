@@ -1,4 +1,4 @@
-using MentraAI.API.Common.Exceptions;
+﻿using MentraAI.API.Common.Exceptions;
 using MentraAI.API.Modules.Quizzes.DTOs.Requests;
 using MentraAI.API.Modules.Quizzes.Services;
 
@@ -13,110 +13,148 @@ public class QuizScoringServiceTests
         _sut = new QuizScoringService();
     }
 
-    [Fact]
-    public void Score_AllCorrect_Returns100PercentAndPassed()
-    {
-        // Arrange
-        var questionsJson = """
+    // Stored JSON now uses question_id and choices (new AI contract)
+    private const string FourQuestionJson = """
         [
-            { "id": "q1", "text": "Q1", "options": ["A", "B"], "correct_answer": "A" },
-            { "id": "q2", "text": "Q2", "options": ["C", "D"], "correct_answer": "D" }
+            {
+                "question_id": "q1", "question_text": "Q1",
+                "choices": [
+                    {"label":"A","text":"opt1","is_correct":false},
+                    {"label":"B","text":"opt2","is_correct":false},
+                    {"label":"C","text":"opt3","is_correct":false},
+                    {"label":"D","text":"opt4","is_correct":true}
+                ],
+                "correct_answer": "D"
+            },
+            {
+                "question_id": "q2", "question_text": "Q2",
+                "choices": [
+                    {"label":"A","text":"opt1","is_correct":true},
+                    {"label":"B","text":"opt2","is_correct":false},
+                    {"label":"C","text":"opt3","is_correct":false},
+                    {"label":"D","text":"opt4","is_correct":false}
+                ],
+                "correct_answer": "A"
+            },
+            {
+                "question_id": "q3", "question_text": "Q3",
+                "choices": [
+                    {"label":"A","text":"opt1","is_correct":false},
+                    {"label":"B","text":"opt2","is_correct":true},
+                    {"label":"C","text":"opt3","is_correct":false},
+                    {"label":"D","text":"opt4","is_correct":false}
+                ],
+                "correct_answer": "B"
+            },
+            {
+                "question_id": "q4", "question_text": "Q4",
+                "choices": [
+                    {"label":"A","text":"opt1","is_correct":false},
+                    {"label":"B","text":"opt2","is_correct":false},
+                    {"label":"C","text":"opt3","is_correct":true},
+                    {"label":"D","text":"opt4","is_correct":false}
+                ],
+                "correct_answer": "C"
+            }
         ]
         """;
+
+    [Fact]
+    public void Score_AllCorrectLabels_Returns100PercentAndPassed()
+    {
         var userAnswers = new List<QuizAnswerItem>
         {
-            new() { QuestionId = "q1", Answer = "A" },
-            new() { QuestionId = "q2", Answer = "D" }
+            new() { QuestionId = "q1", Answer = "D" },
+            new() { QuestionId = "q2", Answer = "A" },
+            new() { QuestionId = "q3", Answer = "B" },
+            new() { QuestionId = "q4", Answer = "C" }
         };
 
-        // Act
-        var result = _sut.Score(questionsJson, userAnswers);
+        var result = _sut.Score(FourQuestionJson, userAnswers);
 
-        // Assert
-        Assert.Equal(2, result.CorrectAnswers);
-        Assert.Equal(2, result.TotalQuestions);
+        Assert.Equal(4, result.CorrectAnswers);
+        Assert.Equal(4, result.TotalQuestions);
         Assert.Equal(100.00m, result.Score);
         Assert.True(result.IsPassed);
     }
 
     [Fact]
-    public void Score_HalfCorrect_Returns50PercentAndPassed()
+    public void Score_70PercentCorrect_IsPassed()
     {
-        // Arrange
-        var questionsJson = """
-        [
-            { "id": "q1", "text": "Q1", "options": ["A", "B"], "correct_answer": "A" },
-            { "id": "q2", "text": "Q2", "options": ["C", "D"], "correct_answer": "D" }
-        ]
-        """;
+        // 3 out of 4 = 75% → PASS (threshold is 70%)
         var userAnswers = new List<QuizAnswerItem>
         {
-            new() { QuestionId = "q1", Answer = "A" },
-            new() { QuestionId = "q2", Answer = "Wrong" }
+            new() { QuestionId = "q1", Answer = "D" },
+            new() { QuestionId = "q2", Answer = "A" },
+            new() { QuestionId = "q3", Answer = "B" },
+            new() { QuestionId = "q4", Answer = "A" } // WRONG
         };
 
-        // Act
-        var result = _sut.Score(questionsJson, userAnswers);
+        var result = _sut.Score(FourQuestionJson, userAnswers);
 
-        // Assert
-        Assert.Equal(1, result.CorrectAnswers);
-        Assert.Equal(2, result.TotalQuestions);
-        Assert.Equal(50.00m, result.Score);
-        Assert.True(result.IsPassed); // 50% is the passing threshold
+        Assert.Equal(3, result.CorrectAnswers);
+        Assert.Equal(75.00m, result.Score);
+        Assert.True(result.IsPassed);
     }
 
     [Fact]
-    public void Score_CaseInsensitive_CountsAsCorrect()
+    public void Score_50PercentCorrect_IsNotPassed()
     {
-        // Arrange
-        var questionsJson = """
-        [
-            { "id": "q1", "text": "Q1", "options": ["Apple", "Banana"], "correct_answer": "Apple" }
-        ]
-        """;
+        // 2 out of 4 = 50% → FAIL (threshold is 70%, was 50% — this tests the fix)
         var userAnswers = new List<QuizAnswerItem>
         {
-            new() { QuestionId = "q1", Answer = "aPpLe" }
+            new() { QuestionId = "q1", Answer = "D" },
+            new() { QuestionId = "q2", Answer = "A" },
+            new() { QuestionId = "q3", Answer = "A" }, // WRONG
+            new() { QuestionId = "q4", Answer = "A" }  // WRONG
         };
 
-        // Act
-        var result = _sut.Score(questionsJson, userAnswers);
+        var result = _sut.Score(FourQuestionJson, userAnswers);
 
-        // Assert
-        Assert.Equal(1, result.CorrectAnswers);
+        Assert.Equal(2, result.CorrectAnswers);
+        Assert.Equal(50.00m, result.Score);
+        Assert.False(result.IsPassed); // 50% < 70% → FAIL
+    }
+
+    [Fact]
+    public void Score_CaseInsensitiveLabel_CountsAsCorrect()
+    {
+        var userAnswers = new List<QuizAnswerItem>
+        {
+            new() { QuestionId = "q1", Answer = "d" },  // lowercase label
+            new() { QuestionId = "q2", Answer = "a" },
+            new() { QuestionId = "q3", Answer = "b" },
+            new() { QuestionId = "q4", Answer = "c" }
+        };
+
+        var result = _sut.Score(FourQuestionJson, userAnswers);
+
+        Assert.Equal(4, result.CorrectAnswers);
         Assert.Equal(100.00m, result.Score);
+        Assert.True(result.IsPassed);
     }
 
     [Fact]
     public void Score_UnknownQuestionId_CountsAsWrongButDoesNotThrow()
     {
-        // Arrange
-        var questionsJson = """
-        [
-            { "id": "q1", "text": "Q1", "options": ["A", "B"], "correct_answer": "A" }
-        ]
-        """;
         var userAnswers = new List<QuizAnswerItem>
         {
             new() { QuestionId = "UNKNOWN", Answer = "A" }
         };
 
-        // Act
-        var result = _sut.Score(questionsJson, userAnswers);
+        var result = _sut.Score(FourQuestionJson, userAnswers);
 
-        // Assert
         Assert.Equal(0, result.CorrectAnswers);
         Assert.Equal(0.00m, result.Score);
+        Assert.False(result.IsPassed);
     }
 
     [Fact]
     public void Score_MalformedJson_ThrowsAppExceptionWithInternalError()
     {
-        // Arrange
         var malformedJson = "{ not array }";
         var userAnswers = new List<QuizAnswerItem>();
 
-        // Act & Assert
         var ex = Assert.Throws<AppException>(() => _sut.Score(malformedJson, userAnswers));
         Assert.Equal("INTERNAL_ERROR", ex.ErrorCode);
         Assert.Equal(500, ex.StatusCode);
