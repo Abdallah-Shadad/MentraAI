@@ -19,6 +19,10 @@ public class QuizAttempt
     public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
     public DateTime? SubmittedAt { get; set; }
 
+    // NEW — from AI response quiz.passing_score and quiz.time_limit_minutes
+    public int? PassingScore { get; set; }
+    public int? TimeLimitMinutes { get; set; }
+
     public UserStageProgress StageProgress { get; set; } = null!;
     public ApplicationUser User { get; set; } = null!;
 }

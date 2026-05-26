@@ -17,6 +17,8 @@ using MentraAI.API.Modules.Roadmaps.Repositories;
 using MentraAI.API.Modules.Roadmaps.Services;
 using MentraAI.API.Modules.StageProgress.Repositories;
 using MentraAI.API.Modules.StageProgress.Services;
+using MentraAI.API.Modules.Chat.Repositories;
+using MentraAI.API.Modules.Chat.Services;
 using MentraAI.API.Modules.Quizzes.Repositories;
 using MentraAI.API.Modules.Quizzes.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -206,6 +208,10 @@ builder.Services.AddScoped<IStageProgressService, StageProgressService>();
 builder.Services.AddScoped<IQuizRepository, QuizRepository>();
 builder.Services.AddScoped<IQuizScoringService, QuizScoringService>();
 builder.Services.AddScoped<IQuizService, QuizService>();
+
+// == Chat Module ==
+builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
+builder.Services.AddScoped<IChatService, ChatService>();
 
 //  Build App 
 var app = builder.Build();

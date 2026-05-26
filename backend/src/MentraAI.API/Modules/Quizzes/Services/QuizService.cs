@@ -15,35 +15,38 @@ namespace MentraAI.API.Modules.Quizzes.Services;
 
 public class QuizService : IQuizService
 {
-    private readonly IQuizRepository          _quizRepo;
+    private readonly IQuizRepository _quizRepo;
     private readonly IStageProgressRepository _stageRepo;
-    private readonly ICareerTrackRepository   _trackRepo;
-    private readonly IAIGatewayService        _aiGateway;
-    private readonly IQuizScoringService      _scoring;
-    private readonly IRoadmapService          _roadmapService;
-    private readonly IMapper                  _mapper;
-    private readonly ILogger<QuizService>     _logger;
+    private readonly ICareerTrackRepository _trackRepo;
+    private readonly IAIGatewayService _aiGateway;
+    private readonly IQuizScoringService _scoring;
+    private readonly IRoadmapService _roadmapService;
+    private readonly IMapper _mapper;
+    private readonly ILogger<QuizService> _logger;
 
-    private static readonly JsonSerializerOptions _json = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions _json = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     public QuizService(
-        IQuizRepository          quizRepo,
+        IQuizRepository quizRepo,
         IStageProgressRepository stageRepo,
-        ICareerTrackRepository   trackRepo,
-        IAIGatewayService        aiGateway,
-        IQuizScoringService      scoring,
-        IRoadmapService          roadmapService,
-        IMapper                  mapper,
-        ILogger<QuizService>     logger)
+        ICareerTrackRepository trackRepo,
+        IAIGatewayService aiGateway,
+        IQuizScoringService scoring,
+        IRoadmapService roadmapService,
+        IMapper mapper,
+        ILogger<QuizService> logger)
     {
-        _quizRepo       = quizRepo;
-        _stageRepo      = stageRepo;
-        _trackRepo      = trackRepo;
-        _aiGateway      = aiGateway;
-        _scoring        = scoring;
+        _quizRepo = quizRepo;
+        _stageRepo = stageRepo;
+        _trackRepo = trackRepo;
+        _aiGateway = aiGateway;
+        _scoring = scoring;
         _roadmapService = roadmapService;
-        _mapper         = mapper;
-        _logger         = logger;
+        _mapper = mapper;
+        _logger = logger;
     }
 
     // =====================================================================
@@ -51,11 +54,11 @@ public class QuizService : IQuizService
     // =====================================================================
     public async Task<QuizResponse> GenerateQuizAsync(Guid stageProgressId, string userId)
     {
-        // Step 1: load stage
+        // Step 1: load stage (includes Roadmap navigation property)
         var stage = await _stageRepo.GetByIdAsync(stageProgressId)
             ?? throw new AppException(ErrorCodes.STAGE_NOT_FOUND, "Stage not found.", 404);
 
-        // Step 2: verify ownership — stage must belong to user's active roadmap
+        // Step 2: verify ownership
         var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
             ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active career track.", 422);
 
@@ -67,7 +70,7 @@ public class QuizService : IQuizService
             throw new AppException(ErrorCodes.STAGE_NOT_ACTIVE,
                 "Quiz can only be generated for an ACTIVE stage.", 422);
 
-        // Step 4: no pending (unsubmitted) quiz for this stage
+        // Step 4: no pending quiz for this stage
         var pending = await _quizRepo.GetPendingByStageAsync(stageProgressId);
         if (pending is not null)
             throw new AppException(ErrorCodes.QUIZ_PENDING_EXISTS,
@@ -76,34 +79,40 @@ public class QuizService : IQuizService
         // Step 5: extract difficulty level from stored roadmap JSON
         var difficultyLevel = ExtractDifficultyLevel(stage.Roadmap.RoadmapDataJson);
 
-        // Step 6: get career track slug for AI request
+        // Step 6: extract topics for the current stage from roadmap JSON (NEW)
+        var topics = ExtractStageTopics(stage.Roadmap.RoadmapDataJson, stage.StageIndex);
+
+        // Step 7: get career track slug for AI request
         var careerTrackSlug = userTrack.CareerTrack.Slug;
 
-        // Step 7: get next attempt number
+        // Step 8: get next attempt number
         var attemptNumber = await _quizRepo.GetNextAttemptNumberAsync(stageProgressId);
 
-        // Step 8: call AI — AIServiceException / AIValidationException bubble to middleware
+        // Step 9: call AI with topics — AIServiceException/AIValidationException bubble to middleware
         var result = await _aiGateway.GenerateQuizAsync(
-            userId:          userId,
-            careerTrack:     careerTrackSlug,
-            aiStageId:       stage.AiStageId,
-            stageName:       stage.StageName,
-            difficultyLevel: difficultyLevel);
+            userId: userId,
+            careerTrack: careerTrackSlug,
+            aiStageId: stage.AiStageId,
+            stageName: stage.StageName,
+            difficultyLevel: difficultyLevel,
+            topics: topics);  // NEW
 
-        // Step 9: persist — QuestionsDataJson stores full questions WITH correct_answer
+        // Step 10: persist — store PassingScore and TimeLimitMinutes (NEW)
         var quiz = await _quizRepo.CreateAsync(new QuizAttempt
         {
-            Id                = Guid.NewGuid(),
-            StageProgressId   = stageProgressId,
-            UserId            = userId,
-            AttemptNumber     = attemptNumber,
-            IsSubmitted       = false,
+            Id = Guid.NewGuid(),
+            StageProgressId = stageProgressId,
+            UserId = userId,
+            AttemptNumber = attemptNumber,
+            IsSubmitted = false,
             QuestionsDataJson = result.QuestionsDataJson,
-            TotalQuestions    = result.TotalQuestions,
-            GeneratedAt       = DateTime.UtcNow
+            TotalQuestions = result.TotalQuestions,
+            PassingScore = result.PassingScore,      // NEW
+            TimeLimitMinutes = result.TimeLimitMinutes,  // NEW
+            GeneratedAt = DateTime.UtcNow
         });
 
-        // Step 10: return display-only — strip correct_answer
+        // Step 11: return display-only (AutoMapper strips correct_answer via resolver)
         return _mapper.Map<QuizResponse>(quiz);
     }
 
@@ -115,7 +124,6 @@ public class QuizService : IQuizService
         var quiz = await _quizRepo.GetByIdAsync(quizId)
             ?? throw new AppException(ErrorCodes.QUIZ_NOT_FOUND, "Quiz not found.", 404);
 
-        // Never reveal someone else's quiz exists
         if (quiz.UserId != userId)
             throw new AppException(ErrorCodes.QUIZ_NOT_FOUND, "Quiz not found.", 404);
 
@@ -128,52 +136,43 @@ public class QuizService : IQuizService
     public async Task<QuizSubmitResponse> SubmitQuizAsync(
         Guid quizId, string userId, SubmitQuizRequest request)
     {
-        // Step 1: load and verify ownership
         var quiz = await _quizRepo.GetByIdAsync(quizId)
             ?? throw new AppException(ErrorCodes.QUIZ_NOT_FOUND, "Quiz not found.", 404);
 
         if (quiz.UserId != userId)
             throw new AppException(ErrorCodes.QUIZ_NOT_FOUND, "Quiz not found.", 404);
 
-        // Step 2: prevent re-submission
         if (quiz.IsSubmitted)
             throw new AppException(ErrorCodes.QUIZ_ALREADY_SUBMITTED,
                 "This quiz has already been submitted.", 409);
 
-        // Step 3: score
         var scoreResult = _scoring.Score(quiz.QuestionsDataJson, request.Answers);
-
-        // Step 4: serialize user answers for storage
         var userAnswersDataJson = JsonSerializer.Serialize(request.Answers, _json);
 
-        // Step 5: persist submission
         var submitted = await _quizRepo.SubmitAsync(
-            quizId:              quizId,
+            quizId: quizId,
             userAnswersDataJson: userAnswersDataJson,
-            correctAnswers:      scoreResult.CorrectAnswers,
-            score:               scoreResult.Score,
-            isPassed:            scoreResult.IsPassed);
+            correctAnswers: scoreResult.CorrectAnswers,
+            score: scoreResult.Score,
+            isPassed: scoreResult.IsPassed);
 
-        // Step 6: build response base
         var response = new QuizSubmitResponse
         {
-            QuizId         = quiz.Id,
-            Score          = scoreResult.Score,
+            QuizId = quiz.Id,
+            Score = scoreResult.Score,
             CorrectAnswers = scoreResult.CorrectAnswers,
             TotalQuestions = scoreResult.TotalQuestions,
-            IsPassed       = scoreResult.IsPassed,
-            SubmittedAt    = submitted.SubmittedAt!.Value,
-            NextStage      = null,
+            IsPassed = scoreResult.IsPassed,
+            SubmittedAt = submitted.SubmittedAt!.Value,
+            NextStage = null,
             RoadmapAdapted = false
         };
 
         if (scoreResult.IsPassed)
         {
-            // Complete the current stage
             await _stageRepo.CompleteStageAsync(quiz.StageProgressId);
 
-            // Unlock the next stage (returns null if this was the last stage)
-            var stage    = await _stageRepo.GetByIdAsync(quiz.StageProgressId);
+            var stage = await _stageRepo.GetByIdAsync(quiz.StageProgressId);
             var nextStage = await _stageRepo.UnlockNextStageAsync(
                 stage!.RoadmapId, stage.StageIndex);
 
@@ -182,23 +181,21 @@ public class QuizService : IQuizService
                 response.NextStage = new NextStageInfo
                 {
                     StageProgressId = nextStage.Id,
-                    StageName       = nextStage.StageName,
-                    StageIndex      = nextStage.StageIndex
+                    StageName = nextStage.StageName,
+                    StageIndex = nextStage.StageIndex
                 };
             }
         }
         else
         {
-            // Adaptation failure must NEVER fail the submission
-            // Score is already saved — user has their result regardless
             try
             {
                 await _roadmapService.AdaptRoadmapAsync(
-                    stageProgressId:   quiz.StageProgressId,
+                    stageProgressId: quiz.StageProgressId,
                     questionsDataJson: quiz.QuestionsDataJson,
                     userAnswersDataJson: userAnswersDataJson,
-                    score:             scoreResult.Score,
-                    userId:            userId);
+                    score: scoreResult.Score,
+                    userId: userId);
 
                 response.RoadmapAdapted = true;
             }
@@ -207,9 +204,7 @@ public class QuizService : IQuizService
                 _logger.LogError(ex,
                     "Adaptation failed for stage {StageId}, user {UserId}",
                     quiz.StageProgressId, userId);
-
                 response.RoadmapAdapted = false;
-                // Do NOT rethrow — submission already persisted
             }
         }
 
@@ -221,7 +216,6 @@ public class QuizService : IQuizService
     // =====================================================================
     public async Task<QuizHistoryResponse> GetHistoryAsync(Guid stageProgressId, string userId)
     {
-        // Verify stage belongs to user
         var stage = await _stageRepo.GetByIdAsync(stageProgressId)
             ?? throw new AppException(ErrorCodes.STAGE_NOT_FOUND, "Stage not found.", 404);
 
@@ -239,6 +233,10 @@ public class QuizService : IQuizService
         };
     }
 
+    // =====================================================================
+    // PRIVATE HELPERS
+    // =====================================================================
+
     private static string ExtractDifficultyLevel(string roadmapDataJson)
     {
         try
@@ -254,4 +252,34 @@ public class QuizService : IQuizService
         return "beginner";
     }
 
+    /// <summary>
+    /// Extracts the topics array for a specific stage from the stored roadmap JSON blob.
+    /// Returns an empty list silently on any parse failure — the AI can handle empty topics gracefully.
+    /// </summary>
+    private static List<string> ExtractStageTopics(string roadmapDataJson, int stageIndex)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(roadmapDataJson);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("roadmap", out var rm) &&
+                rm.TryGetProperty("data", out var data) &&
+                data.TryGetProperty("curriculum", out var curr) &&
+                curr.TryGetProperty("stages", out var stages))
+            {
+                var stageArr = stages.EnumerateArray().ToList();
+                if (stageIndex < stageArr.Count &&
+                    stageArr[stageIndex].TryGetProperty("topics", out var topicsEl))
+                {
+                    return topicsEl.EnumerateArray()
+                        .Select(t => t.GetString() ?? "")
+                        .Where(t => !string.IsNullOrWhiteSpace(t))
+                        .ToList();
+                }
+            }
+        }
+        catch { /* silently return empty */ }
+        return new List<string>();
+    }
 }
