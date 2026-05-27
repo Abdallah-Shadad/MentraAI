@@ -13,9 +13,12 @@ public class QuizScoringService : IQuizScoringService
         PropertyNameCaseInsensitive = true
     };
 
-    public QuizScoreResult Score(string questionsDataJson, List<QuizAnswerItem> userAnswers)
+    public QuizScoreResult Score(string questionsDataJson, List<QuizAnswerItem> userAnswers, decimal passingScore)
     {
-        // Malformed stored data = corruption, not a user error
+        if (passingScore < 0 || passingScore > 100)
+        {
+            passingScore = 70m;
+        }
         List<StoredQuestion> stored;
         try
         {
@@ -31,8 +34,6 @@ public class QuizScoringService : IQuizScoringService
         if (stored.Count == 0)
             throw new AppException(ErrorCodes.INTERNAL_ERROR, "Stored quiz has no questions.", 500);
 
-        // Build lookup: questionId -> correctAnswer (label like "B")
-        // Stored JSON uses question_id (new AI contract)
         var correctAnswerMap = stored.ToDictionary(
             q => q.QuestionId,
             q => q.CorrectAnswer,
@@ -42,22 +43,35 @@ public class QuizScoringService : IQuizScoringService
 
         foreach (var answer in userAnswers)
         {
-            // Unknown questionId counts as wrong — never throw
             if (!correctAnswerMap.TryGetValue(answer.QuestionId, out var correctAnswer))
                 continue;
 
-            // Frontend submits label "B", stored correct_answer is "B"
             if (string.Equals(answer.Answer, correctAnswer, StringComparison.OrdinalIgnoreCase))
                 correct++;
         }
 
         int total = stored.Count;
         decimal score = Math.Round((decimal)correct / total * 100, 2);
-        // FIXED: Passing threshold is 70% (was 50%)
-        bool isPassed = score >= 70.00m;
+
+        // Determine pass/fail based on the provided passing score
+        bool isPassed = score >= passingScore;
 
         return new QuizScoreResult(correct, total, score, isPassed);
     }
+
+    public QuizScoreResult Score(string questionsDataJson, List<QuizAnswerItem> userAnswers)
+    {
+        return Score(questionsDataJson, userAnswers, 70.00m);
+    }
+
+    // This method is no longer needed since we now require the passing score to be explicitly provided.
+    //private static decimal NormalizePassingScoreOrDefault(int? passingScore)
+    //{
+    //    // AI contract uses integers like 70/80. If missing or invalid, fallback to 70.
+    //    var value = passingScore ?? 70;
+    //    if (value < 0 || value > 100) value = 70;
+    //    return value;
+    //}
 
     // Internal deserialization type matching the NEW AI response structure
     // correct_answer is a LABEL ("B"), never leaves this class
