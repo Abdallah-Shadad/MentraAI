@@ -64,4 +64,7 @@ public interface IAIGatewayService
         string userId,
         string conversationId,
         CancellationToken ct = default);
+
+    // Health check for chat functionality — NEW
+    Task<bool> CheckChatHealthAsync();
 }

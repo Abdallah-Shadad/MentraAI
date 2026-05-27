@@ -16,4 +16,5 @@ public class ChatAIRequest
     [JsonPropertyName("lesson_id")] public string? LessonId { get; set; }
     [JsonPropertyName("quiz_details")] public string? QuizDetails { get; set; }
     [JsonPropertyName("quiz_score")] public int? QuizScore { get; set; }
+
 }
