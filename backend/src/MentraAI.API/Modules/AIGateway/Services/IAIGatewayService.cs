@@ -1,4 +1,5 @@
 ﻿using MentraAI.API.Modules.AIGateway.InternalModels;
+using MentraAI.API.Modules.Chat.DTOs.Requests;
 using MentraAI.API.Modules.Users.Models;
 
 namespace MentraAI.API.Modules.AIGateway.Services;
@@ -11,35 +12,36 @@ public interface IAIGatewayService
         UserProfile profile,
         CancellationToken ct = default);
 
-    // Future Phase — Roadmaps
+    // Roadmaps
     Task<RoadmapGenerationResult> GenerateRoadmapAsync(
         string userId,
         string careerTrackSlug,
         int weeklyHours,
         string userBackground,
         List<string> currentSkills,
-        CancellationToken ct = default); // Added CancellationToken
+        CancellationToken ct = default);
 
-    // Future Phase — StageProgress
+    // StageProgress
     Task<StageResourcesResult> GetStageResourcesAsync(
-            string userId,
-            string careerTrack,
-            int weeklyHours,
-            string aiStageId,
-            int stageIndex,
-            string roadmapDataJson,
-            CancellationToken ct = default);
+        string userId,
+        string careerTrack,
+        int weeklyHours,
+        string aiStageId,
+        int stageIndex,
+        string roadmapDataJson,
+        CancellationToken ct = default);
 
-    // Future Phase — Quizzes
+    // Quizzes — updated signature with topics
     Task<QuizGenerationResult> GenerateQuizAsync(
         string userId,
         string careerTrack,
         string aiStageId,
         string stageName,
         string difficultyLevel,
-        CancellationToken ct = default); // Added CancellationToken[cite: 2]
+        List<string> topics,
+        CancellationToken ct = default);
 
-    // Future Phase — Adaptation
+    // Adaptation
     Task<RoadmapGenerationResult> GetAdaptedRoadmapAsync(
         string userId,
         string careerTrack,
@@ -50,4 +52,19 @@ public interface IAIGatewayService
         string userAnswersDataJson,
         decimal score,
         CancellationToken ct = default);
+
+    // Chat — NEW
+    Task StreamChatAsync(
+        ChatAIRequest request,
+        HttpResponse httpResponse,
+        CancellationToken ct = default);
+
+    // Chat memory delete — NEW
+    Task DeleteChatMemoryAsync(
+        string userId,
+        string conversationId,
+        CancellationToken ct = default);
+
+    // Health check for chat functionality — NEW
+    Task<bool> CheckChatHealthAsync();
 }
