@@ -168,4 +168,29 @@ public class ChatController : ControllerBase
 
         return new EmptyResult();
     }
+    // =====================================================================
+    // GET /api/v1/chat/health
+    // Acts as a proxy to check if the external AI chat server is currently online.
+    // The frontend should call this to enable/disable the chat UI dynamically.
+    // =====================================================================
+    [HttpGet("health")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
+    [ProducesResponseType(typeof(object), 503)]
+    public async Task<IActionResult> CheckHealth([FromServices] IAIGatewayService aiGatewayService)
+    {
+        var isHealthy = await aiGatewayService.CheckChatHealthAsync();
+
+        if (isHealthy)
+        {
+            // AI is up
+            return Ok(ApiResponse<object>.Ok(new { status = "ok", message = "Chat AI is up and running." }));
+        }
+
+        // AI is down - Return 503 Service Unavailable
+        return StatusCode(503, ApiResponse<object>.Fail(
+            ErrorCodes.AI_INTERNAL_ERROR,
+            "Chat service is temporarily unavailable.",
+            503));
+    }
 }

@@ -15,18 +15,18 @@ namespace MentraAI.API.Modules.Quizzes.Controllers;
 [Authorize]
 public class QuizController : ControllerBase
 {
-    private readonly IQuizService                        _service;
-    private readonly IValidator<GenerateQuizRequest>     _generateValidator;
-    private readonly IValidator<SubmitQuizRequest>       _submitValidator;
+    private readonly IQuizService _service;
+    private readonly IValidator<GenerateQuizRequest> _generateValidator;
+    private readonly IValidator<SubmitQuizRequest> _submitValidator;
 
     public QuizController(
-        IQuizService                    service,
+        IQuizService service,
         IValidator<GenerateQuizRequest> generateValidator,
-        IValidator<SubmitQuizRequest>   submitValidator)
+        IValidator<SubmitQuizRequest> submitValidator)
     {
-        _service           = service;
+        _service = service;
         _generateValidator = generateValidator;
-        _submitValidator   = submitValidator;
+        _submitValidator = submitValidator;
     }
 
     private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -122,5 +122,21 @@ public class QuizController : ControllerBase
     {
         var result = await _service.GetHistoryAsync(stageProgressId, GetUserId());
         return Ok(ApiResponse<QuizHistoryResponse>.Ok(result));
+    }
+
+
+    // =====================================================================
+    // GET /api/v1/quizzes/{quizId}/questions/{questionId}/hint?hintIndex={index}
+    // Get a hint for a quiz question. hintIndex starts at 0 for the first hint.
+    // Returns 404 if no more hints are available for this question.
+    // =====================================================================
+    [HttpGet("{quizId}/questions/{questionId}/hint")]
+    public async Task<IActionResult> GetQuestionHint(Guid quizId, string questionId, [FromQuery] int hintIndex = 0)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+        var hint = await _service.GetQuestionHintAsync(quizId, questionId, hintIndex, userId);
+
+        return Ok(ApiResponse<object>.Ok(new { hint }));
     }
 }

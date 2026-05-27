@@ -5,6 +5,7 @@ using MentraAI.API.Modules.AIGateway.InternalModels;
 using MentraAI.API.Modules.AIGateway.Validators;
 using MentraAI.API.Modules.Chat.DTOs.Requests;
 using MentraAI.API.Modules.Users.Models;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -328,6 +329,27 @@ public class AIGatewayService : IAIGatewayService
                 "AI memory delete returned {Status}: {Body}. Continuing anyway.",
                 response.StatusCode, body);
             // Non-fatal — our DB row is already deleted, memory cleanup is best-effort
+        }
+    }
+
+
+    // =====================================================================
+    // CHECK AI CHAT HEALTH
+    // =====================================================================
+    public async Task<bool> CheckChatHealthAsync()
+    {
+        try
+        {
+            // Calling the AI server's health endpoint to verify it is online
+            var response = await _http.GetAsync("/api/v1/chat/health");
+
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            // Log the failure silently to prevent our backend from crashing
+            _logger.LogWarning(ex, "Chat AI health check failed or AI server is unreachable.");
+            return false;
         }
     }
 

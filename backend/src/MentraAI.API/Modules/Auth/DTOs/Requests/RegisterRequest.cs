@@ -8,6 +8,7 @@ public class RegisterRequest
     public string LastName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+    public string ConfirmPassword { get; set; } = string.Empty;
 }
 
 // FluentValidation rules for RegisterRequest
@@ -42,5 +43,10 @@ public class RegisterRequestValidator : AbstractValidator<RegisterRequest>
         //.Matches("[A-Z]").WithMessage("Password must contain at least one uppercase letter.")
         //.Matches("[0-9]").WithMessage("Password must contain at least one digit.")
         //.Matches("[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character.");
+
+        RuleFor(x => x.ConfirmPassword)
+           .NotEmpty().WithMessage("Confirm password is required.")
+           .Equal(x => x.Password)
+           .WithMessage("Passwords do not match.");
     }
 }
