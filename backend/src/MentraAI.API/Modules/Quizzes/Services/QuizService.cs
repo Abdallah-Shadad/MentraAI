@@ -1,6 +1,7 @@
 using AutoMapper;
 using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
+using MentraAI.API.Modules.AIGateway.DTOs.Responses;
 using MentraAI.API.Modules.AIGateway.InternalModels;
 using MentraAI.API.Modules.AIGateway.Services;
 using MentraAI.API.Modules.CareerTracks.Repositories;
@@ -147,7 +148,7 @@ public class QuizService : IQuizService
             throw new AppException(ErrorCodes.QUIZ_ALREADY_SUBMITTED,
                 "This quiz has already been submitted.", 409);
 
-        var scoreResult = _scoring.Score(quiz.QuestionsDataJson, request.Answers);
+        var scoreResult = _scoring.Score(quiz.QuestionsDataJson, request.Answers, quiz.PassingScore ?? 70.00m);
         var userAnswersDataJson = JsonSerializer.Serialize(request.Answers, _json);
 
         var submitted = await _quizRepo.SubmitAsync(
@@ -261,7 +262,7 @@ public class QuizService : IQuizService
             throw new AppException(ErrorCodes.VALIDATION_ERROR, "No more hints available.", 400);
 
         // 5. Return the specific hint
-        return question.Hints[hintIndex];
+        return question.Hints[hintIndex].Text;
     }
 
     // =====================================================================
@@ -328,6 +329,6 @@ public class QuizService : IQuizService
         public string QuestionId { get; set; } = string.Empty;
 
         [System.Text.Json.Serialization.JsonPropertyName("hints")]
-        public List<string> Hints { get; set; } = new();
+        public List<AIHint> Hints { get; set; } = new();
     }
 }
