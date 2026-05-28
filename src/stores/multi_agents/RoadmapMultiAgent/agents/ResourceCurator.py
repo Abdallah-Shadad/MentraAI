@@ -8,43 +8,61 @@ from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
 from ...AgentEnums import AgentType
 from ...BaseWorkerAgent import BaseWorkerAgent
 from .schemas.ResourceCurator import ResourceCuratorOutput
+from .tools.ResourceCuratorTools import RESOURCE_TOOLS
 
 class ResourceCurator(BaseWorkerAgent):
     """
     Roadmap Agent — Resource Curator
     ==================================
-    Finds and curates high-quality learning materials for each curriculum stage.
+    Finds and curates high-quality learning materials for EACH TOPIC inside a stage.
+    Every topic gets its own dedicated video AND article resource.
 
     State keys consumed  : ``current_stage``, ``difficulty_level``
-    State keys produced  : ``resources``, ``resource_agent_done``
+    State keys produced  : ``stage_resources``, ``resource_agent_done``
     """
 
-    _DEFAULT_SYSTEM_PROMPT = """You are an expert learning-resource curator.
-For each stage in the provided curriculum, find high-quality materials.
-Return a JSON:
-{
-  "<stage_id>": [
-    {"title": "...", "url": "...", "type": "video|article|documentation", "quality_score": 0.0-1.0}
-  ]
-}
-Prioritise official docs and trusted educational platforms.
+    def __init__(self, config=None, llm=None, tools=None, llm_manager=None):
+        super().__init__(config=config, llm=llm, tools=tools if tools is not None else RESOURCE_TOOLS, llm_manager=llm_manager)
+
+    _DEFAULT_SYSTEM_PROMPT = """You are an elite learning-resource curator. Your job is to find the absolute BEST learning materials for each individual topic.
+
+CRITICAL RULES:
+1. You MUST call the `search_learning_resources` tool ONCE PER TOPIC in the stage.
+2. Every single topic must have its OWN dedicated resources — do NOT share resources between topics.
+3. Categorize the found resources strictly into three lists per topic: `videos`, `articles`, and `documentation`.
+4. STRICT URL VALIDATION: Any URL containing 'youtube.com' or 'youtu.be' MUST be placed in the `videos` list. NEVER put a video link in `articles` or `documentation`.
+5. If you cannot find a valid text-based article for a topic, leave the `articles` list empty rather than inserting a video.
+6. LIMIT the output: Return a MAXIMUM of 2 videos and 1 article per topic. Do not overwhelm the user.
+7. NEVER hallucinate or invent URLs. Only use real resources returned by the tool.
+8. After calling the tool for ALL topics, compile the final structured output using the ResourceCuratorOutput schema.
+
+Your output must map EVERY topic in the stage to its specific curated resources, separated by type.
 """
 
     def get_agent_type(self) -> AgentType:
         return AgentType.RESOURCE_CURATOR.value
 
-    def _output_key(self) -> str:     return "resources"
+    def _output_key(self) -> str:     return "stage_resources"
     def _done_key(self) -> str:       return "resource_agent_done"
     def _output_schema(self) -> type: return ResourceCuratorOutput
 
     def build_messages(self, state: Dict[str, Any]) -> List[BaseMessage]:
+        current_stage = state.get("current_stage", {})
+        topics = current_stage.get("topics", [])
+        difficulty = state.get("difficulty_level", "beginner")
+
+        topic_list = "\n".join(f"  - {t}" for t in topics)
+
         return [
             SystemMessage(content=self._system_prompt),
             HumanMessage(
                 content=(
-                    f"Difficulty level : {state.get('difficulty_level', 'beginner')}\n"
-                    f"Stage to curate  : {state.get('current_stage', {})}\n\n"
-                    "Please curate 3-5 high-quality resources for this single stage only."
+                    f"Stage ID         : {current_stage.get('id', 'unknown')}\n"
+                    f"Stage Name       : {current_stage.get('name', 'unknown')}\n"
+                    f"Difficulty Level : {difficulty}\n\n"
+                    f"Topics that EACH need their own dedicated resources:\n{topic_list}\n\n"
+                    f"IMPORTANT: Call `search_learning_resources` ONCE for EACH of the {len(topics)} topics above. "
+                    f"Every topic must have at least 1 video and 1 article in its resources."
                 )
             ),
         ]

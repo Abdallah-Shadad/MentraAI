@@ -234,7 +234,7 @@ async def adaptation_stage(
             "signal":  "201_Created",
             "status":  "success",
             "message": "Roadmap adaptation successfully",
-            "roadmap": roadmap_payload,
+            "Additional_Resource": roadmap_payload,
             "time_consume": time.perf_counter() - start_time,
         }),
     )
