@@ -5,6 +5,7 @@ class GraphType(Enum):
     """All multi-agent supervisor graphs in the MentraAI system."""
     ROADMAP_GRAPH  = "roadmap_graph"
     QUIZ_GRAPH     = "quiz_graph"
+    PROJECT_GRAPH  = "project_graph"
     CAPSTONE_GRAPH = "capstone_graph"
     CHAT_GRAPH     = "chat_graph"
 
@@ -43,6 +44,9 @@ class NodeName(Enum):
     QUIZ_GRADER          = "quiz_grader"
     FEEDBACK_GENERATOR   = "feedback_generator"
     REMEDIATION_PLANNER  = "remediation_planner"
+
+    # ── Project Graph ────────────────────────────────────────────────────
+    PROJECT_RECOMMENDER  = "project_recommender"
 
     # ── Capstone Graph ───────────────────────────────────────────────────
     PROJECT_IDEATOR      = "project_ideator"

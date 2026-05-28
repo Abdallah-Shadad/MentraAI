@@ -18,6 +18,9 @@ class AgentType(Enum):
     FEEDBACK_GENERATOR     = "feedback_generator"
     REMEDIATION_PLANNER    = "remediation_planner"
 
+    # ── Project Supervisor ──────────────────────────────────────────────
+    PROJECT_RECOMMENDER    = "project_recommender"
+
     # ── Capstone Supervisor ─────────────────────────────────────────────
     PROJECT_IDEATOR        = "project_ideator"
     IMPLEMENTATION_GUIDE   = "implementation_guide"
