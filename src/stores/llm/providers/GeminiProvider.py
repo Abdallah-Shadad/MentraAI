@@ -80,8 +80,18 @@ class GeminiProvider(LLMInterface):
             
         try:
             async for chunk in self.client.astream(messages):
-                if chunk.content:
-                    yield chunk.content
+                content = chunk.content
+                if isinstance(content, list):
+                    parts = []
+                    for part in content:
+                        if isinstance(part, str):
+                            parts.append(part)
+                        elif isinstance(part, dict) and part.get("type") == "text":
+                            parts.append(part.get("text", ""))
+                    content = "".join(parts)
+                
+                if content:
+                    yield content
         except Exception as e:
             self.logger.error(f"[GeminiProvider] stream failed: {e}")
             raise e

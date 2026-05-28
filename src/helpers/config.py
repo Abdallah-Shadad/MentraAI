@@ -124,11 +124,10 @@ def get_llm_config() -> dict:
     return {
         # Default Provider (used by Supervisor directly in routes/roadmap.py)
         "api_key": gemini_key("GEMINI_API_KEY_SUPERVISOR"),
-        "base_url": "https://8ae4-34-187-223-8.ngrok-free.app/v1/",
-        "max_output_tokens": 100000,
+        "max_output_tokens": 8192,
         "temperature": 0.1,
-        "model": "qwen3:8b",
-        "provider": "openai",
+        "model": "gemini-3.5-flash",
+        "provider": "gemini",
 
         # ── Agent-Specific LLM Configs with Groq Fallback ──────────────────
         "agent_llm_configs": {
