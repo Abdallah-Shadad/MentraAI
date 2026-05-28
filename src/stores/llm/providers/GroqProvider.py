@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Any
+from typing import List, Optional, Any, AsyncIterator
 
 from langchain_groq import ChatGroq
 from langchain_core.tools import BaseTool
@@ -63,6 +63,30 @@ class GroqProvider(LLMInterface):
         except Exception as e:
             self.logger.error(f"[GroqProvider] invoke failed: {e}")
             return None
+
+    async def stream(self, messages: list) -> AsyncIterator[str]:
+        if not self.client:
+            raise Exception("Groq client is not initialized")
+        if not self.generation_model_id:
+            raise Exception("Generation model is not set")
+
+        try:
+            async for chunk in self.client.astream(messages):
+                content = chunk.content
+                if isinstance(content, list):
+                    parts = []
+                    for part in content:
+                        if isinstance(part, str):
+                            parts.append(part)
+                        elif isinstance(part, dict) and part.get("type") == "text":
+                            parts.append(part.get("text", ""))
+                    content = "".join(parts)
+
+                if content:
+                    yield content
+        except Exception as e:
+            self.logger.error(f"[GroqProvider] stream failed: {e}")
+            raise e
 
     def embed_text(self, document_type: str, document_content: str = None):
         self.logger.warning("GroqProvider does not support embeddings natively yet.")
