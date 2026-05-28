@@ -66,7 +66,7 @@ async def roadmap(request_body: RoadmapRequest, app_settings: Settings = Depends
             max_output_tokens=8192,   # Supervisor only needs routing decisions, not huge outputs
             temperature=0.1,
         )
-        my_llm.set_generation_model("gemini-2.5-flash")
+        my_llm.set_generation_model("gemini-3.5-flash")
 
         agent_factory = AgentProviderFactory(config)
         

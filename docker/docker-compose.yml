@@ -13,6 +13,32 @@ services:
       - backend
     env_file:
       - ./env/.env.app
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Redis Stack — includes RediSearch (FT.*), RedisJSON, RedisBloom
+  # Latest pinned release: 7.4.0-v8 (confirmed from hub.docker.com/r/redis/redis-stack-server/tags)
+  redis:
+    image: redis/redis-stack-server:7.4.0-v8
+    container_name: redis_cache
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    # IMPORTANT: Never override `command:` on this image — doing so runs plain redis-server
+    # which bypasses the Stack entrypoint and skips loading all modules (FT.*, JSON, Bloom).
+    # Password and persistence flags are set via REDIS_ARGS in ./env/.env.redis instead.
+    env_file:
+      - ./env/.env.redis
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   # Nginx Service 
   nginx:
@@ -85,3 +111,4 @@ volumes:
   fastapi_data:
   prometheus_data:
   grafana_data:
+  redis_data:

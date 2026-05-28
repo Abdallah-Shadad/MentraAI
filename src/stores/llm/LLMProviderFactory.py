@@ -29,6 +29,13 @@ class LLMProviderFactory:
                 default_temperature=self.config.GENERATION_DEFAULT_TEMPREATURE
             )
 
+        if provider == LLMEnums.COHERE.value:
+            return CoHereProvider(
+                api_key=self.config.COHERE_API_KEY,
+                default_input_max_characters=self.config.INPUT_DEFAULT_MAX_CHARACTER,
+                default_generation_max_characters=self.config.GENERATION_DEFAULT_MAX_TOKENS,
+                default_temperature=self.config.GENERATION_DEFAULT_TEMPREATURE
+            )
 
     @staticmethod
     def get_provider(provider_name:str):
@@ -36,4 +43,8 @@ class LLMProviderFactory:
             return OpenAIProvider()
         if provider_name == LLMEnums.GEMINI.value:
             return GeminiProvider()
+        if provider_name == LLMEnums.COHERE.value:
+            return CoHereProvider()
+        else:
+            raise Exception(f"Provider {provider_name} not found")
         

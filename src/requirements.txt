@@ -19,6 +19,7 @@ langgraph-api==0.8.0
 psycopg2==2.9.12
 langgraph-api==0.8.0
 
+cohere==6.1.0
 
 nltk==3.9.3
 
@@ -28,3 +29,9 @@ starlette-exporter==0.23.0
 
 # Health check
 fastapi-health==0.4.0
+
+redis==7.4.0
+
+langchain-groq==1.1.2
+
+

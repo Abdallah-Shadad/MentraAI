@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 
 # Resolve .env from project root regardless of working directory
@@ -11,8 +11,11 @@ class Settings(BaseSettings):
     APP_NAME: str
     APP_VERSION: str
 
-    # Default fallback Gemini key
+    # secret Key
     GEMINI_API_KEY: str
+    COHERE_API_KEY: str
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_API_URL: Optional[str] = None
     
     # Agent-Specific Gemini Keys (each gets its own quota bucket)
     GEMINI_API_KEY_SUPERVISOR: str = ""
@@ -24,7 +27,7 @@ class Settings(BaseSettings):
     # Groq fallback keys (2 keys — first hits limit → switches to second)
     GROQ_API_KEY_1: str = ""
     GROQ_API_KEY_2: str = ""
-
+    
     # Langsmith
     LANGSMITH_TRACING: bool
     LANGSMITH_ENDPOINT: str
@@ -36,12 +39,51 @@ class Settings(BaseSettings):
 
     # youtube
     YOUTUBE_API_KEY: str
-        
+
+    # Chatbot
+    ROUTER_LLM_TYPE: str
+    ROUTER_LLM_MODEL: str
+
+    SIMPLE_LLM_TYPE: str
+    SIMPLE_LLM_MODEL: str
+
+    MEDIUM_LLM_TYPE: str
+    MEDIUM_LLM_MODEL: str
+
+    ADVANCED_LLM_TYPE: str
+    ADVANCED_LLM_MODEL: str
+
+    # Embeddings
+    EMBEDDING_MODEL_TYPE: str
+    EMBEDDING_MODEL_NAME: str
+    EMBEDDING_SIZE: int
+
+    # Redis
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: Optional[str] = None
+
+    # Semantic Cache
+    SIMILARITY_THRESHOLD: float = 0.85
+
+    # Conversation Memory (Redis-backed)
+    MEMORY_MAX_WINDOW: int = 20       # max raw messages kept per user
+    MEMORY_SUMMARY_INTERVAL: int = 5  # recompute summary every N new messages
+
+    # Optional cache tuning
+    CACHE_SIMILARITY_THRESHOLD: Optional[float] = None  # overrides SIMILARITY_THRESHOLD if set
+    CACHE_TTL_SECONDS: Optional[int] = None             # future: TTL per cache entry
+
 
     class Config:
         env_file = str(ENV_FILE)
         env_file_encoding = "utf-8"
         extra = "ignore"
+
+    @property
+    def effective_similarity_threshold(self) -> float:
+        """Return CACHE_SIMILARITY_THRESHOLD if set, else fall back to SIMILARITY_THRESHOLD."""
+        return self.CACHE_SIMILARITY_THRESHOLD if self.CACHE_SIMILARITY_THRESHOLD is not None else self.SIMILARITY_THRESHOLD
 
 def get_settings() -> Settings:
     return Settings()
@@ -82,11 +124,10 @@ def get_llm_config() -> dict:
     return {
         # Default Provider (used by Supervisor directly in routes/roadmap.py)
         "api_key": gemini_key("GEMINI_API_KEY_SUPERVISOR"),
-        "base_url": "https://8ae4-34-187-223-8.ngrok-free.app/v1/",
-        "max_output_tokens": 100000,
+        "max_output_tokens": 8192,
         "temperature": 0.1,
-        "model": "qwen3:8b",
-        "provider": "openai",
+        "model": "gemini-3.5-flash",
+        "provider": "gemini",
 
         # ── Agent-Specific LLM Configs with Groq Fallback ──────────────────
         "agent_llm_configs": {
@@ -127,4 +168,4 @@ def get_llm_config() -> dict:
                 "fallbacks": fallbacks
             }
         }
-    }
+    }
