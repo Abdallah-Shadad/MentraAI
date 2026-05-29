@@ -53,7 +53,7 @@ from ..AgentEnums import AgentType
 from ..AgentProviderFactory import AgentProviderFactory
 from ...graph import GraphInterface
 from ...graph.GraphEnums import GraphType, NodeName
-from .agents.schemas.AdaptationEngine import Resource
+from .agents.schemas.AdaptationEngine import RemediationResource
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1. SHARED STATE
@@ -91,7 +91,7 @@ class RoadmapState(TypedDict, total=False):
 
     # ── Adaptation Engine outputs (optional / triggered by progress) ─────
     struggling_topics: Annotated[Optional[List[str]], "List of topics the user is struggling with. that get from user feedback and quiz attempts. Produced by Adaptation Engine."]
-    adapted_recommended_resources: Annotated[Optional[List[Resource]], "List of recommended resources based on user's struggling topics. Produced by Adaptation Engine."]
+    adapted_recommended_resources: Annotated[Optional[List[RemediationResource]], "List of recommended resources based on user's struggling topics. Produced by Adaptation Engine."]
     adaptation_agent_done: Annotated[bool, "Signals completion of Adaptation Engine execution. Used by Supervisor for routing."]
     adaptation_summary: Annotated[str, "Summary of the adaptation. Produced by Adaptation Engine."]
 
@@ -150,28 +150,21 @@ In this case you MUST follow this short pipeline ONLY:
   1. Route to "adaptation_engine"  (if adaptation_agent_done is false)
   2. Route to "response_formatter" (once adaptation_agent_done is true)
   3. Set "FINISH" after response_formatter completes.
-Do NOT call profile_analyzer, curriculum_generator, stage_extractor, or resource_curator
-when is_adaptation_mode is true.
 
-## NORMAL MODE (is_adaptation_mode = false or missing)
-Available agents and when to call them:
-- "profile_analyzer"     : Always first. Analyses user background & skill gaps.
-- "curriculum_generator" : After profile analysis. Builds stage-by-stage curriculum.
-- "stage_extractor"      : After curriculum. Extracts the single current stage from all_stages by index.
-- "resource_curator"     : After stage_extractor. Finds learning materials for each stage.
-- "adaptation_engine"    : Only if learner_progress data exists AND adaptation_agent_done is false.
-- "response_formatter"   : Always last. Builds the frontend-ready JSON.
-- "FINISH"               : When the roadmap is complete (all required agents done).
+## INITIAL BUILD MODE (is_stage_progression = false)
+When building the roadmap for the first time:
+1. Always start with "profile_analyzer" if profile_agent_done is false/missing.
+2. Move to "curriculum_generator" once profile_agent_done is true AND curriculum_agent_done is false.
+3. Move to "response_formatter" once curriculum_agent_done is true.
 
-Normal-mode rules:
-1. Always start with profile_analyzer if profile_agent_done is false/missing.
-2. Move to curriculum_generator once profile_agent_done is true.
-3. Move to stage_extractor once curriculum_agent_done is true AND stage_extractor_done is false.
-4. Move to resource_curator once stage_extractor_done is true.
-5. Move to adaptation_engine ONLY if learner_progress is provided AND adaptation_agent_done is false.
-6. Move to response_formatter once resource_agent_done is true.
-7. Set "FINISH" when response_formatter is done.
-8. Repeat an agent if quality of output is not enough.
+## STAGE PROGRESSION MODE (is_stage_progression = true)
+When the user is advancing to the next stage and needs resources:
+1. Call "curriculum_generator" if curriculum_agent_done is false (to load the curriculum).
+2. Move to "stage_extractor" once curriculum_agent_done is true AND stage_extractor_done is false.
+3. Move to "adaptation_engine" IF has_learner_progress is true AND adaptation_agent_done is false. DO NOT move to resource_curator until this is done.
+4. Move to "resource_curator" ONLY IF stage_extractor_done is true AND (has_learner_progress is false OR adaptation_agent_done is true).
+5. Move to "response_formatter" once resource_agent_done is true.
+6. Set "FINISH" when response_formatter is done.
 
 Respond with ONLY a JSON object:
 {"next_agent": "<agent_name_or_FINISH>", "reason": "<one line explanation>"}
@@ -315,12 +308,18 @@ Respond with ONLY a JSON object:
         """
         self.logger.info("[Supervisor] Deciding next agent...")
 
+        # ── Prevent Infinite Loops ──
+        if state.get("error"):
+            self.logger.error(f"[Supervisor] Found error in state: {state.get('error')}. Routing to FINISH to prevent infinite loop.")
+            return {**state, "next_agent": "FINISH"}
+
         if self.llm is None:
             # Fallback: deterministic rule-based routing (no LLM needed)
             return self._deterministic_routing(state)
 
         # Build a compact state summary for the LLM
         state_summary = {
+            "is_stage_progression":    state.get("is_stage_progression", False),
             "is_adaptation_mode":      state.get("is_adaptation_mode", False),
             "profile_agent_done":      state.get("profile_agent_done", False),
             "curriculum_agent_done":   state.get("curriculum_agent_done", False),
@@ -467,8 +466,28 @@ Respond with ONLY a JSON object:
 
 
     def _stage_extractor_node(self, state: RoadmapState) -> Dict[str, Any]:
-        """Extracts the single current stage from all_stages by index."""
+        """Extracts the single current stage from all_stages by index.
+
+        SHORT-CIRCUIT: If the caller already supplied ``current_stage`` directly
+        in the request body, skip all extraction logic and use it as-is.
+        This is the preferred (Option A) path — no full curriculum needed.
+        """
         self.logger.info("[Node] Running StageExtractor…")
+
+        # ── Option A: current_stage was sent directly in the request ──────────
+        if state.get("current_stage"):
+            current_stage = state["current_stage"]
+            self.logger.info(
+                f"[StageExtractor] current_stage provided directly: '{current_stage.get('name')}' — skipping extraction."
+            )
+            return {
+                **state,
+                "current_stage": current_stage,
+                "stage_extractor_done": True,
+                "resource_agent_done": False,
+            }
+
+        # ── Option B (legacy): extract from full curriculum by index ──────────
         all_stages = state.get("all_stages", [])
         idx = state.get("current_stage_index", 0)
 
@@ -507,9 +526,10 @@ Respond with ONLY a JSON object:
             **state,
             "all_stages": all_stages,
             "current_stage": current_stage,
-            "stage_extractor_done": True,   # FIX: signal to supervisor that extraction is complete
-            "resource_agent_done": False,   # reset so ResourceCurator runs fresh
+            "stage_extractor_done": True,
+            "resource_agent_done": False,
         }
+
 
     def _response_formatter_node(self, state: RoadmapState) -> Dict[str, Any]:
         """Always last node before END. Builds the frontend-ready JSON response.
@@ -533,7 +553,7 @@ Respond with ONLY a JSON object:
         Mode 1 — roadmap_overview (initial build)
             No injection — curriculum returned as-is.
         """
-        is_adaptation  = state.get("is_adaptation_mode",   False)
+        is_adaptation  = state.get("is_adaptation_mode", False) or bool(state.get("adapted_curriculum"))
         is_progression = state.get("is_stage_progression", False)
 
         mode = (
@@ -652,11 +672,25 @@ Respond with ONLY a JSON object:
         # ══════════════════════════════════════════════════════════════════════
         else:
             data = {
-                "curriculum":       curriculum,
-                "difficulty_level": state.get("difficulty_level"),
-                "skill_gaps":       state.get("skill_gaps"),
-                "total_weeks":      state.get("estimated_duration_weeks"),
+                "curriculum": curriculum,
             }
+
+        # ── Pull requested metadata out of curriculum/state into root data ──
+        # Backend requested `total_weeks`, `difficulty_level`, and `skill_gaps`
+        # at the root level so they can be stored in separate DB columns.
+        
+        # Determine total_weeks (may be in state or curriculum)
+        total_w = state.get("estimated_duration_weeks")
+        if total_w is None:
+            total_w = curriculum.get("total_weeks")
+            
+        data["total_weeks"]      = total_w
+        data["difficulty_level"] = state.get("difficulty_level")
+        data["skill_gaps"]       = state.get("skill_gaps", [])
+
+        # Optionally remove total_weeks from inside the curriculum to keep it DRY
+        if "total_weeks" in curriculum:
+            del curriculum["total_weeks"]
 
         return {
             **state,

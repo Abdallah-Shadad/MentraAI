@@ -1,17 +1,16 @@
 import logging
 from typing import List, Optional, Any, AsyncIterator
 
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_groq import ChatGroq
 from langchain_core.tools import BaseTool
 
 from ..LLMInterface import LLMInterface
-from ..LLMEnums import DocumentType, GeminiEnums
+from ..LLMEnums import DocumentType, OpenAIEnums  # Reusing OpenAI Enums for simplicity as roles are similar
 
-
-class GeminiProvider(LLMInterface):
+class GroqProvider(LLMInterface):
 
     def __init__(self, api_key: str,
-                 max_output_tokens: int = 100000,
+                 max_output_tokens: int = 8000,
                  temperature: float = 0.1,
                  ):
         # Base Configuration
@@ -22,40 +21,33 @@ class GeminiProvider(LLMInterface):
         # Name of model
         self.generation_model_id = None
 
-        # Embedding model
-        self.embedding_model_id = None
-        self.embedding_size = None
-
-        self.enums = GeminiEnums
+        self.enums = OpenAIEnums # Groq uses similar role structures
 
         self.client = None
-        self.embedding_model = None
         self.logger = logging.getLogger("uvicorn.error")
 
     def set_generation_model(self, model_id: str):
         """Create Client with Specific model_id"""
         self.generation_model_id = model_id
-        self.client = ChatGoogleGenerativeAI(
+        self.client = ChatGroq(
             model=self.generation_model_id,
-            google_api_key=self.api_key,
-            max_output_tokens=self.max_output_tokens,
+            api_key=self.api_key,
             temperature=self.temperature,
+            max_tokens=self.max_output_tokens,
         )
 
     def set_embedding_model(self, model_id: str, embedding_size: int):
-        self.embedding_model_id = model_id
-        self.embedding_size = embedding_size
-        self.embedding_model = GoogleGenerativeAIEmbeddings(
-            model=self.embedding_model_id,
-            google_api_key=self.api_key,
-        )
+        # Groq doesn't natively provide an embedding model in the same way via ChatGroq,
+        # but we must implement the interface.
+        self.logger.warning("GroqProvider does not support embeddings natively yet.")
+        pass
 
     def invoke(self, prompt: str, chat_history: list = [], max_output_tokens: int = None, temperature: float = None):
-        self.logger.info(f"Generating text using #GeminiProvider: {self.generation_model_id}")
+        self.logger.info(f"Generating text using #GroqProvider: {self.generation_model_id}")
 
         if not self.client:
-            self.logger.error("Gemini Client is not initialized")
-            raise Exception("Gemini client is not initialized")
+            self.logger.error("Groq Client is not initialized")
+            raise Exception("Groq client is not initialized")
 
         if not self.generation_model_id:
             self.logger.error("Generation model is not set")
@@ -69,15 +61,15 @@ class GeminiProvider(LLMInterface):
             response = self.client.invoke(chat_history)
             return response.content
         except Exception as e:
-            self.logger.error(f"[GeminiProvider] invoke failed: {e}")
+            self.logger.error(f"[GroqProvider] invoke failed: {e}")
             return None
 
     async def stream(self, messages: list) -> AsyncIterator[str]:
         if not self.client:
-            raise Exception("Gemini client is not initialized")
+            raise Exception("Groq client is not initialized")
         if not self.generation_model_id:
             raise Exception("Generation model is not set")
-            
+
         try:
             async for chunk in self.client.astream(messages):
                 content = chunk.content
@@ -89,45 +81,36 @@ class GeminiProvider(LLMInterface):
                         elif isinstance(part, dict) and part.get("type") == "text":
                             parts.append(part.get("text", ""))
                     content = "".join(parts)
-                
+
                 if content:
                     yield content
         except Exception as e:
-            self.logger.error(f"[GeminiProvider] stream failed: {e}")
+            self.logger.error(f"[GroqProvider] stream failed: {e}")
             raise e
 
     def embed_text(self, document_type: str, document_content: str = None):
-        if not self.embedding_model_id:
-            raise RuntimeError("Call set_embedding_model() before embed_text().")
-
-        try:
-            vector = self.embedding_model.embed_query(document_content)
-            return vector
-        except Exception as e:
-            self.logger.error(f"[GeminiProvider] embed_text failed: {e}")
-            return None
+        self.logger.warning("GroqProvider does not support embeddings natively yet.")
+        return None
 
     def construct_prompt(self, prompt: str, role: str):
+        # Groq uses standard OpenAI-like message format
         return {"role": role, "content": prompt}
 
     def bind_tools(self, tools: List[BaseTool]):
         if not self.client:
-            self.logger.error("Gemini Client is not initialized")
-            raise Exception("Gemini client is not initialized")
+            self.logger.error("Groq Client is not initialized")
+            raise Exception("Groq client is not initialized")
 
         self.client = self.client.bind_tools(tools)
-        self.logger.info(f"[GeminiProvider] Bound {len(tools)} tools to model.")
+        self.logger.info(f"[GroqProvider] Bound {len(tools)} tools to model.")
 
     def with_structured_output(self, schema: Any, **kwargs):
         """
         Bind a Pydantic output schema to the LLM.
-
-        This is required for LangGraph Studio to automatically generate
-        structured output nodes.
         """
         if not self.client:
-            raise RuntimeError("Gemini client is not initialized. Call set_generation_model() first.")
+            raise RuntimeError("Groq client is not initialized. Call set_generation_model() first.")
 
         self.client = self.client.with_structured_output(schema, **kwargs)
-        self.logger.info(f"[GeminiProvider] Bound structured output schema.")
+        self.logger.info(f"[GroqProvider] Bound structured output schema.")
         return self

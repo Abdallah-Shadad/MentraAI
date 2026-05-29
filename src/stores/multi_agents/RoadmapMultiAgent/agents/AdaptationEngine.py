@@ -37,9 +37,9 @@ class AdaptationEngine(BaseWorkerAgent):
     # Kept for AgentProviderFactory introspection; actual prompt comes from the file.
     _DEFAULT_SYSTEM_PROMPT = SYSTEM_PROMPT
 
-    def __init__(self, config=None, llm=None, tools=None):
+    def __init__(self, config=None, llm=None, tools=None, llm_manager=None):
         # Default to ADAPTION_TOOLS; caller may inject different/mock tools.
-        super().__init__(config=config, llm=llm, tools=tools if tools is not None else ADAPTION_TOOLS)
+        super().__init__(config=config, llm=llm, tools=tools if tools is not None else ADAPTION_TOOLS, llm_manager=llm_manager)
         # Override the base _system_prompt with the file-level constant so
         # set_system_prompt() callers also start from the correct default.
         self._system_prompt = SYSTEM_PROMPT
