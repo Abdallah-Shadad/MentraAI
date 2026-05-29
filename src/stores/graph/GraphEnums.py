@@ -3,11 +3,12 @@ from enum import Enum
 
 class GraphType(Enum):
     """All multi-agent supervisor graphs in the MentraAI system."""
-    ROADMAP_GRAPH  = "roadmap_graph"
-    QUIZ_GRAPH     = "quiz_graph"
-    PROJECT_GRAPH  = "project_graph"
-    CAPSTONE_GRAPH = "capstone_graph"
-    CHAT_GRAPH     = "chat_graph"
+    ROADMAP_GRAPH            = "roadmap_graph"
+    QUIZ_GRAPH               = "quiz_graph"
+    PROJECT_GRAPH            = "project_graph"
+    TRACK_RECOMMENDER_GRAPH  = "track_recommender_graph"
+    CAPSTONE_GRAPH           = "capstone_graph"
+    CHAT_GRAPH               = "chat_graph"
 
 
 class GraphStatus(Enum):
@@ -47,6 +48,9 @@ class NodeName(Enum):
 
     # ── Project Graph ────────────────────────────────────────────────────
     PROJECT_RECOMMENDER  = "project_recommender"
+
+    # ── Track Recommender Graph ──────────────────────────────────────────
+    TRACK_RECOMMENDER    = "track_recommender"
 
     # ── Capstone Graph ───────────────────────────────────────────────────
     PROJECT_IDEATOR      = "project_ideator"

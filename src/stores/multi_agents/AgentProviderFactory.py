@@ -16,6 +16,9 @@ from .QuizAgent.agents.QuestionGenerator import QuestionGenerator
 # ── Project agents ───────────────────────────────────────────────────────
 from .ProjectAgent.agents.ProjectRecommender import ProjectRecommender
 
+# ── Track Recommender agent ──────────────────────────────────────────────
+from .TrackRecommenderAgent.agents.TrackRecommender import TrackRecommender
+
 # ── Capstone agents (uncomment when implemented) ────────────────────────
 # from .CapstoneMultiAgent.agents.ProjectIdeator import ProjectIdeator
 # from .CapstoneMultiAgent.agents.ImplementationGuide import ImplementationGuide
@@ -58,6 +61,9 @@ class AgentProviderFactory:
 
         # ── Project ───────────────────────────────────────────────────────
         AgentType.PROJECT_RECOMMENDER:  ProjectRecommender,
+
+        # ── Track Recommender ─────────────────────────────────────────────
+        AgentType.TRACK_RECOMMENDER:    TrackRecommender,
 
         # ── Capstone (add when ready) ──────────────────────────────────
         # AgentType.PROJECT_IDEATOR:      ProjectIdeator,

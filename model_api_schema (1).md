@@ -1,0 +1,686 @@
+# Model API Endpoints - Input Schema
+
+This document outlines the schema for input fields to the model's API endpoints.
+
+## Fields:
+
+### `Unnamed: 0`
+- **Type:** `int64`
+
+### `MainBranch`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `I am a developer by profession`
+  - `I am not primarily a developer, but I write code sometimes as part of my work/studies`
+  - `I used to be a developer by profession, but no longer am`
+  - `I work with developers or my work supports developers but am not a developer by profession`
+  - `I code primarily as a hobby`
+  - `I am learning to code`
+
+### `Age`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `25-34 years old`
+  - `35-44 years old`
+  - `45-54 years old`
+  - `18-24 years old`
+  - `55-64 years old`
+  - `65 years or older`
+  - `Prefer not to say`
+
+### `EdLevel`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `Master’s degree (M.A., M.S., M.Eng., MBA, etc.)`
+  - `Associate degree (A.A., A.S., etc.)`
+  - `Bachelor’s degree (B.A., B.S., B.Eng., etc.)`
+  - `Some college/university study without earning a degree`
+  - `Professional degree (JD, MD, Ph.D, Ed.D, etc.)`
+  - `Secondary school (e.g. American high school, German Realschule or Gymnasium, etc.)`
+  - `Other (please specify):`
+  - `Primary/elementary school`
+
+### `YearsCode`
+- **Type:** `float64`
+
+### `WorkExp`
+- **Type:** `float64`
+
+### `Employment`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `Employed`
+  - `Independent contractor, freelancer, or self-employed`
+  - `Student`
+  - `Not employed`
+  - `I prefer not to say`
+
+### `RemoteWork`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `Remote`
+  - `Hybrid (some in-person, leans heavy to flexibility)`
+  - `Hybrid (some remote, leans heavy to in-person)`
+  - `Your choice (very flexible, you can come in when you want or just as needed)`
+  - `In-person`
+
+### `Country`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `Ukraine`
+  - `Netherlands`
+  - `India`
+  - `Greece`
+  - `Germany`
+  - `Bangladesh`
+  - `Brazil`
+  - `United States of America`
+  - `Lithuania`
+  - `United Kingdom of Great Britain and Northern Ireland`
+  - `Ireland`
+  - `Sweden`
+  - `Dominican Republic`
+  - `Austria`
+  - `Belgium`
+  - `Czech Republic`
+  - `Italy`
+  - `Hungary`
+  - `Malaysia`
+  - `Switzerland`
+  - `Egypt`
+  - `Sri Lanka`
+  - `Poland`
+  - `Spain`
+  - `Russian Federation`
+  - `Serbia`
+  - `Japan`
+  - `France`
+  - `Romania`
+  - `Canada`
+  - `Uruguay`
+  - `United Arab Emirates`
+  - `Argentina`
+  - `Norway`
+  - `Slovakia`
+  - `Republic of Moldova`
+  - `Peru`
+  - `Portugal`
+  - `Costa Rica`
+  - `Croatia`
+  - `Iran, Islamic Republic of...`
+  - `Philippines`
+  - `China`
+  - `Finland`
+  - `Colombia`
+  - `Ethiopia`
+  - `Israel`
+  - `Australia`
+  - `Bulgaria`
+  - `Georgia`
+  - `Morocco`
+  - `Mexico`
+  - `Turkey`
+  - `Bolivia`
+  - `Nepal`
+  - `Pakistan`
+  - `South Africa`
+  - `Singapore`
+  - `Paraguay`
+  - `Zimbabwe`
+  - `Tunisia`
+  - `Denmark`
+  - `Trinidad and Tobago`
+  - `Nigeria`
+  - `Republic of North Macedonia`
+  - `Cyprus`
+  - `Latvia`
+  - `Malta`
+  - `Luxembourg`
+  - `Taiwan`
+  - `Viet Nam`
+  - `Chile`
+  - `Hong Kong (S.A.R.)`
+  - `Republic of Korea`
+  - `Uganda`
+  - `Lebanon`
+  - `Jordan`
+  - `Indonesia`
+  - `Slovenia`
+  - `Madagascar`
+  - `Guatemala`
+  - `Qatar`
+  - `Thailand`
+  - `Bosnia and Herzegovina`
+  - `Armenia`
+  - `Venezuela, Bolivarian Republic of...`
+  - `Mozambique`
+  - `Kazakhstan`
+  - `Honduras`
+  - `Nomadic`
+  - `Algeria`
+  - `Nicaragua`
+  - `Kenya`
+  - `Kyrgyzstan`
+  - `Ghana`
+  - `Montenegro`
+  - `Estonia`
+  - `Ecuador`
+  - `South Korea`
+  - `New Zealand`
+  - `Albania`
+  - `Saint Lucia`
+  - `Haiti`
+  - `Bahrain`
+  - `Iraq`
+  - `Cambodia`
+  - `Uzbekistan`
+  - `Tajikistan`
+  - `Yemen`
+  - `Mauritius`
+  - `Belarus`
+  - `Kosovo`
+  - `Suriname`
+  - `Togo`
+  - `Maldives`
+  - `Angola`
+  - `Botswana`
+  - `Swaziland`
+  - `Benin`
+
+### `DevType`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `Developer, mobile`
+  - `Developer, back-end`
+  - `Developer, front-end`
+  - `Engineering manager`
+  - `Developer, full-stack`
+  - `Architect, software or solutions`
+  - `Data engineer`
+  - `Academic researcher`
+  - `Developer, embedded applications or devices`
+  - `Cybersecurity or InfoSec professional`
+  - `Developer, game or graphics`
+  - `AI/ML engineer`
+  - `Senior executive (C-suite, VP, etc.)`
+  - `Developer, desktop or enterprise applications`
+  - `Other (please specify):`
+  - `Founder, technology or otherwise`
+  - `Developer, AI apps or physical AI`
+  - `DevOps engineer or professional`
+  - `Student`
+  - `Cloud infrastructure engineer`
+  - `Project manager`
+  - `Data scientist`
+  - `Applied scientist`
+  - `Data or business analyst`
+  - `Product manager`
+  - `System administrator`
+  - `Support engineer or analyst`
+  - `Financial analyst or engineer`
+  - `Developer, QA or test`
+  - `Database administrator or engineer`
+  - `Retired`
+  - `UX, Research Ops or UI design professional`
+  - `Cloud infrastructure e`
+
+### `Industry`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `Fintech`
+  - `Retail and Consumer Services`
+  - `Software Development`
+  - `Insurance`
+  - `Banking/Financial Services`
+  - `Government`
+  - `Energy`
+  - `Higher Education`
+  - `Media & Advertising Services`
+  - `Manufacturing`
+  - `Internet, Telecomm or Information Services`
+  - `Computer Systems Design and Services`
+  - `Other:`
+  - `Transportation, or Supply Chain`
+  - `Healthcare`
+  - `null`
+
+### `ICorPM`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `People manager`
+  - `Individual contributor`
+  - `null`
+
+### `OrgSize`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `20 to 99 employees`
+  - `500 to 999 employees`
+  - `10,000 or more employees`
+  - `Less than 20 employees`
+  - `5,000 to 9,999 employees`
+  - `100 to 499 employees`
+  - `I don’t know`
+  - `1,000 to 4,999 employees`
+  - `Just me - I am a freelancer, sole proprietor, etc.`
+  - `null`
+
+### `NewRole`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `I have neither consider or transitioned into a new career or industry`
+  - `I have transitioned into a new career and/or industry voluntarily`
+  - `I have transitioned into a new career and/or industry involuntarily`
+  - `I have somewhat considered changing my career and/or the industry I work in`
+  - `I have strongly considered changing my career and/or the industry I work in`
+  - `null`
+
+### `ConvertedCompYearly`
+- **Type:** `float64`
+
+### `Currency`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `EUR European Euro`
+  - `UAH Ukrainian hryvnia`
+  - `USD United States dollar`
+  - `INR Indian rupee`
+  - `BDT	Bangladeshi taka`
+  - `BRL Brazilian real`
+  - `GBP Pound sterling`
+  - `SEK	Swedish krona`
+  - `CZK	Czech koruna`
+  - `PLN Polish zloty`
+  - `HUF	Hungarian forint`
+  - `MYR	Malaysian ringgit`
+  - `CHF	Swiss franc`
+  - `EGP	Egyptian pound`
+  - `LKR	Sri Lankan rupee`
+  - `RUB	Russian ruble`
+  - `RSD	Serbian dinar`
+  - `JPY	Japanese yen`
+  - `RON	Romanian leu`
+  - `CAD Canadian dollar`
+  - `UYU	Uruguayan peso`
+  - `AED United Arab Emirates dirham`
+  - `ARS	Argentine peso`
+  - `NOK	Norwegian krone`
+  - `CRC	Costa Rican colon`
+  - `PHP	Philippine peso`
+  - `CNY	Chinese Yuan Renminbi`
+  - `ILS	Israeli new shekel`
+  - `AUD	Australian dollar`
+  - `BGN	Bulgarian lev`
+  - `MAD	Moroccan dirham`
+  - `MXN	Mexican peso`
+  - `TRY	Turkish lira`
+  - `BOB	Bolivian boliviano`
+  - `NPR	Nepalese rupee`
+  - `ZAR	South African rand`
+  - `PKR	Pakistani rupee`
+  - `SGD	Singapore dollar`
+  - `PYG	Paraguayan guarani`
+  - `AZN	Azerbaijan manat`
+  - `TND	Tunisian dinar`
+  - `DKK	Danish krone`
+  - `NGN	Nigerian naira`
+  - `IRR	Iranian rial`
+  - `TWD New Taiwan dollar`
+  - `VND	Vietnamese dong`
+  - `CLP	Chilean peso`
+  - `HKD	Hong Kong dollar`
+  - `KRW	South Korean won`
+  - `COP	Colombian peso`
+  - `UGX	Ugandan shilling`
+  - `JOD	Jordanian dinar`
+  - `IDR	Indonesian rupiah`
+  - `MGA	Malagasy ariary`
+  - `DOP	Dominican peso`
+  - `GTQ	Guatemalan quetzal`
+  - `QAR	Qatari riyal`
+  - `THB	Thai baht`
+  - `BAM	Bosnia and Herzegovina convertible mark`
+  - `AMD Armenian dram`
+  - `MZN	Mozambican metical`
+  - `KZT	Kazakhstani tenge`
+  - `HNL	Honduran lempira`
+  - `GEL	Georgian lari`
+  - `KGS	Kyrgyzstani som`
+  - `MDL	Moldovan leu`
+  - `GHS	Ghanaian cedi`
+  - `DZD	Algerian dinar`
+  - `KES	Kenyan shilling`
+  - `NZD	New Zealand dollar`
+  - `IMP	Manx pound`
+  - `XPF	CFP franc`
+  - `XCD	East Caribbean dollar`
+  - `PEN	Peruvian sol`
+  - `HTG	Haitian gourde`
+  - `BHD	Bahraini dinar`
+  - `KHR Cambodian riel`
+  - `UZS	Uzbekistani som`
+  - `TJS	Tajikistani somoni`
+  - `YER	Yemeni rial`
+  - `ALL	Albanian lek`
+  - `MUR	Mauritian rupee`
+  - `LBP Lebanese pound`
+  - `BYN	Belarusian ruble`
+  - `TTD	Trinidad and Tobago dollar`
+  - `XOF	West African CFA franc`
+  - `MVR	Maldivian rufiyaa`
+  - `BWP	Botswana pula`
+  - `null`
+
+### `LearnCodeAI`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `Yes, I learned how to use AI-enabled tools for my personal curiosity and/or hobbies`
+  - `Yes, I learned how to use AI-enabled tools required for my job or to benefit my career`
+  - `No, I learned something that was not related to AI or AI enablement for my personal curiosity and/or hobbies`
+  - `No, I learned something that was not related to AI or AI enablement as required for my job or to benefit my career`
+  - `No, I didn't spend time learning in the past year`
+  - `null`
+
+### `AISelect`
+- **Type:** `object`
+- **Accepted Values (if categorical):**
+  - `Yes, I use AI tools monthly or infrequently`
+  - `Yes, I use AI tools weekly`
+  - `Yes, I use AI tools daily`
+  - `No, and I don't plan to`
+  - `No, but I plan to soon`
+  - `null`
+
+### `JobSat`
+- **Type:** `float64`
+
+### `current_skills`
+- **Type:** `object`
+- **Accepted Values (unique skills found):**
+  - `ada`
+  - `amazon redshift`
+  - `amazon web services (aws)`
+  - `angular`
+  - `angularjs`
+  - `ansible`
+  - `apt`
+  - `asp.net`
+  - `asp.net core`
+  - `assembly`
+  - `astro`
+  - `axum`
+  - `bash/shell (all shells)`
+  - `bigquery`
+  - `blazor`
+  - `bun`
+  - `c`
+  - `c#`
+  - `c++`
+  - `cargo`
+  - `cassandra`
+  - `chocolatey`
+  - `clickhouse`
+  - `cloud firestore`
+  - `cloudflare`
+  - `cobol`
+  - `cockroachdb`
+  - `composer`
+  - `cosmos db`
+  - `dart`
+  - `databricks sql`
+  - `datadog`
+  - `datomic`
+  - `delphi`
+  - `deno`
+  - `digital ocean`
+  - `django`
+  - `docker`
+  - `drupal`
+  - `duckdb`
+  - `dynamodb`
+  - `elasticsearch`
+  - `elixir`
+  - `erlang`
+  - `express`
+  - `f#`
+  - `fastapi`
+  - `fastify`
+  - `firebase`
+  - `firebase realtime database`
+  - `flask`
+  - `fortran`
+  - `gdscript`
+  - `gleam`
+  - `go`
+  - `google cloud`
+  - `gradle`
+  - `groovy`
+  - `h2`
+  - `heroku`
+  - `homebrew`
+  - `html/css`
+  - `ibm cloud`
+  - `ibm db2`
+  - `influxdb`
+  - `java`
+  - `javascript`
+  - `jquery`
+  - `kotlin`
+  - `kubernetes`
+  - `laravel`
+  - `lisp`
+  - `lua`
+  - `make`
+  - `mariadb`
+  - `matlab`
+  - `maven (build tool)`
+  - `micropython`
+  - `microsoft access`
+  - `microsoft azure`
+  - `microsoft sql server`
+  - `mojo`
+  - `mongodb`
+  - `msbuild`
+  - `mysql`
+  - `neo4j`
+  - `nestjs`
+  - `netlify`
+  - `new relic`
+  - `next.js`
+  - `ninja`
+  - `node.js`
+  - `npm`
+  - `nuget`
+  - `nuxt.js`
+  - `ocaml`
+  - `oracle`
+  - `pacman`
+  - `perl`
+  - `phoenix`
+  - `php`
+  - `pip`
+  - `pnpm`
+  - `pocketbase`
+  - `podman`
+  - `poetry`
+  - `postgresql`
+  - `powershell`
+  - `prolog`
+  - `prometheus`
+  - `python`
+  - `r`
+  - `railway`
+  - `react`
+  - `redis`
+  - `ruby`
+  - `ruby on rails`
+  - `rust`
+  - `scala`
+  - `snowflake`
+  - `splunk`
+  - `spring boot`
+  - `sql`
+  - `sqlite`
+  - `supabase`
+  - `svelte`
+  - `swift`
+  - `symfony`
+  - `terraform`
+  - `typescript`
+  - `valkey`
+  - `vba`
+  - `vercel`
+  - `visual basic (.net)`
+  - `vite`
+  - `vue.js`
+  - `webpack`
+  - `wordpress`
+  - `yandex cloud`
+  - `yarn`
+  - `zig`
+
+### `future_skills`
+- **Type:** `object`
+- **Accepted Values (unique skills found):**
+  - `ada`
+  - `amazon redshift`
+  - `amazon web services (aws)`
+  - `angular`
+  - `angularjs`
+  - `ansible`
+  - `apt`
+  - `asp.net`
+  - `asp.net core`
+  - `assembly`
+  - `astro`
+  - `axum`
+  - `bash/shell (all shells)`
+  - `bigquery`
+  - `blazor`
+  - `bun`
+  - `c`
+  - `c#`
+  - `c++`
+  - `cargo`
+  - `cassandra`
+  - `chocolatey`
+  - `clickhouse`
+  - `cloud firestore`
+  - `cloudflare`
+  - `cobol`
+  - `cockroachdb`
+  - `composer`
+  - `cosmos db`
+  - `dart`
+  - `databricks sql`
+  - `datadog`
+  - `datomic`
+  - `delphi`
+  - `deno`
+  - `digital ocean`
+  - `django`
+  - `docker`
+  - `drupal`
+  - `duckdb`
+  - `dynamodb`
+  - `elasticsearch`
+  - `elixir`
+  - `erlang`
+  - `express`
+  - `f#`
+  - `fastapi`
+  - `fastify`
+  - `firebase`
+  - `firebase realtime database`
+  - `flask`
+  - `fortran`
+  - `gdscript`
+  - `gleam`
+  - `go`
+  - `google cloud`
+  - `gradle`
+  - `groovy`
+  - `h2`
+  - `heroku`
+  - `homebrew`
+  - `html/css`
+  - `ibm cloud`
+  - `ibm db2`
+  - `influxdb`
+  - `java`
+  - `javascript`
+  - `jquery`
+  - `kotlin`
+  - `kubernetes`
+  - `laravel`
+  - `lisp`
+  - `lua`
+  - `make`
+  - `mariadb`
+  - `matlab`
+  - `maven (build tool)`
+  - `micropython`
+  - `microsoft access`
+  - `microsoft azure`
+  - `microsoft sql server`
+  - `mojo`
+  - `mongodb`
+  - `msbuild`
+  - `mysql`
+  - `neo4j`
+  - `nestjs`
+  - `netlify`
+  - `new relic`
+  - `next.js`
+  - `ninja`
+  - `node.js`
+  - `npm`
+  - `nuget`
+  - `nuxt.js`
+  - `ocaml`
+  - `oracle`
+  - `pacman`
+  - `perl`
+  - `phoenix`
+  - `php`
+  - `pip`
+  - `pnpm`
+  - `pocketbase`
+  - `podman`
+  - `poetry`
+  - `postgresql`
+  - `powershell`
+  - `prolog`
+  - `prometheus`
+  - `python`
+  - `r`
+  - `railway`
+  - `react`
+  - `redis`
+  - `ruby`
+  - `ruby on rails`
+  - `rust`
+  - `scala`
+  - `snowflake`
+  - `splunk`
+  - `spring boot`
+  - `sql`
+  - `sqlite`
+  - `supabase`
+  - `svelte`
+  - `swift`
+  - `symfony`
+  - `terraform`
+  - `typescript`
+  - `valkey`
+  - `vba`
+  - `vercel`
+  - `visual basic (.net)`
+  - `vite`
+  - `vue.js`
+  - `webpack`
+  - `wordpress`
+  - `yandex cloud`
+  - `yarn`
+  - `zig`
+

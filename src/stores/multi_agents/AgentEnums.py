@@ -21,6 +21,9 @@ class AgentType(Enum):
     # ── Project Supervisor ──────────────────────────────────────────────
     PROJECT_RECOMMENDER    = "project_recommender"
 
+    # ── Track Recommender ────────────────────────────────────────────────
+    TRACK_RECOMMENDER      = "track_recommender"
+
     # ── Capstone Supervisor ─────────────────────────────────────────────
     PROJECT_IDEATOR        = "project_ideator"
     IMPLEMENTATION_GUIDE   = "implementation_guide"
