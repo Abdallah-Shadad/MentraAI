@@ -90,6 +90,7 @@ class RoadmapState(TypedDict, total=False):
     resource_agent_done: Annotated[bool, "Signals completion of Resource Curator execution. Used by Supervisor for routing."]
 
     # ── Adaptation Engine outputs (optional / triggered by progress) ─────
+    adapted_curriculum: Annotated[Optional[Any], "Full AdaptationEngineOutput containing remedial resources, stage adjustments, etc."]
     struggling_topics: Annotated[Optional[List[str]], "List of topics the user is struggling with. that get from user feedback and quiz attempts. Produced by Adaptation Engine."]
     adapted_recommended_resources: Annotated[Optional[List[RemediationResource]], "List of recommended resources based on user's struggling topics. Produced by Adaptation Engine."]
     adaptation_agent_done: Annotated[bool, "Signals completion of Adaptation Engine execution. Used by Supervisor for routing."]
@@ -97,7 +98,7 @@ class RoadmapState(TypedDict, total=False):
 
     # ── Quiz / Adaptation-mode inputs ───────────────────────────────────
     stage_id: Annotated[Optional[str], "ID of the stage the learner just attempted (e.g. 'stage_0'). Used in adaptation mode."]
-    topic: Annotated[Optional[str], "Specific topic the learner is struggling with. Used in adaptation mode."]
+    stage_name: Annotated[Optional[str], "Name of the stage the learner just attempted. Used in adaptation mode."]
     is_adaptation_mode: Annotated[bool, "When True the Supervisor skips full pipeline and routes only to AdaptationEngine → ResponseFormatter."]
 
     # ── Supervisor control ──────────────────────────────────────────────
@@ -395,8 +396,10 @@ Respond with ONLY a JSON object:
                 next_agent = NodeName.PROFILE_ANALYZER.value
             elif not state.get("curriculum_agent_done"):
                 next_agent = NodeName.CURRICULUM_GENERATOR.value
+            elif not state.get("api_response"):
+                # Curriculum ready → format the response before finishing
+                next_agent = NodeName.RESPONSE_FORMATTER.value
             else:
-                # Curriculum is ready — stop here, return roadmap to user
                 next_agent = "FINISH"
         else:
             # ── MODE 2: Stage progression ──────────────────────────
@@ -408,6 +411,9 @@ Respond with ONLY a JSON object:
                 next_agent = NodeName.ADAPTATION_ENGINE.value
             elif not state.get("resource_agent_done"):
                 next_agent = NodeName.RESOURCE_CURATOR.value
+            elif not state.get("api_response"):
+                # Resources ready → format before finishing
+                next_agent = NodeName.RESPONSE_FORMATTER.value
             else:
                 next_agent = "FINISH"
 
@@ -625,7 +631,7 @@ Respond with ONLY a JSON object:
                 "curriculum":              curriculum,
                 # Adaptation metadata
                 "stage_id":                stage_id,
-                "topic":                   state.get("topic"),
+                "stage_name":              state.get("stage_name"),
                 "score":                   score,
                 "struggling_topics":       struggling,
                 "failed_questions":        failed_qs,

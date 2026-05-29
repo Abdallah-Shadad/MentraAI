@@ -126,7 +126,7 @@ def get_llm_config() -> dict:
         "api_key": gemini_key("GEMINI_API_KEY_SUPERVISOR"),
         "max_output_tokens": 8192,
         "temperature": 0.1,
-        "model": "gemini-3.5-flash",
+        "model": "gemini-2.5-flash",
         "provider": "gemini",
 
         # ── Agent-Specific LLM Configs with Groq Fallback ──────────────────
@@ -134,7 +134,7 @@ def get_llm_config() -> dict:
             "ProfileAnalyzer": {
                 "primary": {
                     "provider": "gemini",
-                    "model": "gemini-2.5-flash-lite",
+                    "model": "gemini-2.5-flash-lite",  # 1500 req/day
                     "api_key": gemini_key("GEMINI_API_KEY_PROFILE"),
                     "temperature": 0.1
                 },
@@ -143,7 +143,7 @@ def get_llm_config() -> dict:
             "CurriculumGenerator": {
                 "primary": {
                     "provider": "gemini",
-                    "model": "gemini-2.5-flash",
+                    "model": "gemini-2.5-flash-lite",  # 1500 req/day
                     "api_key": gemini_key("GEMINI_API_KEY_CURRICULUM"),
                     "temperature": 0.1
                 },
@@ -152,7 +152,7 @@ def get_llm_config() -> dict:
             "ResourceCurator": {
                 "primary": {
                     "provider": "gemini",
-                    "model": "gemini-2.5-flash-lite",
+                    "model": "gemini-2.5-flash-lite",  # 1500 req/day
                     "api_key": gemini_key("GEMINI_API_KEY_RESOURCE"),
                     "temperature": 0.1
                 },
@@ -161,7 +161,7 @@ def get_llm_config() -> dict:
             "AdaptationEngine": {
                 "primary": {
                     "provider": "gemini",
-                    "model": "gemini-2.5-flash",
+                    "model": "gemini-2.5-flash-lite",  # 1500 req/day
                     "api_key": gemini_key("GEMINI_API_KEY_ADAPTATION"),
                     "temperature": 0.1
                 },

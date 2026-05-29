@@ -32,7 +32,7 @@ CRITICAL RULES:
 3. Categorize the found resources strictly into three lists per topic: `videos`, `articles`, and `documentation`.
 4. STRICT URL VALIDATION: Any URL containing 'youtube.com' or 'youtu.be' MUST be placed in the `videos` list. NEVER put a video link in `articles` or `documentation`.
 5. If you cannot find a valid text-based article for a topic, leave the `articles` list empty rather than inserting a video.
-6. LIMIT the output: Return a MAXIMUM of 2 videos and 1 article per topic. Do not overwhelm the user.
+6. LIMIT the output: Return EXACTLY 1 video and EXACTLY 1 article per topic. Never return more than one. Choose the single highest-rated resource of each type.
 7. NEVER hallucinate or invent URLs. Only use real resources returned by the tool.
 8. After calling the tool for ALL topics, compile the final structured output using the ResourceCuratorOutput schema.
 
@@ -62,10 +62,34 @@ Your output must map EVERY topic in the stage to its specific curated resources,
                     f"Difficulty Level : {difficulty}\n\n"
                     f"Topics that EACH need their own dedicated resources:\n{topic_list}\n\n"
                     f"IMPORTANT: Call `search_learning_resources` ONCE for EACH of the {len(topics)} topics above. "
-                    f"Every topic must have at least 1 video and 1 article in its resources."
+                    f"Every topic must have EXACTLY 1 video and EXACTLY 1 article in its resources (no more, no less)."
                 )
             ),
         ]
+
+    def invoke(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Executes the agent and programmatically enforces that every topic 
+        has EXACTLY at most 1 video, 1 article, and 1 documentation resource
+        by choosing the highest quality score from the model's choices.
+        """
+        res = super().invoke(state)
+        stage_resources = res.get("stage_resources")
+        if stage_resources and hasattr(stage_resources, "topics_resources"):
+            for topic in stage_resources.topics_resources:
+                if len(topic.videos) > 1:
+                    topic.videos = sorted(topic.videos, key=lambda x: getattr(x, "quality_score", 0.0) or 0.0, reverse=True)[:1]
+                if len(topic.articles) > 1:
+                    topic.articles = sorted(topic.articles, key=lambda x: getattr(x, "quality_score", 0.0) or 0.0, reverse=True)[:1]
+                if len(topic.documentation) > 1:
+                    topic.documentation = sorted(topic.documentation, key=lambda x: getattr(x, "quality_score", 0.0) or 0.0, reverse=True)[:1]
+            
+            # Sync back modified resources to state dict keys
+            output_dict = stage_resources.model_dump() if hasattr(stage_resources, "model_dump") else stage_resources.dict() if hasattr(stage_resources, "dict") else {}
+            res.update(output_dict)
+            res["stage_resources"] = stage_resources
+
+        return res
 
 
 # =============================================================================

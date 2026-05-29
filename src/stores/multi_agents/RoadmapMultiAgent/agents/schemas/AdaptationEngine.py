@@ -29,8 +29,7 @@ class RemediationResource(BaseModel):
 
 class FailedQuestion(BaseModel):
     """Structured breakdown of a single incorrectly answered question."""
-    question_id:    str = Field(..., description="Question ID matching the quiz payload")
-    question_text:  str = Field(..., description="The question text")
+    question:       str = Field(..., description="The question text")
     correct_answer: str = Field(..., description="The correct answer")
     user_answer:    str = Field(..., description="What the learner answered")
     topic_gap:      str = Field(..., description="The knowledge gap this wrong answer reveals")
@@ -55,7 +54,7 @@ class AdaptationEngineOutput(BaseModel):
 
     # ── Quiz analysis ──────────────────────────────────────────────────────
     stage_id:           str = Field(..., description="ID of the stage being adapted (e.g. 'stage_0')")
-    topic:              str = Field(..., description="Primary topic the learner failed on")
+    stage_name:         str = Field(..., description="Name of the stage the learner failed on")
     score:              int = Field(..., description="The learner's quiz score as a percentage (always < 50)")
     failed_questions:   List[FailedQuestion] = Field(
         default_factory=list,

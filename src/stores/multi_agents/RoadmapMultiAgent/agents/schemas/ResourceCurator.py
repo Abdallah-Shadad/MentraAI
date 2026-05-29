@@ -9,9 +9,9 @@ class LearningResource(BaseModel):
 
 class TopicResources(BaseModel):
     topic_name: Annotated[str, Field(description="The exact name of the topic from the stage")]
-    videos: Annotated[List[LearningResource], Field(default_factory=list, description="Video tutorials and courses covering this topic")]
-    articles: Annotated[List[LearningResource], Field(default_factory=list, description="Articles, blog posts, and text tutorials")]
-    documentation: Annotated[List[LearningResource], Field(default_factory=list, description="Official documentation and references")]
+    videos: Annotated[List[LearningResource], Field(default_factory=list, description="EXACTLY ONE video tutorial covering this topic (maximum 1)")]
+    articles: Annotated[List[LearningResource], Field(default_factory=list, description="EXACTLY ONE article/blog post/text tutorial covering this topic (maximum 1)")]
+    documentation: Annotated[List[LearningResource], Field(default_factory=list, description="Official documentation and references (maximum 1)")]
 
 class ResourceCuratorOutput(BaseModel):
     stage_id: Annotated[str, Field(description="ID of the stage being curated")]

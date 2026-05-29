@@ -40,6 +40,7 @@ class GeminiProvider(LLMInterface):
             google_api_key=self.api_key,
             max_output_tokens=self.max_output_tokens,
             temperature=self.temperature,
+            max_retries=0,  # Disable SDK auto-retry so LangChain fallbacks trigger instantly on 429
         )
 
     def set_embedding_model(self, model_id: str, embedding_size: int):

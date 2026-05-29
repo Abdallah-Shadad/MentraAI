@@ -22,6 +22,8 @@ import logging
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel
+from typing import List, Optional
 
 from helpers.config import get_settings, Settings
 from stores.multi_agents.RoadmapMultiAgent.RoadmapGraph import RoadmapGraph, RoadmapState
@@ -38,30 +40,46 @@ adaptation_router = APIRouter(
     tags=["quiz-adaptation"],
 )
 
+# ── Schemas ────────────────────────────────────────────────────────────────────
+
+class FailedQuestion(BaseModel):
+    question: str
+    user_answer: str
+    correct_answer: str
+
+class AdaptationRequest(BaseModel):
+    user_id: str
+    career_track: str
+    stage_id: str
+    stage_name: str
+    score: float
+    failed_questions: List[FailedQuestion]
+    learning_objectives: Optional[List[str]] = []
+    difficulty_level: Optional[str] = "beginner"
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def _build_llm(app_settings: Settings) -> OpenAIProvider:
+def _build_llm(app_settings: Settings):
     """
     Builds the LLM provider from application settings.
     Mirrors the pattern used in routes/roadmap.py so configuration
     stays consistent across both endpoints.
     """
-    config = {
-        "api_key": settings.GEMINI_API_KEY,
-        "base_url": "https://59c4-34-148-170-199.ngrok-free.app/v1/",
-        "max_output_tokens": 100000,
-        "temperature": 0.1,
-        "model": "gemini-2.5-flash",
-    }
-    # llm = OpenAIProvider(
-    #     api_key=config["api_key"],
-    #     base_url=config["base_url"],
-    #     max_output_tokens=config["max_output_tokens"],
-    #     temperature=config["temperature"],
-    # )
+    from helpers.config import get_llm_config
+    config = get_llm_config()
 
-    llm = GeminiProvider(api_key=settings.GEMINI_API_KEY,max_output_tokens=100_000,temperature=0.1)
-    llm.set_generation_model("gemini-2.5-flash")
+    # The Supervisor uses its OWN dedicated key or defaults to standard
+    supervisor_key = (
+        getattr(app_settings, "GEMINI_API_KEY_SUPERVISOR", "") 
+        or app_settings.GEMINI_API_KEY
+    )
+    llm = GeminiProvider(
+        api_key=supervisor_key,
+        max_output_tokens=8192,
+        temperature=0.1,
+    )
+    llm.set_generation_model("gemini-2.5-flash-lite")  # 1500 req/day — enough for routing decisions
+    
     return llm, config
 
 
@@ -70,16 +88,14 @@ def _validate_body(data: dict) -> tuple[bool, str]:
     Returns (is_valid, error_message).
     Validates all required fields and enforces the < 50 % score rule.
     """
-    required = ["user_id", "career_track", "stage_id", "topic", "quiz_user_answers", "quiz_user_result"]
+    required = ["user_id", "career_track", "stage_id", "stage_name", "score", "failed_questions"]
     for field in required:
-        if not data.get(field):
+        if field not in data:
             return False, f"Missing required field: '{field}'"
 
-    score = data.get("quiz_user_result", {}).get("score")
-    if score is None:
-        return False, "quiz_user_result.score is required"
+    score = data.get("score")
     if not isinstance(score, (int, float)):
-        return False, "quiz_user_result.score must be a number"
+        return False, "score must be a number"
     if score >= 50:
         return False, (
             f"Adaptation not triggered — learner scored {score}% which is ≥ 50%. "
@@ -92,7 +108,7 @@ def _validate_body(data: dict) -> tuple[bool, str]:
 
 @adaptation_router.post("/adaptation_stage", status_code=status.HTTP_201_CREATED)
 async def adaptation_stage(
-    request: Request,
+    request_data: AdaptationRequest,
     app_settings: Settings = Depends(get_settings),
 ):
     """
@@ -108,7 +124,8 @@ async def adaptation_stage(
     start_time = time.perf_counter()
     # ── 1. Parse body ──────────────────────────────────────────────────────────
     try:
-        data = await request.json()
+        # We still support raw JSON in case it's needed, but Pydantic handles the main validation
+        data = request_data.model_dump() if hasattr(request_data, 'model_dump') else request_data.dict()
     except Exception as exc:
         logger.error(f"[AdaptationStage] Failed to parse request body: {exc}")
         return JSONResponse(
@@ -128,28 +145,26 @@ async def adaptation_stage(
     user_id          = data["user_id"]
     career_track     = data["career_track"]
     stage_id         = data["stage_id"]
-    topic            = data["topic"]
+    stage_name       = data["stage_name"]
     difficulty_level = data.get("difficulty_level", "beginner")
-    quiz_answers     = data["quiz_user_answers"]   # dict with "questions" list
-    quiz_result      = data["quiz_user_result"]    # dict with "score"
-    score            = quiz_result["score"]
+    score            = data["score"]
+    failed_questions = data["failed_questions"]
     learning_objectives = data.get("learning_objectives", [])
 
     logger.info(
         f"[AdaptationStage] user={user_id} | career={career_track} "
-        f"| stage={stage_id} | topic={topic} | score={score}%"
+        f"| stage={stage_id} | stage_name={stage_name} | score={score}%"
     )
 
     # ── 4. Build learner_progress payload consumed by AdaptationEngine ─────────
     # This becomes the primary context the AdaptationEngine agent reads from state.
     learner_progress = {
         "stage_id":          stage_id,
-        "topic":             topic,
+        "stage_name":        stage_name,
         "difficulty_level":  difficulty_level,
         "score":             score,
         "failed":            True,          # guaranteed by validation above (< 50%)
-        "quiz_user_answers": quiz_answers,
-        "quiz_user_result":  quiz_result,
+        "failed_questions":  failed_questions,
     }
 
     # ── 5. Build initial graph state ───────────────────────────────────────────
@@ -158,7 +173,7 @@ async def adaptation_stage(
         "career_track":        career_track,
         "difficulty_level":    difficulty_level,
         "stage_id":            stage_id,           # NEW state key (added to RoadmapState)
-        "topic":               topic,              # NEW state key
+        "stage_name":          stage_name,         # NEW state key
         "learner_progress":    learner_progress,
         "is_adaptation_mode":  True,               # NEW flag — skips full pipeline
         "is_stage_progression": False,             # not a stage-progression call
@@ -167,8 +182,8 @@ async def adaptation_stage(
             "stages": [
                 {
                     "id":     stage_id,
-                    "name":   topic,
-                    "topics": [topic],
+                    "name":   stage_name,
+                    "topics": [],
                     "learning_objectives": learning_objectives,
                     "estimated_weeks": 1,
                 }
@@ -222,7 +237,7 @@ async def adaptation_stage(
         "user_id":      user_id,
         "career_track": career_track,
         "stage_id":     stage_id,
-        "topic":        topic,
+        "stage_name":   stage_name,
         "score":        score,
         "adapted":      True,
         **api_response,   # merges data, error, etc. from ResponseFormatter

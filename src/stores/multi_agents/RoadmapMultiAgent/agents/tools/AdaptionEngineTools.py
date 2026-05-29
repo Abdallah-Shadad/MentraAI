@@ -65,7 +65,7 @@ def _fetch_tavily(query: str, topic: str, difficulty: str) -> list[dict]:
             "api_key": settings.TAVILY_API_KEY,
             "query": query,
             "search_depth": "basic",
-            "max_results": 4,
+            "max_results": 2,
             "include_answer": False,
         },
         timeout=15.0,
@@ -104,7 +104,7 @@ def _fetch_youtube(query: str, topic: str, difficulty: str) -> list[dict]:
             "q": query,
             "part": "snippet",
             "type": "video",
-            "maxResults": 3,
+            "maxResults": 2,
             "videoDuration": "medium",     # 4–20 min — ideal for tutorials
             "relevanceLanguage": "en",
             "safeSearch": "strict",
@@ -149,19 +149,21 @@ def search_remedial_resources(topic: str, difficulty: str = "beginner") -> dict[
     query = f"{topic} explained simply for {difficulty}s tutorial"
     resources: list[dict] = []
 
-    # ── Tavily (articles) — YouTube is the fallback if this fails ────────────
+    # ── Tavily (articles) ───────────────────────────────────────────────────────
     try:
         tavily_results = _fetch_tavily(query, topic, difficulty)
         resources.extend(tavily_results)
         logger.info("Tavily returned %d results.", len(tavily_results))
     except Exception as exc:
-        logger.warning("Tavily fetch failed (%s) — falling back to YouTube.", exc)
-        try:
-            youtube_results = _fetch_youtube(query, topic, difficulty)
-            resources.extend(youtube_results)
-            logger.info("YouTube fallback returned %d results.", len(youtube_results))
-        except Exception as yt_exc:
-            logger.warning("YouTube fallback also failed: %s", yt_exc)
+        logger.warning("Tavily fetch failed: %s", exc)
+
+    # ── YouTube (videos) ────────────────────────────────────────────────────────
+    try:
+        youtube_results = _fetch_youtube(query, topic, difficulty)
+        resources.extend(youtube_results)
+        logger.info("YouTube returned %d results.", len(youtube_results))
+    except Exception as yt_exc:
+        logger.warning("YouTube fetch failed: %s", yt_exc)
 
     # ── Response ───────────────────────────────────────────────────────────────
     if not resources:

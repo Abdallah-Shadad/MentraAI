@@ -53,30 +53,42 @@ class AdaptationEngine(BaseWorkerAgent):
     def _output_schema(self) -> type: return AdaptationEngineOutput
 
     def build_messages(self, state: Dict[str, Any]) -> List[BaseMessage]:
-        stage_id         = state.get("stage_id", "unknown")
-        topic            = state.get("topic", "unknown")
-        difficulty_level = state.get("difficulty_level", "beginner")
         learner_progress = state.get("learner_progress", {})
         curriculum       = state.get("curriculum", {})
+        
+        # Pull stage_id and stage_name from learner_progress (user's preferred schema) or fallback to state
+        stage_id         = learner_progress.get("stage_id", state.get("stage_id", "unknown"))
+        stage_name       = learner_progress.get("stage_name", state.get("stage_name", "unknown"))
+        difficulty_level = state.get("difficulty_level", "beginner")
 
-        # Pull quiz details from learner_progress (set by adaptation endpoint)
+        # Pull quiz details from learner_progress
         score            = learner_progress.get("score", "N/A")
-        quiz_answers     = learner_progress.get("quiz_user_answers", {})
-        quiz_result      = learner_progress.get("quiz_user_result", {})
+        failed_questions = learner_progress.get("failed_questions", [])
+
+        # Format failed questions beautifully as clean text
+        formatted_failed = ""
+        for i, q in enumerate(failed_questions, 1):
+            if isinstance(q, dict):
+                q_text = q.get("question", "")
+                u_ans = q.get("user_answer", "")
+                c_ans = q.get("correct_answer", "")
+            else:
+                q_text = getattr(q, "question", "")
+                u_ans = getattr(q, "user_answer", "")
+                c_ans = getattr(q, "correct_answer", "")
+            formatted_failed += f"Question {i}: {q_text}\n   - User's Answer: {u_ans}\n   - Correct Answer: {c_ans}\n\n"
 
         human_content = (
             f"Stage ID         : {stage_id}\n"
-            f"Topic            : {topic}\n"
+            f"Stage Name       : {stage_name}\n"
             f"Difficulty level : {difficulty_level}\n"
             f"Quiz score       : {score}% (FAILED — below 50%)\n\n"
-            f"Quiz answers     :\n{quiz_answers}\n\n"
-            f"Quiz result      :\n{quiz_result}\n\n"
+            f"Failed Questions :\n{formatted_failed}\n"
             f"Current curriculum (for context):\n{curriculum}\n\n"
-            f"Learner progress :\n{learner_progress}\n\n"
             "Please analyse the failure, identify struggling topics, search for "
             "remedial resources using the search_remedial_resources tool, and "
-            "return the adaptation recommendations"
-            "you must use the tool just once and search for video or documentaion that the user read it once and solve all his gaps in quiz. JUST ONCE!!"
+            "return the adaptation recommendations. "
+            "You MUST call the search tool EXACTLY ONCE. Craft a highly targeted, unified topic search query that directly combines the specific concepts the user failed (e.g., 'Git branching and fetch pull' or 'CSS Grid layout and Flexbox alignment' rather than generic technology names) to fetch extremely relevant remedial resources in a single call."
         )
 
         return [

@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from langchain_core.runnables import Runnable
+from langchain_core.runnables import Runnable, RunnableLambda
 from .providers.GeminiProvider import GeminiProvider
 from .providers.OpenAIProvider import OpenAIProvider
 from .providers.GroqProvider import GroqProvider
@@ -22,7 +22,7 @@ class LLMManager:
         Example provider_config:
         {
             "provider": "gemini",
-            "model": "gemini-2.5-flash-lite",
+            "model": "gemini-2.5-flash",
             "api_key": "YOUR_KEY",
             "temperature": 0.1
         }
@@ -65,7 +65,7 @@ class LLMManager:
             config_for_agent = {
                 "primary": {
                     "provider": "gemini", 
-                    "model": "gemini-2.5-flash-lite", 
+                    "model": "gemini-2.5-flash", 
                     "api_key": self.config.get("api_key", "")
                 }
             }
@@ -92,8 +92,24 @@ class LLMManager:
 
         # 4. Apply fallbacks if available
         if fallback_chains:
-            self.logger.info(f"[{agent_name}] Attaching {len(fallback_chains)} fallback model(s).")
-            return primary_chain.with_fallbacks(fallback_chains)
+            primary_label  = f"{primary_config.get('provider','?')}:{primary_config.get('model','?')}"
+            fallback_labels = [f"{f.get('provider','?')}:{f.get('model','?')}" for f in fallback_configs]
+
+            def _log_primary(inputs, label=primary_label, name=agent_name):
+                logging.getLogger("uvicorn.error").info(f"[{name}] Using PRIMARY model → {label}")
+                return inputs
+            def _log_fallback(inputs, labels=fallback_labels, name=agent_name):
+                logging.getLogger("uvicorn.error").info(f"[{name}] PRIMARY failed → switching to FALLBACK {labels}")
+                return inputs
+
+            logged_primary   = RunnableLambda(_log_primary)  | primary_chain
+            logged_fallbacks = [RunnableLambda(_log_fallback) | fc for fc in fallback_chains]
+
+            self.logger.info(f"[{agent_name}] Attaching {len(fallback_chains)} fallback model(s). Primary={primary_label}")
+            return logged_primary.with_fallbacks(
+                logged_fallbacks,
+                exceptions_to_handle=(Exception,),
+            )
         
         return primary_chain
 
@@ -109,7 +125,7 @@ class LLMManager:
             config_for_agent = {
                 "primary": {
                     "provider": "gemini", 
-                    "model": "gemini-2.5-flash-lite", 
+                    "model": "gemini-2.5-flash", 
                     "api_key": self.config.get("api_key", "")
                 }
             }
@@ -133,7 +149,23 @@ class LLMManager:
                 fallback_chains.append(f_provider.client.bind_tools(tools))
 
         if fallback_chains:
-            self.logger.info(f"[{agent_name}] Attaching {len(fallback_chains)} tool fallback model(s).")
-            return primary_chain.with_fallbacks(fallback_chains)
+            primary_label   = f"{primary_config.get('provider','?')}:{primary_config.get('model','?')}"
+            fallback_labels = [f"{f.get('provider','?')}:{f.get('model','?')}" for f in fallback_configs]
+
+            def _log_primary_t(inputs, label=primary_label, name=agent_name):
+                logging.getLogger("uvicorn.error").info(f"[{name}] Using PRIMARY model → {label}")
+                return inputs
+            def _log_fallback_t(inputs, labels=fallback_labels, name=agent_name):
+                logging.getLogger("uvicorn.error").info(f"[{name}] PRIMARY failed → switching to FALLBACK {labels}")
+                return inputs
+
+            logged_primary   = RunnableLambda(_log_primary_t)  | primary_chain
+            logged_fallbacks = [RunnableLambda(_log_fallback_t) | fc for fc in fallback_chains]
+
+            self.logger.info(f"[{agent_name}] Attaching {len(fallback_chains)} tool fallback model(s). Primary={primary_label}")
+            return logged_primary.with_fallbacks(
+                logged_fallbacks,
+                exceptions_to_handle=(Exception,),
+            )
         
         return primary_chain
