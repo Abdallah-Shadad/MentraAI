@@ -6,7 +6,7 @@ from routes import roadmap
 from routes.AdaptionEngine import adaptation_router
 from routes.chat import chat_router, init_chat_router
 from routes.quiz import quiz_router
-from routes.project import recommend_projects
+from routes.project import project_router
 from routes.track_recommender import track_recommender_router
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
@@ -38,5 +38,5 @@ app.include_router(roadmap.roadmap_router)
 app.include_router(adaptation_router)
 app.include_router(chat_router)
 app.include_router(quiz_router)
-app.include_router(recommend_projects)
+app.include_router(project_router)
 app.include_router(track_recommender_router)

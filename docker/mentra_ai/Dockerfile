@@ -6,6 +6,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     build-essential \
+    libpq-dev \
     libavif-dev pkg-config \
     libjpeg-dev \
     gcc unzip zip \
