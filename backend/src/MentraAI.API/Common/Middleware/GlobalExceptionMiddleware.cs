@@ -28,6 +28,16 @@ public class GlobalExceptionMiddleware
 
     private async Task HandleAsync(HttpContext ctx, Exception ex)
     {
+        // If SSE streaming has already started, we cannot write a JSON error —
+        // the response is committed. Log and bail; the client sees the stream end abruptly.
+        if (ctx.Response.HasStarted)
+        {
+            _logger.LogError(ex,
+                "Exception after response started — {Method} {Path}",
+                ctx.Request.Method, ctx.Request.Path);
+            return;
+        }
+
         var (status, code, message, errors) = ex switch
         {
             AppException a => (a.StatusCode, a.ErrorCode, a.Message, a.Errors),
@@ -47,13 +57,7 @@ public class GlobalExceptionMiddleware
         await ctx.Response.WriteAsJsonAsync(new
         {
             success = false,
-            error = new
-            {
-                code,
-                message,
-                statusCode = status,
-                errors
-            }
+            error = new { code, message, statusCode = status, errors }
         });
     }
 }
