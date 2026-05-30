@@ -28,10 +28,9 @@ public class QuizServiceTests
     private readonly Mock<IMapper> _mapperMock;
     private readonly Mock<ILogger<QuizService>> _loggerMock;
     private readonly QuizService _sut;
-
     private readonly string _testUserId = "user-123";
 
-    // Minimal roadmap JSON with topics so ExtractStageTopics can parse it
+    // Minimal roadmap JSON with topics so ExtractStageTopics can parse them
     private const string ValidRoadmapJson = """
         {
             "roadmap": {
@@ -85,7 +84,11 @@ public class QuizServiceTests
             {
                 Id = stageId,
                 Status = "LOCKED",
-                Roadmap = new Roadmap { UserTrackId = userTrackId, RoadmapDataJson = ValidRoadmapJson }
+                Roadmap = new Roadmap
+                {
+                    UserTrackId = userTrackId,
+                    RoadmapDataJson = ValidRoadmapJson
+                }
             });
 
         _trackRepoMock.Setup(r => r.GetActiveTrackByUserIdAsync(_testUserId))
@@ -107,7 +110,11 @@ public class QuizServiceTests
             {
                 Id = stageId,
                 Status = "ACTIVE",
-                Roadmap = new Roadmap { UserTrackId = userTrackId, RoadmapDataJson = ValidRoadmapJson }
+                Roadmap = new Roadmap
+                {
+                    UserTrackId = userTrackId,
+                    RoadmapDataJson = ValidRoadmapJson
+                }
             });
 
         _trackRepoMock.Setup(r => r.GetActiveTrackByUserIdAsync(_testUserId))
@@ -122,7 +129,7 @@ public class QuizServiceTests
     }
 
     [Fact]
-    public async Task GenerateQuizAsync_ValidRequest_CallsAIWithTopicsAndPersistsMetadata()
+    public async Task GenerateQuizAsync_ValidRequest_PassesTopicsToAIAndPersistsMetadata()
     {
         var stageId = Guid.NewGuid();
         var userTrackId = 1;
@@ -156,17 +163,18 @@ public class QuizServiceTests
         _quizRepoMock.Setup(r => r.GetNextAttemptNumberAsync(stageId))
             .ReturnsAsync(1);
 
+        // topics param must be present — topics ["HTML","CSS"] extracted from JSON
         _aiGatewayMock.Setup(ai => ai.GenerateQuizAsync(
                 _testUserId, careerTrackSlug, "stage_0", "Intro",
                 It.IsAny<string>(),
-                It.Is<List<string>>(t => t.Contains("HTML") && t.Contains("CSS")), // topics verified
+                It.Is<List<string>>(t => t.Contains("HTML") && t.Contains("CSS")),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new QuizGenerationResult
             {
                 QuestionsDataJson = "[{}]",
                 TotalQuestions = 1,
-                PassingScore = 70,      // NEW
-                TimeLimitMinutes = 20,      // NEW
+                PassingScore = 70,
+                TimeLimitMinutes = 20,
                 Questions = new List<QuizQuestionDisplay>
                 {
                     new() { Id = "q1", Text = "Q?", Choices = new() }
@@ -191,7 +199,7 @@ public class QuizServiceTests
             It.Is<List<string>>(t => t.Contains("HTML")),
             It.IsAny<CancellationToken>()), Times.Once);
 
-        // Verify PassingScore and TimeLimitMinutes were persisted
+        // Verify PassingScore and TimeLimitMinutes were persisted correctly (int, not decimal)
         Assert.NotNull(capturedAttempt);
         Assert.Equal(70, capturedAttempt!.PassingScore);
         Assert.Equal(20, capturedAttempt!.TimeLimitMinutes);
@@ -260,8 +268,8 @@ public class QuizServiceTests
         _stageRepoMock.Verify(r => r.UnlockNextStageAsync(1, 0), Times.Once);
         _roadmapServiceMock.Verify(
             r => r.AdaptRoadmapAsync(It.IsAny<Guid>(), It.IsAny<string>(),
-                                     It.IsAny<string>(), It.IsAny<decimal>(), It.IsAny<string>()),
-            Times.Never);
+                                     It.IsAny<string>(), It.IsAny<decimal>(),
+                                     It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
