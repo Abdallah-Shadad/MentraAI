@@ -1,6 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-using MentraAI.API.Data;
+﻿using MentraAI.API.Data;
+using MentraAI.API.Modules.AIGateway.InternalModels;
 using MentraAI.API.Modules.CareerTracks.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace MentraAI.API.Modules.CareerTracks.Repositories;
 
@@ -91,5 +92,18 @@ public class CareerTrackRepository : ICareerTrackRepository
                 throw;
             }
         });
+    }
+    public async Task SavePredictionAsync(string userId, PredictionResult prediction)
+    {
+        // Repositories may call DbContext directly — this is the correct layer for DB writes
+        _db.MLPredictions.Add(new MLPrediction
+        {
+            UserId = userId,
+            PrimaryRoleName = prediction.PrimaryRoleName,
+            Confidence = prediction.PrimaryConfidence,
+            TopRolesJson = prediction.TopRolesJson,
+            CreatedAt = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync();
     }
 }

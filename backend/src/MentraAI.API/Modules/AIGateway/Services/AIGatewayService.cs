@@ -31,18 +31,40 @@ public class AIGatewayService : IAIGatewayService
         UserProfile profile,
         CancellationToken ct = default)
     {
-        await Task.Delay(500, ct);
+        var trackProfile = new TrackRecommendProfile
+        {
+            Age = profile.Age,
+            EdLevel = profile.EdLevel,
+            YearsCode = profile.YearsCode,
+            WorkExp = profile.WorkExp,
+            Employment = profile.Employment,
+            RemoteWork = profile.RemoteWork,
+            Industry = profile.Industry,
+            OrgSize = profile.OrgSize,
+            AISelect = profile.AISelect,
+            CurrentSkills = ParseJsonArray(profile.CurrentSkillsJson),
+            FutureSkills = ParseJsonArray(profile.FutureSkillsJson)
+        };
+
+        var aiRecommendation = await GetTrackRecommendationsAsync(userId, trackProfile, ct);
+
+        // enforce that we have at least one recommendation (the validator should ensure this)
+        var topTrack = aiRecommendation.RecommendedTracks.First();
 
         return new PredictionResult
         {
-            PrimaryRoleName = "Backend Engineer",
-            PrimaryConfidence = 0.87m,
-            TopRolesJson = """
-                [
-                    { "name": "Backend Engineer", "confidence": 0.87 },
-                    { "name": "Data Engineer",    "confidence": 0.71 }
-                ]
-                """
+            //take the top recommendation as the primary one
+            PrimaryRoleName = topTrack.TrackName,
+
+            // confidence is normalized to 0-1 range for frontend display, assuming AI returns 0-100
+            PrimaryConfidence = (decimal)topTrack.FitScore / 100m,
+
+            // sends the full list of recommended tracks and their confidence for more detailed frontend display (e.g. a ranked list)
+            TopRolesJson = JsonSerializer.Serialize(aiRecommendation.RecommendedTracks.Select(t => new
+            {
+                name = t.TrackName,
+                confidence = (decimal)t.FitScore / 100m
+            }))
         };
     }
 
