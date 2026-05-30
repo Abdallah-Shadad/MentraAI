@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,21 +15,25 @@ namespace MentraAI.API.Modules.CareerTracks.Controllers;
 [Authorize]
 public class CareerTracksController : ControllerBase
 {
-    private readonly ICareerTrackService _service;
-    private readonly IValidator<SelectTrackRequest> _validator;
+    private readonly ICareerTrackService               _service;
+    private readonly IValidator<SelectTrackRequest>    _selectValidator;
+    private readonly IValidator<TrackRecommendRequest> _recommendValidator;
 
     public CareerTracksController(
-        ICareerTrackService service,
-        IValidator<SelectTrackRequest> validator)
+        ICareerTrackService                service,
+        IValidator<SelectTrackRequest>     selectValidator,
+        IValidator<TrackRecommendRequest>  recommendValidator)
     {
-        _service = service;
-        _validator = validator;
+        _service            = service;
+        _selectValidator    = selectValidator;
+        _recommendValidator = recommendValidator;
     }
 
     private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-
-    // == Returns all active tracks. Frontend uses this to render the selection UI ==
+    // =====================================================================
+    // GET /api/v1/career-tracks
+    // =====================================================================
     [HttpGet]
     [ProducesResponseType(typeof(ApiResponse<CareerTracksListResponse>), 200)]
     [ProducesResponseType(401)]
@@ -39,7 +43,10 @@ public class CareerTracksController : ControllerBase
         return Ok(ApiResponse<CareerTracksListResponse>.Ok(result));
     }
 
-    // == Returns the stored ML prediction so frontend can highlight recommended track ==
+    // =====================================================================
+    // GET /api/v1/career-tracks/prediction
+    // Returns the stored onboarding ML prediction
+    // =====================================================================
     [HttpGet("prediction")]
     [ProducesResponseType(typeof(ApiResponse<PredictionResponse>), 200)]
     [ProducesResponseType(typeof(object), 401)]
@@ -50,7 +57,9 @@ public class CareerTracksController : ControllerBase
         return Ok(ApiResponse<PredictionResponse>.Ok(result));
     }
 
-    // == User confirms their track. Previous track deactivated atomically ==
+    // =====================================================================
+    // POST /api/v1/career-tracks/select
+    // =====================================================================
     [HttpPost("select")]
     [ProducesResponseType(typeof(ApiResponse<SelectTrackResponse>), 201)]
     [ProducesResponseType(typeof(object), 400)]
@@ -59,7 +68,7 @@ public class CareerTracksController : ControllerBase
     [ProducesResponseType(typeof(object), 422)]
     public async Task<IActionResult> SelectTrack([FromBody] SelectTrackRequest request)
     {
-        var validation = await _validator.ValidateAsync(request);
+        var validation = await _selectValidator.ValidateAsync(request);
         if (!validation.IsValid)
         {
             var errors = validation.Errors
@@ -69,10 +78,10 @@ public class CareerTracksController : ControllerBase
             return BadRequest(new
             {
                 success = false,
-                error = new
+                error   = new
                 {
-                    code = ErrorCodes.VALIDATION_ERROR,
-                    message = "Validation failed.",
+                    code       = ErrorCodes.VALIDATION_ERROR,
+                    message    = "Validation failed.",
                     statusCode = 400,
                     errors
                 }
@@ -83,8 +92,9 @@ public class CareerTracksController : ControllerBase
         return StatusCode(201, ApiResponse<SelectTrackResponse>.Ok(result));
     }
 
-    // == Returns active track with hasRoadmap flag==
-    // Frontend uses hasRoadmap to show "Generate Roadmap" or "View Roadmap"
+    // =====================================================================
+    // GET /api/v1/career-tracks/my-track
+    // =====================================================================
     [HttpGet("my-track")]
     [ProducesResponseType(typeof(ApiResponse<MyTrackResponse>), 200)]
     [ProducesResponseType(typeof(object), 401)]
@@ -93,5 +103,45 @@ public class CareerTracksController : ControllerBase
     {
         var result = await _service.GetMyTrackAsync(GetUserId());
         return Ok(ApiResponse<MyTrackResponse>.Ok(result));
+    }
+
+    // =====================================================================
+    // POST /api/v1/career-tracks/recommendation
+    // AI-powered track recommendations with enriched profile.
+    // All profile fields optional — AI handles partial profiles gracefully.
+    // Requires onboarding to be complete.
+    // Returns 200 (not 201 — nothing is created in the database).
+    // =====================================================================
+    [HttpPost("recommendation")]
+    [ProducesResponseType(typeof(ApiResponse<TrackRecommendationResponse>), 200)]
+    [ProducesResponseType(typeof(object), 400)]
+    [ProducesResponseType(typeof(object), 401)]
+    [ProducesResponseType(typeof(object), 422)]
+    [ProducesResponseType(typeof(object), 502)]
+    public async Task<IActionResult> GetRecommendation(
+        [FromBody] TrackRecommendRequest request)
+    {
+        var validation = await _recommendValidator.ValidateAsync(request);
+        if (!validation.IsValid)
+        {
+            var errors = validation.Errors
+                .GroupBy(e => e.PropertyName)
+                .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
+
+            return BadRequest(new
+            {
+                success = false,
+                error   = new
+                {
+                    code       = ErrorCodes.VALIDATION_ERROR,
+                    message    = "Validation failed.",
+                    statusCode = 400,
+                    errors
+                }
+            });
+        }
+
+        var result = await _service.GetRecommendationsAsync(GetUserId(), request);
+        return Ok(ApiResponse<TrackRecommendationResponse>.Ok(result));
     }
 }

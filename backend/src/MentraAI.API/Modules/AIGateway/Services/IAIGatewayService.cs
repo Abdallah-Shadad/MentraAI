@@ -1,4 +1,5 @@
-﻿using MentraAI.API.Modules.AIGateway.InternalModels;
+using MentraAI.API.Modules.AIGateway.DTOs.Requests;
+using MentraAI.API.Modules.AIGateway.InternalModels;
 using MentraAI.API.Modules.Chat.DTOs.Requests;
 using MentraAI.API.Modules.Users.Models;
 
@@ -31,7 +32,7 @@ public interface IAIGatewayService
         string roadmapDataJson,
         CancellationToken ct = default);
 
-    // Quizzes — updated signature with topics
+    // Quizzes — includes topics parameter added in Phase 5
     Task<QuizGenerationResult> GenerateQuizAsync(
         string userId,
         string careerTrack,
@@ -41,7 +42,7 @@ public interface IAIGatewayService
         List<string> topics,
         CancellationToken ct = default);
 
-    // Adaptation
+    // Adaptation — Phase 6 stub
     Task<RoadmapGenerationResult> GetAdaptedRoadmapAsync(
         string userId,
         string careerTrack,
@@ -53,18 +54,24 @@ public interface IAIGatewayService
         decimal score,
         CancellationToken ct = default);
 
-    // Chat — NEW
+    // Chat — SSE stream proxy
     Task StreamChatAsync(
         ChatAIRequest request,
         HttpResponse httpResponse,
         CancellationToken ct = default);
 
-    // Chat memory delete — NEW
+    // Chat — Redis memory delete
     Task DeleteChatMemoryAsync(
         string userId,
         string conversationId,
         CancellationToken ct = default);
 
-    // Health check for chat functionality — NEW
+    // Chat health check
     Task<bool> CheckChatHealthAsync();
+
+    // Phase 6 — Track Recommender (NEW)
+    Task<TrackRecommendationResult> GetTrackRecommendationsAsync(
+        string userId,
+        TrackRecommendProfile profile,
+        CancellationToken ct = default);
 }

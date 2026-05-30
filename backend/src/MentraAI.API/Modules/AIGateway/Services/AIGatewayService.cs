@@ -362,6 +362,69 @@ public class AIGatewayService : IAIGatewayService
     }
 
     // =====================================================================
+    // GET TRACK RECOMMENDATIONS  —  Phase 6
+    // =====================================================================
+    public async Task<TrackRecommendationResult> GetTrackRecommendationsAsync(
+        string userId,
+        TrackRecommendProfile profile,
+        CancellationToken ct = default)
+    {
+        var request = new TrackRecommendAIRequest
+        {
+            UserId  = userId,
+            Profile = profile
+        };
+
+        var response = await _http.PostAsJsonAsync("/api/v1/tracks/recommend", request, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogError(
+                "Track recommender error {Status}: {Body}", response.StatusCode, body);
+            throw new AIServiceException(
+                $"Track recommender returned {(int)response.StatusCode}");
+        }
+
+        var rawBody = await response.Content.ReadAsStringAsync(ct);
+
+        TrackRecommendAIResponse? aiResponse;
+        try
+        {
+            aiResponse = JsonSerializer.Deserialize<TrackRecommendAIResponse>(rawBody);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(
+                "Track recommender returned invalid JSON. Body: {Body}", rawBody);
+            throw new AIValidationException($"AI returned invalid JSON: {ex.Message}");
+        }
+
+        TrackRecommendAIResponseValidator.Validate(aiResponse!);
+
+        var output = aiResponse!.Recommendations!.Data!.Recommendations!;
+
+        return new TrackRecommendationResult
+        {
+            UserSummary            = output.UserSummary,
+            PrimaryRecommendation  = output.PrimaryRecommendation,
+            ProfileCompleteness    = output.ProfileCompleteness,
+            MissingInfoSuggestions = output.MissingInfoSuggestions ?? new List<string>(),
+            RecommendedTracks      = output.RecommendedTracks
+                .Select(t => new TrackMatch
+                {
+                    TrackName                = t.TrackName,
+                    FitScore                 = t.FitScore,
+                    Reasoning                = t.Reasoning,
+                    SkillOverlap             = t.SkillOverlap,
+                    SkillsToLearn            = t.SkillsToLearn,
+                    EstimatedTransitionWeeks = t.EstimatedTransitionWeeks
+                })
+                .ToList()
+        };
+    }
+
+    // =====================================================================
     // PRIVATE HELPERS
     // =====================================================================
     private static List<string> ParseJsonArray(string? json)
