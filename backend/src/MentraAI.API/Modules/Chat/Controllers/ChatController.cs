@@ -14,7 +14,7 @@ using MentraAI.API.Modules.Chat.Services;
 namespace MentraAI.API.Modules.Chat.Controllers;
 
 [ApiController]
-[Route("api/v1/chat/conversations")]
+[Route("api/v1/chat")]
 [Authorize]
 public class ChatController : ControllerBase
 {
@@ -39,9 +39,9 @@ public class ChatController : ControllerBase
 
     // =====================================================================
     // POST /api/v1/chat/conversations
-    // Create a new conversation — returns the conversationId for subsequent messages.
+    // Create a conversation — returns conversationId for subsequent messages.
     // =====================================================================
-    [HttpPost]
+    [HttpPost("conversations")]
     [ProducesResponseType(typeof(ApiResponse<ConversationResponse>), 201)]
     [ProducesResponseType(typeof(object), 401)]
     public async Task<IActionResult> CreateConversation(
@@ -55,7 +55,7 @@ public class ChatController : ControllerBase
     // GET /api/v1/chat/conversations
     // List all conversations for the authenticated user.
     // =====================================================================
-    [HttpGet]
+    [HttpGet("conversations")]
     [ProducesResponseType(typeof(ApiResponse<ConversationListResponse>), 200)]
     [ProducesResponseType(typeof(object), 401)]
     public async Task<IActionResult> GetConversations()
@@ -66,9 +66,9 @@ public class ChatController : ControllerBase
 
     // =====================================================================
     // DELETE /api/v1/chat/conversations/{conversationId}
-    // Delete conversation from our DB and clear AI Redis memory.
+    // Delete our DB row + clear AI Redis memory (best-effort).
     // =====================================================================
-    [HttpDelete("{conversationId:guid}")]
+    [HttpDelete("conversations/{conversationId:guid}")]
     [ProducesResponseType(204)]
     [ProducesResponseType(typeof(object), 401)]
     [ProducesResponseType(typeof(object), 404)]
@@ -76,27 +76,21 @@ public class ChatController : ControllerBase
     {
         var userId = GetUserId();
 
-        // Verify ownership before deletion
         var conversation = await _chatService.GetConversationAsync(conversationId, userId);
-
-        // Already checked in the service layer, but double-check here to avoid clearing AI memory for the wrong user if something is off with the service layer validation.
         if (conversation is null)
             throw new AppException(ErrorCodes.NOT_FOUND, "Conversation not found.", 404);
 
-        // Delete our DB row
         await _chatService.DeleteConversationAsync(conversationId, userId);
 
-        // Best-effort: clear AI Redis memory (non-fatal if it fails)
         try
         {
             await _aiGateway.DeleteChatMemoryAsync(userId, conversationId.ToString());
         }
         catch (Exception ex)
         {
+            // Non-fatal — DB row deleted, memory cleanup is best-effort
             _logger.LogWarning(ex,
-                "Failed to clear AI memory for conversation {ConversationId}. " +
-                "DB row deleted successfully.",
-                conversationId);
+                "Failed to clear AI memory for conversation {ConversationId}", conversationId);
         }
 
         return NoContent();
@@ -104,13 +98,12 @@ public class ChatController : ControllerBase
 
     // =====================================================================
     // POST /api/v1/chat/conversations/{conversationId}/messages
-    // Send a message — streams the AI SSE response directly to the frontend.
-    //
-    // CRITICAL: All validation and DB checks MUST happen before StreamChatAsync.
-    // Once streaming begins the response is committed — no error JSON can be written.
+    // Streams the AI SSE response directly to the frontend.
+    // CRITICAL: ALL validation and DB checks happen BEFORE StreamChatAsync.
+    // Once streaming starts the response is committed — no JSON errors possible.
     // =====================================================================
-    [HttpPost("{conversationId:guid}/messages")]
-    [ProducesResponseType(200)] // SSE stream
+    [HttpPost("conversations/{conversationId:guid}/messages")]
+    [ProducesResponseType(200)]
     [ProducesResponseType(typeof(object), 400)]
     [ProducesResponseType(typeof(object), 401)]
     [ProducesResponseType(typeof(object), 404)]
@@ -119,7 +112,7 @@ public class ChatController : ControllerBase
         [FromBody] ChatRequest request,
         CancellationToken ct)
     {
-        // 1. Validate request body
+        // 1. Validate body
         var validation = await _chatValidator.ValidateAsync(request, ct);
         if (!validation.IsValid)
         {
@@ -142,7 +135,7 @@ public class ChatController : ControllerBase
 
         var userId = GetUserId();
 
-        // 2. Verify conversation ownership — MUST be before streaming starts
+        // 2. Verify ownership — MUST be before streaming starts
         var conversation = await _chatService.GetConversationAsync(conversationId, userId);
         if (conversation is null)
             throw new AppException(ErrorCodes.NOT_FOUND, "Conversation not found.", 404);
@@ -160,16 +153,16 @@ public class ChatController : ControllerBase
             QuizScore = request.QuizScore
         };
 
-        // 4. Update timestamp (fire-and-forget style, before streaming)
+        // 4. Update timestamp before streaming
         await _chatService.UpdateLastMessageAsync(conversationId);
 
         // 5. Stream directly — no buffering
-        // Note: after this point the response is committed.
         // EmptyResult() after streaming is intentional and harmless.
         await _aiGateway.StreamChatAsync(aiRequest, Response, ct);
 
         return new EmptyResult();
     }
+
     // =====================================================================
     // GET /api/v1/chat/health
     // Acts as a proxy to check if the external AI chat server is currently online.

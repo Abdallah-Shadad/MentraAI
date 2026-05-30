@@ -45,14 +45,18 @@ public class RoadmapService : IRoadmapService
 
         var profile = await _userService.GetProfileAsync(userId);
 
+        // Map the new Profile structure to a background string for the AI
+        var userBackground = $"Age: {profile.Age}, Education: {profile.EdLevel}, " +
+                             $"Experience: {profile.YearsCode} years, Industry: {profile.Industry}, " +
+                             $"Role: {profile.Employment}";
+
         var result = await _aiGateway.GenerateRoadmapAsync(
             userId: userId,
             careerTrackSlug: userTrack.CareerTrack.Slug,
-            weeklyHours: profile.WeeklyHours ?? 10,
-            userBackground: profile.Background ?? string.Empty,
+            weeklyHours: 10, // Default fallback
+            userBackground: userBackground,
             currentSkills: profile.CurrentSkills ?? new List<string>());
 
-        // Create new roadmap version without saving yet (we need the Id for stages, so we save both in one transaction at the end of this method)
         var roadmap = new Roadmap
         {
             UserTrackId = userTrack.Id,
@@ -63,7 +67,6 @@ public class RoadmapService : IRoadmapService
             CreatedAt = DateTime.UtcNow
         };
 
-        // Prepare stages for insertion 
         var stages = result.Stages.Select((s, i) => new UserStageProgress
         {
             Id = Guid.NewGuid(),
@@ -71,11 +74,9 @@ public class RoadmapService : IRoadmapService
             AiStageId = s.AiStageId,
             StageName = s.Name,
             Status = i == 0 ? "ACTIVE" : "LOCKED",
-            UnlockedAt = i == 0 ? DateTime.UtcNow : null,
-            CompletedAt = null
+            UnlockedAt = i == 0 ? DateTime.UtcNow : null
         }).ToList();
 
-        // Save both roadmap and stages in one transaction
         await _roadmapRepo.CreateWithStagesAsync(roadmap, stages);
 
         return BuildRoadmapResponse(roadmap, result.DifficultyLevel, result.TotalWeeks, result.SkillGaps, stages, result.Stages);

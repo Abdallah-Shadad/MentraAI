@@ -46,15 +46,21 @@ public class UserService : IUserService
         var profile = await _repo.GetProfileByUserIdAsync(userId)
             ?? throw new AppException(ErrorCodes.NOT_FOUND, "User profile not found.", 404);
 
-        if (request.Background is not null) profile.Background = request.Background;
-        if (request.CareerGoals is not null) profile.CareerGoals = request.CareerGoals;
-        if (request.WeeklyHours is not null) profile.WeeklyHours = request.WeeklyHours;
+        if (request.Age is not null) profile.Age = request.Age;
+        if (request.EdLevel is not null) profile.EdLevel = request.EdLevel;
+        if (request.YearsCode.HasValue) profile.YearsCode = request.YearsCode;
+        if (request.WorkExp.HasValue) profile.WorkExp = request.WorkExp;
+        if (request.Employment is not null) profile.Employment = request.Employment;
+        if (request.RemoteWork is not null) profile.RemoteWork = request.RemoteWork;
+        if (request.Industry is not null) profile.Industry = request.Industry;
+        if (request.OrgSize is not null) profile.OrgSize = request.OrgSize;
+        if (request.AISelect is not null) profile.AISelect = request.AISelect;
 
         if (request.CurrentSkills is not null)
             profile.CurrentSkillsJson = JsonSerializer.Serialize(request.CurrentSkills);
 
-        if (request.Interests is not null)
-            profile.InterestsJson = JsonSerializer.Serialize(request.Interests);
+        if (request.FutureSkills is not null)
+            profile.FutureSkillsJson = JsonSerializer.Serialize(request.FutureSkills);
 
         profile.UpdatedAt = DateTime.UtcNow;
 
@@ -79,11 +85,18 @@ public class UserService : IUserService
             ?? throw new AppException(ErrorCodes.NOT_FOUND, "Profile not found.", 404);
 
         // Only overwrite fields that were actually submitted
-        if (data.Background is not null) profile.Background = data.Background;
-        if (data.WeeklyHours is not null) profile.WeeklyHours = data.WeeklyHours;
+        if (data.Age is not null) profile.Age = data.Age;
+        if (data.EdLevel is not null) profile.EdLevel = data.EdLevel;
+        if (data.YearsCode.HasValue) profile.YearsCode = data.YearsCode;
+        if (data.WorkExp.HasValue) profile.WorkExp = data.WorkExp;
+        if (data.Employment is not null) profile.Employment = data.Employment;
+        if (data.RemoteWork is not null) profile.RemoteWork = data.RemoteWork;
+        if (data.Industry is not null) profile.Industry = data.Industry;
+        if (data.OrgSize is not null) profile.OrgSize = data.OrgSize;
+        if (data.AISelect is not null) profile.AISelect = data.AISelect;
+
         if (data.CurrentSkillsJson is not null) profile.CurrentSkillsJson = data.CurrentSkillsJson;
-        if (data.InterestsJson is not null) profile.InterestsJson = data.InterestsJson;
-        if (data.CareerGoals is not null) profile.CareerGoals = data.CareerGoals;
+        if (data.FutureSkillsJson is not null) profile.FutureSkillsJson = data.FutureSkillsJson;
 
         profile.UpdatedAt = DateTime.UtcNow;
 
