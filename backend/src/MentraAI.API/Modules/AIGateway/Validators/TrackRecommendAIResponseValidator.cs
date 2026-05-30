@@ -14,16 +14,16 @@ public static class TrackRecommendAIResponseValidator
         if (r.Recommendations is null)
             throw new AIValidationException("Recommendations payload is null.");
 
-        // Graph-level error (LLM or graph initialization failure)
+        // Graph-level error checks
         if (r.Recommendations.Status == "error")
             throw new AIValidationException(
                 $"Track recommender graph error: {r.Recommendations.Error ?? "unknown"}");
 
+        // FIXED: Navigating through the real deep model architecture path
         var output = r.Recommendations.Data?.Recommendations;
 
         if (output is null)
-            throw new AIValidationException(
-                "recommendations.data.recommendations is null.");
+            throw new AIValidationException("recommendations.data.recommendations object is missing.");
 
         if (output.RecommendedTracks is null || output.RecommendedTracks.Count == 0)
             throw new AIValidationException("No recommended tracks returned.");
