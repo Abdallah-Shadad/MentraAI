@@ -238,7 +238,7 @@ public class QuizServiceTests
                 StageProgressId = stageId
             });
 
-        _scoringMock.Setup(s => s.Score(It.IsAny<string>(), request.Answers))
+        _scoringMock.Setup(s => s.Score(It.IsAny<string>(), request.Answers, It.IsAny<decimal>()))
             .Returns(new QuizScoreResult(4, 4, 100, true));
 
         _quizRepoMock.Setup(r => r.SubmitAsync(quizId, It.IsAny<string>(), 4, 100, true))
@@ -288,7 +288,7 @@ public class QuizServiceTests
                 StageProgressId = stageId
             });
 
-        _scoringMock.Setup(s => s.Score(It.IsAny<string>(), request.Answers))
+        _scoringMock.Setup(s => s.Score(It.IsAny<string>(), request.Answers, It.IsAny<decimal>()))
             .Returns(new QuizScoreResult(0, 4, 0, false));
 
         _quizRepoMock.Setup(r => r.SubmitAsync(quizId, It.IsAny<string>(), 0, 0, false))
