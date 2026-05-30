@@ -1,4 +1,5 @@
-﻿using MentraAI.API.Modules.CareerTracks.Models;
+﻿using MentraAI.API.Modules.AIGateway.InternalModels;
+using MentraAI.API.Modules.CareerTracks.Models;
 
 namespace MentraAI.API.Modules.CareerTracks.Repositories;
 public interface ICareerTrackRepository
@@ -29,4 +30,5 @@ public interface ICareerTrackRepository
 
     // Convenience method to do both of the above in one call s
     Task<UserTrack> ReplaceActiveTrackAsync(string userId, UserTrack newTrack);
+    Task SavePredictionAsync(string userId, PredictionResult prediction);
 }
