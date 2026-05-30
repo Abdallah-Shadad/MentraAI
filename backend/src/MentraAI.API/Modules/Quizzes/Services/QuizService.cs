@@ -245,10 +245,9 @@ public class QuizService : IQuizService
         if (quiz == null || quiz.UserId != userId)
             throw new AppException(ErrorCodes.QUIZ_NOT_FOUND, "Quiz not found.", 404);
 
-        // 2. Deserialize the hidden raw AI data using the private Raw schema
-        // We use the _json options already defined in your service to handle camelCase/snake_case
-        var rawQuizData = JsonSerializer.Deserialize<RawAIQuizData>(quiz.QuestionsDataJson, _json);
-        var question = rawQuizData?.Questions?.FirstOrDefault(q => q.QuestionId == questionId);
+        // 2. Deserialize the hidden raw AI data directly to a List of RawAIQuestion
+        var questions = JsonSerializer.Deserialize<List<RawAIQuestion>>(quiz.QuestionsDataJson, _json);
+        var question = questions?.FirstOrDefault(q => q.QuestionId == questionId);
 
         if (question == null)
             throw new AppException(ErrorCodes.NOT_FOUND, "Question not found.", 404);
@@ -317,11 +316,11 @@ public class QuizService : IQuizService
     // =====================================================================
     // PRIVATE CLASSES FOR RAW AI DATA PARSING
     // =====================================================================
-    private class RawAIQuizData
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("questions")]
-        public List<RawAIQuestion> Questions { get; set; } = new();
-    }
+    //private class RawAIQuizData
+    //{
+    //    [System.Text.Json.Serialization.JsonPropertyName("questions")]
+    //    public List<RawAIQuestion> Questions { get; set; } = new();
+    //}
 
     private class RawAIQuestion
     {
