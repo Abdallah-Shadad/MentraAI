@@ -71,7 +71,6 @@ public class OnboardingService : IOnboardingService
                 404);
 
         // Upsert answers BEFORE calling AI
-        // If AI fails the user can retry — answers are already saved, no duplicates
         var answerEntities = request.Answers
             .Select(a => new OnboardingAnswer
             {
@@ -84,17 +83,23 @@ public class OnboardingService : IOnboardingService
 
         await _onboardingRepo.UpsertAnswersAsync(userId, answerEntities);
 
-        // Map answers to profile fields using QuestionKey
+        // Map answers to profile fields using QuestionKey matching the 11 new DB entries
         var questionKeyMap = validQuestions.ToDictionary(q => q.Id, q => q.QuestionKey);
         var answerByKey = BuildAnswerByKeyMap(request.Answers, questionKeyMap);
 
         var profileData = new ProfileUpdateData
         {
-            Background = answerByKey.GetValueOrDefault("background"),
-            WeeklyHours = ParseWeeklyHours(answerByKey.GetValueOrDefault("weekly_hours")),
+            Age = answerByKey.GetValueOrDefault("Age"),
+            EdLevel = answerByKey.GetValueOrDefault("EdLevel"),
+            YearsCode = ParseDouble(answerByKey.GetValueOrDefault("YearsCode")),
+            WorkExp = ParseDouble(answerByKey.GetValueOrDefault("WorkExp")),
+            Employment = answerByKey.GetValueOrDefault("Employment"),
+            RemoteWork = answerByKey.GetValueOrDefault("RemoteWork"),
+            Industry = answerByKey.GetValueOrDefault("Industry"),
+            OrgSize = answerByKey.GetValueOrDefault("OrgSize"),
+            AISelect = answerByKey.GetValueOrDefault("AISelect"),
             CurrentSkillsJson = NormalizeJsonArray(answerByKey.GetValueOrDefault("current_skills")),
-            InterestsJson = NormalizeJsonArray(answerByKey.GetValueOrDefault("interests")),
-            CareerGoals = answerByKey.GetValueOrDefault("career_goals")
+            FutureSkillsJson = NormalizeJsonArray(answerByKey.GetValueOrDefault("future_skills"))
         };
 
         // update UserProfile via IUserService
@@ -108,11 +113,9 @@ public class OnboardingService : IOnboardingService
                 404);
 
         // call AI prediction
-        // AIServiceException / AIValidationException bubble to GlobalExceptionMiddleware
-        // answers are already saved at step 2, user can safely retry on AI failure
         var predictionResult = await _aiGateway.PredictCareerAsync(userId, profile);
 
-        // save prediction — stays inside Onboarding module, not UserService
+        // save prediction
         await _onboardingRepo.SavePredictionAsync(userId, predictionResult);
 
         // check if all active questions are now answered
@@ -128,11 +131,8 @@ public class OnboardingService : IOnboardingService
         return OnboardingMappings.ToSubmitResponse(predictionResult, allAnswered);
     }
 
-
     // PRIVATE HELPERS
 
-
-    // Builds QuestionKey -> AnswerText lookup so mapping never relies on hardcoded IDs
     private static Dictionary<string, string> BuildAnswerByKeyMap(
         List<AnswerItem> answers,
         Dictionary<int, string> questionKeyMap)
@@ -146,15 +146,12 @@ public class OnboardingService : IOnboardingService
         return result;
     }
 
-    // Parses weekly_hours answer string to nullable int
-    private static int? ParseWeeklyHours(string? raw)
+    private static double? ParseDouble(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
-        return int.TryParse(raw.Trim(), out var hours) ? hours : null;
+        return double.TryParse(raw.Trim(), out var val) ? val : null;
     }
 
-    // Ensures MULTISELECT answers are stored as valid JSON array strings
-    // Input may already be ["Python","SQL"] or a plain "Python"
     private static string? NormalizeJsonArray(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
@@ -170,7 +167,6 @@ public class OnboardingService : IOnboardingService
             catch { return null; }
         }
 
-        // Plain string — wrap in array
         return JsonSerializer.Serialize(new List<string> { trimmed });
     }
 }
