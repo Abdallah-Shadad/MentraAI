@@ -12,6 +12,7 @@ using MentraAI.API.Modules.Quizzes.Repositories;
 using MentraAI.API.Modules.Roadmaps.Services;
 using MentraAI.API.Modules.StageProgress.Repositories;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MentraAI.API.Modules.Quizzes.Services;
 
@@ -235,32 +236,31 @@ public class QuizService : IQuizService
         };
     }
     // =====================================================================
-    // GET HINT
+    // GET QUESTION HINT
     // =====================================================================
-    public async Task<string> GetQuestionHintAsync(Guid quizId, string questionId, int hintIndex, string userId)
+    public async Task<string> GetQuestionHintAsync(
+        Guid quizId, string questionId, int hintIndex, string userId)
     {
-        // 1. Get the quiz attempt
         var quiz = await _quizRepo.GetByIdAsync(quizId);
-
         if (quiz == null || quiz.UserId != userId)
             throw new AppException(ErrorCodes.QUIZ_NOT_FOUND, "Quiz not found.", 404);
 
-        // 2. Deserialize the hidden raw AI data directly to a List of RawAIQuestion
+        // Deserialize directly to a List of RawAIQuestion since the DB stores a JSON array
         var questions = JsonSerializer.Deserialize<List<RawAIQuestion>>(quiz.QuestionsDataJson, _json);
         var question = questions?.FirstOrDefault(q => q.QuestionId == questionId);
 
         if (question == null)
             throw new AppException(ErrorCodes.NOT_FOUND, "Question not found.", 404);
 
-        // 3. Check if hints exist
         if (question.Hints == null || !question.Hints.Any())
-            throw new AppException(ErrorCodes.NOT_FOUND, "No hints available for this question.", 404);
+            throw new AppException(ErrorCodes.NOT_FOUND,
+                "No hints available for this question.", 404);
 
-        // 4. Validate requested hint index (Progressive logic)
         if (hintIndex < 0 || hintIndex >= question.Hints.Count)
-            throw new AppException(ErrorCodes.VALIDATION_ERROR, "No more hints available.", 400);
+            throw new AppException(ErrorCodes.VALIDATION_ERROR,
+                "No more hints available.", 400);
 
-        // 5. Return the specific hint
+        // Return the text of the hint at the requested index
         return question.Hints[hintIndex].Text;
     }
 
@@ -314,11 +314,11 @@ public class QuizService : IQuizService
         return new List<string>();
     }
     // =====================================================================
-    // PRIVATE CLASSES FOR RAW AI DATA PARSING
+    // PRIVATE CLASSES FOR HINT PARSING — matches actual AI JSON structure
     // =====================================================================
     //private class RawAIQuizData
     //{
-    //    [System.Text.Json.Serialization.JsonPropertyName("questions")]
+    //    [JsonPropertyName("questions")]
     //    public List<RawAIQuestion> Questions { get; set; } = new();
     //}
 
@@ -327,7 +327,17 @@ public class QuizService : IQuizService
         [System.Text.Json.Serialization.JsonPropertyName("question_id")]
         public string QuestionId { get; set; } = string.Empty;
 
+        // Hints are objects {level, text} — NOT plain strings
         [System.Text.Json.Serialization.JsonPropertyName("hints")]
-        public List<AIHint> Hints { get; set; } = new();
+        public List<RawAIHint> Hints { get; set; } = new();
+    }
+
+    private class RawAIHint
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("level")]
+        public int Level { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("text")]
+        public string Text { get; set; } = string.Empty;
     }
 }

@@ -80,18 +80,21 @@ public class StageProgressService : IStageProgressService
     {
         var (stage, userTrack, roadmap) = await ValidateStageOwnershipAsync(stageProgressId, userId);
 
-        // FIX Issue: Reject only LOCKED stages. Allow ACTIVE and COMPLETED.
         if (stage.Status == "LOCKED")
             throw new AppException(ErrorCodes.STAGE_LOCKED,
                 "This stage is not unlocked yet.", 422);
 
-        // Cache hit — return immediately without calling AI
+        // Cache hit
         if (stage.ResourcesDataJson != null)
             return BuildResourcesResponse(stage);
 
-        // FIX Issue: Fetch weekly hours via IUserService safely
+        // FIX: Use safe access to profile data. 
+        // Since WeeklyHours is gone, we use a default or derive it from YearsCode.
         var profileResponse = await _userService.GetProfileAsync(userId);
-        int weeklyHours = profileResponse.WeeklyHours ?? 10;
+
+        // Example logic: if the user has 0-1 years of experience, assume 10 hours/week, 
+        // otherwise assume 15. Adjust this business logic as needed.
+        int weeklyHours = (profileResponse.YearsCode ?? 0) < 1 ? 10 : 15;
 
         // Cache miss — call AI for resources
         var result = await _aiGateway.GetStageResourcesAsync(
@@ -102,7 +105,7 @@ public class StageProgressService : IStageProgressService
             stageIndex: stage.StageIndex,
             roadmapDataJson: roadmap.RoadmapDataJson);
 
-        // Cache the result — subsequent calls to enter or resources use this
+        // Cache the result
         stage.ResourcesDataJson = result.ResourcesDataJson;
         await _stageRepo.UpdateAsync(stage);
 

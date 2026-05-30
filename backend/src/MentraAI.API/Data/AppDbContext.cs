@@ -51,10 +51,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.UserId).IsUnique();
-            e.Property(x => x.CurrentSkillsJson)
-                .HasColumnType("nvarchar(max)");
-            e.Property(x => x.InterestsJson)
-                .HasColumnType("nvarchar(max)");
+
+            // Update to match new properties
+            e.Property(x => x.CurrentSkillsJson).HasColumnName("CurrentSkillsJson");
+            e.Property(x => x.FutureSkillsJson).HasColumnName("FutureSkillsJson");
         });
 
         // == RefreshToken ===
