@@ -78,6 +78,8 @@ public class ChatController : ControllerBase
 
         // Verify ownership before deletion
         var conversation = await _chatService.GetConversationAsync(conversationId, userId);
+
+        // Already checked in the service layer, but double-check here to avoid clearing AI memory for the wrong user if something is off with the service layer validation.
         if (conversation is null)
             throw new AppException(ErrorCodes.NOT_FOUND, "Conversation not found.", 404);
 

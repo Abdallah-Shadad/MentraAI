@@ -292,13 +292,21 @@ public class AIGatewayService : IAIGatewayService
         using var stream = await aiResponse.Content.ReadAsStreamAsync(ct);
         using var reader = new StreamReader(stream);
 
-        while (!reader.EndOfStream && !ct.IsCancellationRequested)
+        try
         {
-            var line = await reader.ReadLineAsync(ct);
-            if (line is null) break;
+            while (!reader.EndOfStream && !ct.IsCancellationRequested)
+            {
+                var line = await reader.ReadLineAsync(ct);
+                if (line is null) break;
 
-            await httpResponse.WriteAsync(line + "\n\n", ct);
-            await httpResponse.Body.FlushAsync(ct);
+                await httpResponse.WriteAsync(line + "\n\n", ct);
+                await httpResponse.Body.FlushAsync(ct);
+            }
+        }
+        catch (Exception ex) when (ex is TaskCanceledException || ex is IOException)
+        {
+            // if client disconnects or cancels, we may get a cancellation or broken pipe exception — log and exit gracefully
+            _logger.LogInformation("Streaming cancelled or disconnected for AI Chat.");
         }
     }
 
