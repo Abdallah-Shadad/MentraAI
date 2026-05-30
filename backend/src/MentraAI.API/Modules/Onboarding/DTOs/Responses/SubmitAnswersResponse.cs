@@ -2,8 +2,11 @@
 
 public class SubmitAnswersResponse
 {
-    public bool IsOnboarded { get; set; }
-    public PredictionData Prediction { get; set; } = null!;
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+
+    //public bool IsOnboarded { get; set; }
+    //public PredictionData Prediction { get; set; } = null!;
 }
 
 public class PredictionData
