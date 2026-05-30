@@ -8,6 +8,7 @@ using MentraAI.API.Modules.Users.Models;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MentraAI.API.Modules.AIGateway.Services;
 
@@ -164,7 +165,7 @@ public class AIGatewayService : IAIGatewayService
     }
 
     // =====================================================================
-    // GENERATE QUIZ  —  Updated: URL, topics param, new response structure
+    // GENERATE QUIZ
     // =====================================================================
     public async Task<QuizGenerationResult> GenerateQuizAsync(
         string userId,
@@ -172,7 +173,7 @@ public class AIGatewayService : IAIGatewayService
         string aiStageId,
         string stageName,
         string difficultyLevel,
-        List<string> topics,             // NEW
+        List<string> topics,
         CancellationToken ct = default)
     {
         var request = new QuizCreateAIRequest
@@ -182,10 +183,9 @@ public class AIGatewayService : IAIGatewayService
             AiStageId = aiStageId,
             StageName = stageName,
             DifficultyLevel = difficultyLevel,
-            Topics = topics      // NEW
+            Topics = topics
         };
 
-        // URL changed from /api/v1/quiz/create to /api/v1/quiz/generate
         var response = await _http.PostAsJsonAsync("/api/v1/quiz/generate", request, ct);
 
         if (!response.IsSuccessStatusCode)
@@ -210,10 +210,8 @@ public class AIGatewayService : IAIGatewayService
 
         QuizAIResponseValidator.Validate(aiResponse!);
 
-        // Store FULL questions including correct_answer, explanation, hints — DB only, never frontend
         var questionsDataJson = JsonSerializer.Serialize(aiResponse!.Quiz!.Questions);
 
-        // Build display-only questions — strip correct_answer, explanation, hints, is_correct
         var displayQuestions = aiResponse.Quiz.Questions
             .Select(q => new QuizQuestionDisplay
             {
@@ -223,7 +221,6 @@ public class AIGatewayService : IAIGatewayService
                 {
                     Label = c.Label,
                     Text = c.Text
-                    // is_correct intentionally absent
                 }).ToList()
             })
             .ToList();
@@ -236,8 +233,8 @@ public class AIGatewayService : IAIGatewayService
         {
             QuestionsDataJson = questionsDataJson,
             TotalQuestions = displayQuestions.Count,
-            PassingScore = aiResponse.Quiz.PassingScore,      // NEW
-            TimeLimitMinutes = aiResponse.Quiz.TimeLimitMinutes,  // NEW
+            PassingScore = aiResponse.Quiz.PassingScore,
+            TimeLimitMinutes = aiResponse.Quiz.TimeLimitMinutes,
             Questions = displayQuestions
         };
     }
@@ -270,7 +267,6 @@ public class AIGatewayService : IAIGatewayService
             Content = JsonContent.Create(request)
         };
 
-        // ResponseHeadersRead: start reading body immediately without waiting for completion
         using var aiResponse = await _http.SendAsync(
             aiRequest,
             HttpCompletionOption.ResponseHeadersRead,
@@ -283,12 +279,10 @@ public class AIGatewayService : IAIGatewayService
             throw new AIServiceException($"Chat AI returned {(int)aiResponse.StatusCode}");
         }
 
-        // Set SSE headers BEFORE writing anything
         httpResponse.Headers["Content-Type"] = "text/event-stream";
         httpResponse.Headers["Cache-Control"] = "no-cache";
-        httpResponse.Headers["X-Accel-Buffering"] = "no";  // disable nginx buffering
+        httpResponse.Headers["X-Accel-Buffering"] = "no";
 
-        // Proxy each line from AI stream to our response stream
         using var stream = await aiResponse.Content.ReadAsStreamAsync(ct);
         using var reader = new StreamReader(stream);
 
@@ -305,7 +299,6 @@ public class AIGatewayService : IAIGatewayService
         }
         catch (Exception ex) when (ex is TaskCanceledException || ex is IOException)
         {
-            // if client disconnects or cancels, we may get a cancellation or broken pipe exception — log and exit gracefully
             _logger.LogInformation("Streaming cancelled or disconnected for AI Chat.");
         }
     }
@@ -318,7 +311,6 @@ public class AIGatewayService : IAIGatewayService
         string conversationId,
         CancellationToken ct = default)
     {
-        // DELETE /api/v1/chat/memory/
         var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, "/api/v1/chat/memory/")
         {
             Content = JsonContent.Create(new
@@ -336,10 +328,8 @@ public class AIGatewayService : IAIGatewayService
             _logger.LogWarning(
                 "AI memory delete returned {Status}: {Body}. Continuing anyway.",
                 response.StatusCode, body);
-            // Non-fatal — our DB row is already deleted, memory cleanup is best-effort
         }
     }
-
 
     // =====================================================================
     // CHECK AI CHAT HEALTH
@@ -348,21 +338,18 @@ public class AIGatewayService : IAIGatewayService
     {
         try
         {
-            // Calling the AI server's health endpoint to verify it is online
             var response = await _http.GetAsync("/api/v1/chat/health");
-
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            // Log the failure silently to prevent our backend from crashing
             _logger.LogWarning(ex, "Chat AI health check failed or AI server is unreachable.");
             return false;
         }
     }
 
     // =====================================================================
-    // GET TRACK RECOMMENDATIONS  —  Phase 6
+    // GET TRACK RECOMMENDATIONS — Fix: Aligned with strict direct mapping
     // =====================================================================
     public async Task<TrackRecommendationResult> GetTrackRecommendationsAsync(
         string userId,
@@ -371,7 +358,7 @@ public class AIGatewayService : IAIGatewayService
     {
         var request = new TrackRecommendAIRequest
         {
-            UserId  = userId,
+            UserId = userId,
             Profile = profile
         };
 
@@ -400,24 +387,26 @@ public class AIGatewayService : IAIGatewayService
             throw new AIValidationException($"AI returned invalid JSON: {ex.Message}");
         }
 
+        // Run the synchronized validator
         TrackRecommendAIResponseValidator.Validate(aiResponse!);
 
+        // FIXED: Deep nested path mapping to accurately locate the matching data layer
         var output = aiResponse!.Recommendations!.Data!.Recommendations!;
 
         return new TrackRecommendationResult
         {
-            UserSummary            = output.UserSummary,
-            PrimaryRecommendation  = output.PrimaryRecommendation,
-            ProfileCompleteness    = output.ProfileCompleteness,
+            UserSummary = output.UserSummary,
+            PrimaryRecommendation = output.PrimaryRecommendation,
+            ProfileCompleteness = output.ProfileCompleteness,
             MissingInfoSuggestions = output.MissingInfoSuggestions ?? new List<string>(),
-            RecommendedTracks      = output.RecommendedTracks
+            RecommendedTracks = output.RecommendedTracks
                 .Select(t => new TrackMatch
                 {
-                    TrackName                = t.TrackName,
-                    FitScore                 = t.FitScore,
-                    Reasoning                = t.Reasoning,
-                    SkillOverlap             = t.SkillOverlap,
-                    SkillsToLearn            = t.SkillsToLearn,
+                    TrackName = t.TrackName,
+                    FitScore = t.FitScore,
+                    Reasoning = t.Reasoning,
+                    SkillOverlap = t.SkillOverlap,
+                    SkillsToLearn = t.SkillsToLearn,
                     EstimatedTransitionWeeks = t.EstimatedTransitionWeeks
                 })
                 .ToList()
