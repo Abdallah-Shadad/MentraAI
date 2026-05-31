@@ -97,21 +97,9 @@ builder.Services
 builder.Services
     .AddHttpClient<IAIGatewayService, AIGatewayService>(client =>
     {
-        client.BaseAddress = new Uri(
-            builder.Configuration["AIService:BaseUrl"]!);
-
-        client.Timeout = TimeSpan.FromSeconds(30);
+        client.BaseAddress = new Uri(builder.Configuration["AIService:BaseUrl"]!);
+        client.Timeout = TimeSpan.FromSeconds(130);
     });
-
-//.AddHttpClient<IAIGatewayService, AIGatewayService>(client =>
-//{
-//    client.BaseAddress = new Uri(builder.Configuration["AIService:BaseUrl"]!);
-//    client.DefaultRequestHeaders.Add(
-//        "X-API-Key",
-//        builder.Configuration["AIService:ApiKey"]);
-//    // Outer timeout — slightly above per-attempt timeout in resilience handler
-//    client.Timeout = TimeSpan.FromSeconds(130);
-//});
 //.AddStandardResilienceHandler(options =>
 //{
 //    // Retry 3 times on transient failures (503, 502, 500, timeout)
@@ -221,11 +209,13 @@ var app = builder.Build();
 //  Middleware pipeline (ORDER IS CRITICAL) 
 app.UseMiddleware<GlobalExceptionMiddleware>();   // MUST be first
 
-if (app.Environment.IsDevelopment())
+// NEW — Swagger in all environments
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "MentraAI API v1");
+    c.RoutePrefix = "swagger";
+});
 
 // HTTPS redirection (optional, but recommended in production)
 if (!app.Environment.IsDevelopment())
@@ -244,14 +234,18 @@ else
 }
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers();
 
-//  Auto-migrate on startup (development convenience only) 
-if (app.Environment.IsDevelopment())
+// NEW — runs in all environments including production
+using var scope = app.Services.CreateScope();
+var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+try
 {
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
 }
-
+catch (Exception ex)
+{
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    logger.LogError(ex, "Migration failed on startup.");
+}
+app.MapControllers();
 app.Run();
