@@ -57,23 +57,53 @@ public class OnboardingService : IOnboardingService
 
     public async Task<SubmitAnswersResponse> SubmitAnswersAsync(string userId, SubmitAnswersRequest request)
     {
-        // 1. Validate: Get all questions to map QuestionId to QuestionKey (e.g., "Age", "EdLevel")
-        var submittedIds = request.Answers.Select(a => a.QuestionId).ToList();
-        var validQuestions = await _onboardingRepo.GetQuestionsByIdsAsync(submittedIds);
-        var questionKeyMap = validQuestions.ToDictionary(q => q.Id, q => q.QuestionKey);
+        // 1.Fetch all active questions to validate against and to get QuestionKeys for mapping answers to profile fields.
+        // This also ensures that if new questions were added since the user last fetched the form,
+        // we can handle them gracefully by treating missing answers as empty.
+        var allActiveQuestions = await _onboardingRepo.GetAllActiveQuestionsAsync()
+                                 ?? new List<OnboardingQuestion>();
 
-        // 2. Persist answers: Save raw answers to DB
-        var answerEntities = request.Answers.Select(a => new OnboardingAnswer
+        if (!allActiveQuestions.Any())
         {
-            UserId = userId,
-            QuestionId = a.QuestionId,
-            AnswerText = a.AnswerText,
-            AnsweredAt = DateTime.UtcNow
-        }).ToList();
+            throw new AppException(ErrorCodes.INTERNAL_ERROR, "No active onboarding questions found in the system.", 500);
+        }
+
+        // 2. Create a user answers map for quick lookup
+        var userAnswersMap = request.Answers
+            .Where(a => a != null)
+            .ToDictionary(a => a.QuestionId, a => a.AnswerText ?? string.Empty);
+
+        // 3. Ensure unique index: create a row for each active question in the platform (even if optional and not answered by the user) 
+        var answerEntities = new List<OnboardingAnswer>();
+        foreach (var question in allActiveQuestions)
+        {
+            // If the user did not submit an answer for this question, we still want to create an entry to satisfy the unique index constraint.
+            var answerText = userAnswersMap.GetValueOrDefault(question.Id);
+
+            if (answerText == null)
+            {
+                // If the question is about skills, we set it to an empty JSON array; otherwise, an empty string.
+                answerText = (question.QuestionKey == "current_skills" || question.QuestionKey == "future_skills")
+                    ? "[]"
+                    : string.Empty;
+            }
+
+            answerEntities.Add(new OnboardingAnswer
+            {
+                UserId = userId,
+                QuestionId = question.Id,
+                AnswerText = answerText,
+                AnsweredAt = DateTime.UtcNow
+            });
+        }
+
+        // 4. Upsert answers into the database
         await _onboardingRepo.UpsertAnswersAsync(userId, answerEntities);
 
-        // 3. Map to Profile: Use the helper to map keys to values
-        var answerByKey = BuildAnswerByKeyMap(request.Answers, questionKeyMap);
+        // 5. Map answers to profile fields
+        var questionKeyMap = allActiveQuestions.ToDictionary(q => q.Id, q => q.QuestionKey);
+        var answerByKey = answerEntities.ToDictionary(a => questionKeyMap[a.QuestionId], a => a.AnswerText, StringComparer.OrdinalIgnoreCase);
+
         var profileData = new ProfileUpdateData
         {
             Age = answerByKey.GetValueOrDefault("Age"),
@@ -89,16 +119,21 @@ public class OnboardingService : IOnboardingService
             FutureSkillsJson = NormalizeJsonArray(answerByKey.GetValueOrDefault("future_skills"))
         };
 
-        // 4. Update Profile: This now correctly populates the user's data
+        // 6. Update user profile and onboarding status
         await _userService.UpdateProfileFromAnswersAsync(userId, profileData);
-
-        // 5. Finalize Onboarding Status
         await _userService.SetOnboardedAsync(userId);
 
+        // 7. Return response
         return new SubmitAnswersResponse
         {
             Success = true,
-            Message = "Onboarding completed successfully. You can now select a track manually or use the AI Recommender."
+            Message = "Onboarding completed successfully. Required skills and profile features updated.",
+            IsOnboarded = true,
+            Prediction = new PredictionData
+            {
+                PrimaryRole = new RoleData { Name = "Ready for Recommendation", Confidence = 0 },
+                TopRoles = new List<RoleData>()
+            }
         };
     }
 

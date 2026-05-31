@@ -100,7 +100,7 @@ builder.Services
         client.BaseAddress = new Uri(
             builder.Configuration["AIService:BaseUrl"]!);
 
-        client.Timeout = TimeSpan.FromSeconds(30);
+        client.Timeout = TimeSpan.FromSeconds(150);
     });
 
 //.AddHttpClient<IAIGatewayService, AIGatewayService>(client =>
