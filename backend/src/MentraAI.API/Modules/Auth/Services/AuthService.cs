@@ -1,4 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
@@ -35,7 +35,7 @@ public class AuthService : IAuthService
     }
 
     // Register
-    public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
+    public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
         var email = request.Email.Trim().ToLowerInvariant();
 
@@ -71,7 +71,7 @@ public class AuthService : IAuthService
         });
         await _db.SaveChangesAsync();
 
-        return _mapper.Map<RegisterResponse>(user);
+        return await BuildAuthResponseAsync(user);
     }
 
     // Login
@@ -86,6 +86,12 @@ public class AuthService : IAuthService
         if (!passwordValid)
             throw new AppException(ErrorCodes.INVALID_CREDENTIALS, "Invalid email or password.", 401);
 
+        return await BuildAuthResponseAsync(user);
+    }
+
+    // Build shared AuthResponse
+    private async Task<AuthResponse> BuildAuthResponseAsync(ApplicationUser user)
+    {
         var profile = await _db.UserProfiles
             .FirstOrDefaultAsync(p => p.UserId == user.Id);
 
@@ -95,12 +101,12 @@ public class AuthService : IAuthService
 
         var userSummary = _mapper.Map<UserSummary>(user);
         userSummary.IsOnboarded = profile?.IsOnboarded ?? false;
+
         return new AuthResponse
         {
             AccessToken = accessToken,
             RefreshToken = refreshToken,
             ExpiresIn = int.Parse(_config["Jwt:AccessTokenExpiryMinutes"]!) * 60,
-
             User = userSummary
         };
     }
