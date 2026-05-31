@@ -27,6 +27,4 @@ public static class OnboardingMappings
             DisplayOrder = question.DisplayOrder
         };
     }
-
-    // ❌ تم حذف دالة ToSubmitResponse و الـ Private Class لأننا لم نعد نرسل Prediction في الـ Onboarding.
 }
