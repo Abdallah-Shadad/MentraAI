@@ -69,27 +69,31 @@ public class AIGatewayService : IAIGatewayService
     }
 
     // =====================================================================
-    // GENERATE ROADMAP
+    // GENERATE ROADMAP — Mode 1
     // =====================================================================
     public async Task<RoadmapGenerationResult> GenerateRoadmapAsync(
         string userId,
         string careerTrackSlug,
         int weeklyHours,
-        string userBackground,
-        List<string> currentSkills,
+        string userBackground,      // kept in signature for backward compat; not sent to AI
+        List<string> currentSkills, // kept in signature for backward compat; not sent to AI
         CancellationToken ct = default)
     {
+        // Contract Mode 1: only user_id, career_track, weekly_hours, is_stage_progression
+        // The extra profile fields (user_background, current_skills) are NOT in the contract.
         var request = new RoadmapAIRequest
         {
-            UserId = userId,
-            CareerTrack = careerTrackSlug,
-            WeeklyHours = weeklyHours,
+            UserId             = userId,
+            CareerTrack        = careerTrackSlug,
+            WeeklyHours        = weeklyHours,
             IsStageProgression = false,
-            UserBackground = userBackground,
-            CurrentSkills = currentSkills
+            CurrentStage       = null,
+            Curriculum         = null,
+            CurrentStageIndex  = null,
+            LearnerProgress    = null
         };
 
-        var response = await _http.PostAsJsonAsync("/api/v1/roadmap", request, ct);
+        var response = await _http.PostAsJsonAsync("/api/v1/roadmap/", request, ct);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -113,20 +117,20 @@ public class AIGatewayService : IAIGatewayService
 
         RoadmapAIResponseValidator.Validate(aiResponse);
 
-        var data = aiResponse.Roadmap!.Data!;
+        var data   = aiResponse.Roadmap!.Data!;
         var stages = data.Curriculum!.Stages;
 
         return new RoadmapGenerationResult
         {
             RoadmapDataJson = rawJson,
             DifficultyLevel = data.DifficultyLevel,
-            TotalWeeks = data.TotalWeeks,
-            SkillGaps = data.SkillGaps,
-            Stages = stages.Select(s => new RoadmapStage
+            TotalWeeks      = data.TotalWeeks,
+            SkillGaps       = data.SkillGaps,
+            Stages          = stages.Select(s => new RoadmapStage
             {
-                AiStageId = s.Id,
-                Name = s.Name,
-                Topics = s.Topics,
+                AiStageId      = s.Id,
+                Name           = s.Name,
+                Topics         = s.Topics,
                 EstimatedWeeks = s.EstimatedWeeks
             }).ToList()
         };
@@ -140,40 +144,32 @@ public class AIGatewayService : IAIGatewayService
         string careerTrack,
         int weeklyHours,
         string aiStageId,
-        int stageIndex,
-        string roadmapDataJson,
+        string stageName,
+        List<string> topics,
+        List<string> learningObjectives,
+        int estimatedWeeks,
         CancellationToken ct = default)
     {
-        RoadmapData roadmapData;
-        try
-        {
-            using var doc = JsonDocument.Parse(roadmapDataJson);
-            var root = doc.RootElement;
-            var dataEl = root.TryGetProperty("roadmap", out var rm) &&
-                             rm.TryGetProperty("data", out var d) ? d : root;
-
-            roadmapData = JsonSerializer.Deserialize<RoadmapData>(dataEl.GetRawText())
-                ?? throw new AIValidationException("Stored roadmap data is invalid");
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogError(ex, "Failed to parse stored roadmap JSON");
-            throw new AIValidationException("Stored roadmap data is malformed");
-        }
-
         var request = new RoadmapAIRequest
         {
-            UserId = userId,
-            CareerTrack = careerTrack,
-            WeeklyHours = weeklyHours,
+            UserId             = userId,
+            CareerTrack        = careerTrack,
+            WeeklyHours        = weeklyHours,
             IsStageProgression = true,
-            CurrentStageIndex = stageIndex,
-            DifficultyLevel = roadmapData.DifficultyLevel,
-            SkillGaps = roadmapData.SkillGaps,
-            Curriculum = JsonSerializer.SerializeToElement(roadmapData.Curriculum)
+            CurrentStage = new CurrentStagePayload
+            {
+                Id                 = aiStageId,
+                Name               = stageName,
+                Topics             = topics,
+                LearningObjectives = learningObjectives,
+                EstimatedWeeks     = estimatedWeeks
+            },
+            Curriculum        = null,
+            CurrentStageIndex = null,
+            LearnerProgress   = null
         };
 
-        var response = await _http.PostAsJsonAsync("/api/v1/roadmap", request, ct);
+        var response = await _http.PostAsJsonAsync("/api/v1/roadmap/", request, ct);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -262,19 +258,71 @@ public class AIGatewayService : IAIGatewayService
     }
 
     // =====================================================================
-    // GET ADAPTED ROADMAP  —  Phase 6 stub
+    // GET ADAPTED ROADMAP (REMEDIATION) — Mode 3
     // =====================================================================
-    public Task<RoadmapGenerationResult> GetAdaptedRoadmapAsync(
+    public async Task<AdaptationResult> GetAdaptedRoadmapAsync(
         string userId,
         string careerTrack,
         string aiStageId,
         string stageName,
         string difficultyLevel,
-        string questionsDataJson,
-        string userAnswersDataJson,
+        List<string> learningObjectives,
+        List<FailedQuestion> failedQuestions,
         decimal score,
         CancellationToken ct = default)
-        => throw new NotImplementedException("GetAdaptedRoadmapAsync — implemented in Phase 6");
+    {
+        var request = new AdaptationAIRequest
+        {
+            UserId             = userId,
+            CareerTrack        = careerTrack,
+            StageId            = aiStageId,
+            StageName          = stageName,
+            Score              = score,
+            DifficultyLevel    = difficultyLevel,
+            LearningObjectives = learningObjectives,
+            FailedQuestions    = failedQuestions
+        };
+
+        var response = await _http.PostAsJsonAsync("/api/v1/quiz/adaptation_stage", request, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogError("AI adaptation error {Status}: {Body}", response.StatusCode, body);
+            throw new AIServiceException($"Adaptation AI returned {(int)response.StatusCode}");
+        }
+
+        var rawBody = await response.Content.ReadAsStringAsync(ct);
+
+        AdaptationAIResponse? aiResponse;
+        try
+        {
+            aiResponse = JsonSerializer.Deserialize<AdaptationAIResponse>(rawBody);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning("Adaptation AI returned invalid JSON. Body: {Body}", rawBody);
+            throw new AIValidationException($"Adaptation AI returned invalid JSON: {ex.Message}");
+        }
+
+        AdaptationAIResponseValidator.Validate(aiResponse!);
+
+        var data         = aiResponse!.AdditionalResource!.Data!;
+        var adaptedStage = data.Curriculum!.Stages.First(s => s.Adapted);
+
+        return new AdaptationResult
+        {
+            // Store the entire raw response JSON as ResourcesDataJson.
+            // StageProgressService.BuildResourcesResponse already handles the normal
+            // stage_resources path. For adaptation we store the whole response so the
+            // frontend endpoint GET /stages/{id}/resources still works — it will need
+            // to also handle the adaptation response shape.
+            // See Note in section B about dual-format ResourcesDataJson.
+            RemediationResourcesJson = rawBody,
+            Summary                  = data.Summary,
+            StrugglingTopics         = data.StrugglingTopics
+        };
+    }
 
     // =====================================================================
     // STREAM CHAT  
