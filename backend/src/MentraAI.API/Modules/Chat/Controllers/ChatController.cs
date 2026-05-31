@@ -1,0 +1,191 @@
+using System.Security.Claims;
+using FluentValidation;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using MentraAI.API.Common.Errors;
+using MentraAI.API.Common.Exceptions;
+using MentraAI.API.Common.Models;
+using MentraAI.API.Modules.AIGateway.Services;
+using MentraAI.API.Modules.Chat.DTOs.Requests;
+using MentraAI.API.Modules.Chat.DTOs.Responses;
+using MentraAI.API.Modules.Chat.Services;
+
+namespace MentraAI.API.Modules.Chat.Controllers;
+
+[ApiController]
+[Route("api/v1/chat")]
+[Authorize]
+public class ChatController : ControllerBase
+{
+    private readonly IChatService _chatService;
+    private readonly IAIGatewayService _aiGateway;
+    private readonly IValidator<ChatRequest> _chatValidator;
+    private readonly ILogger<ChatController> _logger;
+
+    public ChatController(
+        IChatService chatService,
+        IAIGatewayService aiGateway,
+        IValidator<ChatRequest> chatValidator,
+        ILogger<ChatController> logger)
+    {
+        _chatService = chatService;
+        _aiGateway = aiGateway;
+        _chatValidator = chatValidator;
+        _logger = logger;
+    }
+
+    private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+    // =====================================================================
+    // POST /api/v1/chat/conversations
+    // Create a conversation — returns conversationId for subsequent messages.
+    // =====================================================================
+    [HttpPost("conversations")]
+    [ProducesResponseType(typeof(ApiResponse<ConversationResponse>), 201)]
+    [ProducesResponseType(typeof(object), 401)]
+    public async Task<IActionResult> CreateConversation(
+        [FromBody] CreateConversationRequest request)
+    {
+        var result = await _chatService.CreateConversationAsync(GetUserId(), request.Title);
+        return StatusCode(201, ApiResponse<ConversationResponse>.Ok(result));
+    }
+
+    // =====================================================================
+    // GET /api/v1/chat/conversations
+    // List all conversations for the authenticated user.
+    // =====================================================================
+    [HttpGet("conversations")]
+    [ProducesResponseType(typeof(ApiResponse<ConversationListResponse>), 200)]
+    [ProducesResponseType(typeof(object), 401)]
+    public async Task<IActionResult> GetConversations()
+    {
+        var result = await _chatService.GetConversationsAsync(GetUserId());
+        return Ok(ApiResponse<ConversationListResponse>.Ok(result));
+    }
+
+    // =====================================================================
+    // DELETE /api/v1/chat/conversations/{conversationId}
+    // Delete our DB row + clear AI Redis memory (best-effort).
+    // =====================================================================
+    [HttpDelete("conversations/{conversationId:guid}")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(typeof(object), 401)]
+    [ProducesResponseType(typeof(object), 404)]
+    public async Task<IActionResult> DeleteConversation(Guid conversationId)
+    {
+        var userId = GetUserId();
+
+        var conversation = await _chatService.GetConversationAsync(conversationId, userId);
+        if (conversation is null)
+            throw new AppException(ErrorCodes.NOT_FOUND, "Conversation not found.", 404);
+
+        await _chatService.DeleteConversationAsync(conversationId, userId);
+
+        try
+        {
+            await _aiGateway.DeleteChatMemoryAsync(userId, conversationId.ToString());
+        }
+        catch (Exception ex)
+        {
+            // Non-fatal — DB row deleted, memory cleanup is best-effort
+            _logger.LogWarning(ex,
+                "Failed to clear AI memory for conversation {ConversationId}", conversationId);
+        }
+
+        return NoContent();
+    }
+
+    // =====================================================================
+    // POST /api/v1/chat/conversations/{conversationId}/messages
+    // Streams the AI SSE response directly to the frontend.
+    // CRITICAL: ALL validation and DB checks happen BEFORE StreamChatAsync.
+    // Once streaming starts the response is committed — no JSON errors possible.
+    // =====================================================================
+    [HttpPost("conversations/{conversationId:guid}/messages")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(typeof(object), 400)]
+    [ProducesResponseType(typeof(object), 401)]
+    [ProducesResponseType(typeof(object), 404)]
+    public async Task<IActionResult> SendMessage(
+        Guid conversationId,
+        [FromBody] ChatRequest request,
+        CancellationToken ct)
+    {
+        // 1. Validate body
+        var validation = await _chatValidator.ValidateAsync(request, ct);
+        if (!validation.IsValid)
+        {
+            var errors = validation.Errors
+                .GroupBy(e => e.PropertyName)
+                .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
+
+            return BadRequest(new
+            {
+                success = false,
+                error = new
+                {
+                    code = ErrorCodes.VALIDATION_ERROR,
+                    message = "Validation failed.",
+                    statusCode = 400,
+                    errors
+                }
+            });
+        }
+
+        var userId = GetUserId();
+
+        // 2. Verify ownership — MUST be before streaming starts
+        var conversation = await _chatService.GetConversationAsync(conversationId, userId);
+        if (conversation is null)
+            throw new AppException(ErrorCodes.NOT_FOUND, "Conversation not found.", 404);
+
+        // 3. Build AI request — inject userId from JWT, never from client
+        var aiRequest = new ChatAIRequest
+        {
+            UserId = userId,
+            ConversationId = conversationId.ToString(),
+            Query = request.Query,
+            CareerTrack = request.CareerTrack,
+            Stage = request.Stage,
+            LessonId = request.LessonId,
+            QuizDetails = request.QuizDetails,
+            QuizScore = request.QuizScore
+        };
+
+        // 4. Update timestamp before streaming
+        await _chatService.UpdateLastMessageAsync(conversationId);
+
+        // 5. Stream directly — no buffering
+        // EmptyResult() after streaming is intentional and harmless.
+        await _aiGateway.StreamChatAsync(aiRequest, Response, ct);
+
+        return new EmptyResult();
+    }
+
+    // =====================================================================
+    // GET /api/v1/chat/health
+    // Acts as a proxy to check if the external AI chat server is currently online.
+    // The frontend should call this to enable/disable the chat UI dynamically.
+    // =====================================================================
+    [HttpGet("health")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
+    [ProducesResponseType(typeof(object), 503)]
+    public async Task<IActionResult> CheckHealth([FromServices] IAIGatewayService aiGatewayService)
+    {
+        var isHealthy = await aiGatewayService.CheckChatHealthAsync();
+
+        if (isHealthy)
+        {
+            // AI is up
+            return Ok(ApiResponse<object>.Ok(new { status = "ok", message = "Chat AI is up and running." }));
+        }
+
+        // AI is down - Return 503 Service Unavailable
+        return StatusCode(503, ApiResponse<object>.Fail(
+            ErrorCodes.AI_INTERNAL_ERROR,
+            "Chat service is temporarily unavailable.",
+            503));
+    }
+}

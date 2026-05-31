@@ -28,14 +28,24 @@ public class GlobalExceptionMiddleware
 
     private async Task HandleAsync(HttpContext ctx, Exception ex)
     {
-        var (status, code, message) = ex switch
+        // If SSE streaming has already started, we cannot write a JSON error —
+        // the response is committed. Log and bail; the client sees the stream end abruptly.
+        if (ctx.Response.HasStarted)
         {
-            AppException a => (a.StatusCode, a.ErrorCode, a.Message),
-            AIServiceException => (502, ErrorCodes.AI_INTERNAL_ERROR, "AI service error."),
-            AIValidationException => (502, ErrorCodes.AI_RESPONSE_INVALID, "AI returned unexpected response."),
-            TaskCanceledException => (504, ErrorCodes.AI_TIMEOUT, "AI service timed out."),
-            UnauthorizedAccessException => (401, ErrorCodes.UNAUTHORIZED, "Authentication required."),
-            _ => (500, ErrorCodes.INTERNAL_ERROR, "An unexpected error occurred.")
+            _logger.LogError(ex,
+                "Exception after response started — {Method} {Path}",
+                ctx.Request.Method, ctx.Request.Path);
+            return;
+        }
+
+        var (status, code, message, errors) = ex switch
+        {
+            AppException a => (a.StatusCode, a.ErrorCode, a.Message, a.Errors),
+            AIServiceException => (502, ErrorCodes.AI_INTERNAL_ERROR, "AI service error.", null),
+            AIValidationException => (502, ErrorCodes.AI_RESPONSE_INVALID, "AI returned unexpected response.", null),
+            TaskCanceledException => (504, ErrorCodes.AI_TIMEOUT, "AI service timed out.", null),
+            UnauthorizedAccessException => (401, ErrorCodes.UNAUTHORIZED, "Authentication required.", null),
+            _ => (500, ErrorCodes.INTERNAL_ERROR, "An unexpected error occurred.", null)
         };
 
         _logger.LogError(ex, "Request {Method} {Path} → {Code}",
@@ -47,7 +57,7 @@ public class GlobalExceptionMiddleware
         await ctx.Response.WriteAsJsonAsync(new
         {
             success = false,
-            error = new { code, message, statusCode = status }
+            error = new { code, message, statusCode = status, errors }
         });
     }
 }
