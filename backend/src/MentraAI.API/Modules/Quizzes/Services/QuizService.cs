@@ -1,6 +1,7 @@
 using AutoMapper;
 using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
+using MentraAI.API.Modules.AIGateway.DTOs.Requests;
 using MentraAI.API.Modules.AIGateway.DTOs.Responses;
 using MentraAI.API.Modules.AIGateway.InternalModels;
 using MentraAI.API.Modules.AIGateway.Services;
@@ -193,14 +194,95 @@ public class QuizService : IQuizService
         {
             try
             {
-                await _roadmapService.AdaptRoadmapAsync(
-                    stageProgressId: quiz.StageProgressId,
-                    questionsDataJson: quiz.QuestionsDataJson,
-                    userAnswersDataJson: userAnswersDataJson,
-                    score: scoreResult.Score,
-                    userId: userId);
+                var stage = await _stageRepo.GetByIdAsync(quiz.StageProgressId);
+                var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId);
+                
+                if (stage != null && userTrack != null)
+                {
+                    var difficultyLevel = ExtractDifficultyLevel(stage.Roadmap.RoadmapDataJson);
 
-                response.RoadmapAdapted = true;
+                    // 1. Derive failed questions
+                    List<StoredQuestion> storedQuestions;
+                    try
+                    {
+                        storedQuestions = JsonSerializer.Deserialize<List<StoredQuestion>>(quiz.QuestionsDataJson, _json)
+                                          ?? new List<StoredQuestion>();
+                    }
+                    catch
+                    {
+                        storedQuestions = new List<StoredQuestion>();
+                    }
+
+                    var userAnswerMap = request.Answers.ToDictionary(
+                        a => a.QuestionId,
+                        a => a.Answer,
+                        StringComparer.OrdinalIgnoreCase);
+
+                    var failedQuestions = new List<FailedQuestion>();
+
+                    foreach (var sq in storedQuestions)
+                    {
+                        userAnswerMap.TryGetValue(sq.QuestionId, out var userAnswer);
+                        userAnswer ??= string.Empty;
+
+                        if (!string.Equals(userAnswer, sq.CorrectAnswer, StringComparison.OrdinalIgnoreCase))
+                        {
+                            failedQuestions.Add(new FailedQuestion
+                            {
+                                Question = sq.QuestionText,
+                                UserAnswer = userAnswer,
+                                CorrectAnswer = sq.CorrectAnswer
+                            });
+                        }
+                    }
+
+                    // 2. Extract learning objectives
+                    List<string> learningObjectives = new();
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(stage.Roadmap.RoadmapDataJson);
+                        var root = doc.RootElement;
+                        var dataEl = root.TryGetProperty("roadmap", out var rm) &&
+                                     rm.TryGetProperty("data", out var d) ? d : root;
+
+                        if (dataEl.TryGetProperty("curriculum", out var curr) &&
+                            curr.TryGetProperty("stages", out var stagesEl) &&
+                            stagesEl.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var stageEl in stagesEl.EnumerateArray())
+                            {
+                                if (stageEl.TryGetProperty("id", out var idEl) && idEl.GetString() == stage.AiStageId)
+                                {
+                                    if (stageEl.TryGetProperty("learning_objectives", out var objectivesEl) && objectivesEl.ValueKind == JsonValueKind.Array)
+                                    {
+                                        learningObjectives = objectivesEl.EnumerateArray().Select(o => o.GetString() ?? "").ToList();
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to parse learning objectives for stage adaptation.");
+                    }
+
+                    // 3. Call AI adaptation
+                    var adaptResult = await _aiGateway.GetAdaptedRoadmapAsync(
+                        userId: userId,
+                        careerTrack: userTrack.CareerTrack.Slug,
+                        aiStageId: stage.AiStageId,
+                        stageName: stage.StageName,
+                        difficultyLevel: difficultyLevel,
+                        learningObjectives: learningObjectives,
+                        failedQuestions: failedQuestions,
+                        score: scoreResult.Score);
+
+                    // 4. Patch stage resources with adaptation result
+                    await _stageRepo.PatchResourcesAsync(quiz.StageProgressId, adaptResult.RemediationResourcesJson);
+                    
+                    response.RoadmapAdapted = true;
+                }
             }
             catch (Exception ex)
             {
@@ -321,6 +403,13 @@ public class QuizService : IQuizService
     //    [JsonPropertyName("questions")]
     //    public List<RawAIQuestion> Questions { get; set; } = new();
     //}
+
+    private class StoredQuestion
+    {
+        [JsonPropertyName("question_id")] public string QuestionId { get; set; } = string.Empty;
+        [JsonPropertyName("question_text")] public string QuestionText { get; set; } = string.Empty;
+        [JsonPropertyName("correct_answer")] public string CorrectAnswer { get; set; } = string.Empty;
+    }
 
     private class RawAIQuestion
     {

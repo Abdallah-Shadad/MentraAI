@@ -1,4 +1,5 @@
 using MentraAI.API.Common.Exceptions;
+using MentraAI.API.Modules.AIGateway.DTOs.Requests;
 using MentraAI.API.Modules.AIGateway.InternalModels;
 using MentraAI.API.Modules.AIGateway.Services;
 using MentraAI.API.Modules.CareerTracks.Models;
@@ -163,7 +164,7 @@ public class QuizServiceTests
         _quizRepoMock.Setup(r => r.GetNextAttemptNumberAsync(stageId))
             .ReturnsAsync(1);
 
-        // topics param must be present — topics ["HTML","CSS"] extracted from JSON
+        // topics param must be present â€” topics ["HTML","CSS"] extracted from JSON
         _aiGatewayMock.Setup(ai => ai.GenerateQuizAsync(
                 _testUserId, careerTrackSlug, "stage_0", "Intro",
                 It.IsAny<string>(),
@@ -266,10 +267,12 @@ public class QuizServiceTests
         Assert.NotNull(result.NextStage);
         _stageRepoMock.Verify(r => r.CompleteStageAsync(stageId), Times.Once);
         _stageRepoMock.Verify(r => r.UnlockNextStageAsync(1, 0), Times.Once);
-        _roadmapServiceMock.Verify(
-            r => r.AdaptRoadmapAsync(It.IsAny<Guid>(), It.IsAny<string>(),
-                                     It.IsAny<string>(), It.IsAny<decimal>(),
-                                     It.IsAny<string>()), Times.Never);
+        
+        _aiGatewayMock.Verify(
+            ai => ai.GetAdaptedRoadmapAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<List<FailedQuestion>>(), It.IsAny<decimal>(),
+                It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -285,7 +288,8 @@ public class QuizServiceTests
                 Id = quizId,
                 UserId = _testUserId,
                 IsSubmitted = false,
-                StageProgressId = stageId
+                StageProgressId = stageId,
+                QuestionsDataJson = "[]"
             });
 
         _scoringMock.Setup(s => s.Score(It.IsAny<string>(), request.Answers, It.IsAny<decimal>()))
@@ -294,17 +298,36 @@ public class QuizServiceTests
         _quizRepoMock.Setup(r => r.SubmitAsync(quizId, It.IsAny<string>(), 0, 0, false))
             .ReturnsAsync(new QuizAttempt { SubmittedAt = DateTime.UtcNow });
 
-        _roadmapServiceMock.Setup(r => r.AdaptRoadmapAsync(
-                stageId, It.IsAny<string>(), It.IsAny<string>(), 0, _testUserId))
-            .ReturnsAsync(new Roadmap());
+        _stageRepoMock.Setup(r => r.GetByIdAsync(stageId))
+            .ReturnsAsync(new UserStageProgress
+            {
+                Id = stageId,
+                StageName = "Intro",
+                AiStageId = "stage_0",
+                Roadmap = new Roadmap
+                {
+                    RoadmapDataJson = ValidRoadmapJson
+                }
+            });
+
+        _trackRepoMock.Setup(r => r.GetActiveTrackByUserIdAsync(_testUserId))
+            .ReturnsAsync(new UserTrack
+            {
+                CareerTrack = new CareerTrack { Slug = "frontend" }
+            });
+
+        _aiGatewayMock.Setup(ai => ai.GetAdaptedRoadmapAsync(
+                _testUserId, "frontend", "stage_0", "Intro",
+                It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<List<FailedQuestion>>(), 0,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AdaptationResult { RemediationResourcesJson = "{}" });
 
         var result = await _sut.SubmitQuizAsync(quizId, _testUserId, request);
 
         Assert.False(result.IsPassed);
         Assert.True(result.RoadmapAdapted);
         _stageRepoMock.Verify(r => r.CompleteStageAsync(It.IsAny<Guid>()), Times.Never);
-        _roadmapServiceMock.Verify(
-            r => r.AdaptRoadmapAsync(stageId, It.IsAny<string>(),
-                                     It.IsAny<string>(), 0, _testUserId), Times.Once);
+        _stageRepoMock.Verify(r => r.PatchResourcesAsync(stageId, It.IsAny<string>()), Times.Once);
     }
 }
+

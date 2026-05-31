@@ -7,13 +7,19 @@ namespace MentraAI.API.Modules.AIGateway.Services;
 
 public interface IAIGatewayService
 {
-    // Phase 3 — Onboarding
+    // Onboarding — career prediction
     Task<PredictionResult> PredictCareerAsync(
         string userId,
         UserProfile profile,
         CancellationToken ct = default);
 
-    // Roadmaps
+    // Track Recommender (Phase 6)
+    Task<TrackRecommendationResult> GetTrackRecommendationsAsync(
+        string userId,
+        TrackRecommendProfile profile,
+        CancellationToken ct = default);
+
+    // Roadmaps — Mode 1
     Task<RoadmapGenerationResult> GenerateRoadmapAsync(
         string userId,
         string careerTrackSlug,
@@ -22,17 +28,19 @@ public interface IAIGatewayService
         List<string> currentSkills,
         CancellationToken ct = default);
 
-    // StageProgress
+    // Stage Resources — Mode 2 (updated signature)
     Task<StageResourcesResult> GetStageResourcesAsync(
         string userId,
         string careerTrack,
         int weeklyHours,
         string aiStageId,
-        int stageIndex,
-        string roadmapDataJson,
+        string stageName,
+        List<string> topics,
+        List<string> learningObjectives,
+        int estimatedWeeks,
         CancellationToken ct = default);
 
-    // Quizzes — includes topics parameter added in Phase 5
+    // Quizzes
     Task<QuizGenerationResult> GenerateQuizAsync(
         string userId,
         string careerTrack,
@@ -42,15 +50,15 @@ public interface IAIGatewayService
         List<string> topics,
         CancellationToken ct = default);
 
-    // Adaptation — Phase 6 stub
-    Task<RoadmapGenerationResult> GetAdaptedRoadmapAsync(
+    // Adaptation — Mode 3 (updated signature — replaces old GetAdaptedRoadmapAsync)
+    Task<AdaptationResult> GetAdaptedRoadmapAsync(
         string userId,
         string careerTrack,
         string aiStageId,
         string stageName,
         string difficultyLevel,
-        string questionsDataJson,
-        string userAnswersDataJson,
+        List<string> learningObjectives,
+        List<FailedQuestion> failedQuestions,
         decimal score,
         CancellationToken ct = default);
 
@@ -68,10 +76,4 @@ public interface IAIGatewayService
 
     // Chat health check
     Task<bool> CheckChatHealthAsync();
-
-    // Phase 6 — Track Recommender (NEW)
-    Task<TrackRecommendationResult> GetTrackRecommendationsAsync(
-        string userId,
-        TrackRecommendProfile profile,
-        CancellationToken ct = default);
 }

@@ -1,5 +1,6 @@
-﻿using MentraAI.API.Common.Errors;
+using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
+using MentraAI.API.Modules.AIGateway.DTOs.Responses;
 using MentraAI.API.Modules.AIGateway.Services;
 using MentraAI.API.Modules.CareerTracks.Models;
 using MentraAI.API.Modules.CareerTracks.Repositories;
@@ -96,14 +97,58 @@ public class StageProgressService : IStageProgressService
         // otherwise assume 15. Adjust this business logic as needed.
         int weeklyHours = (profileResponse.YearsCode ?? 0) < 1 ? 10 : 15;
 
+        // Parse curriculum details for current stage from RoadmapDataJson
+        List<string> topics = new();
+        List<string> learningObjectives = new();
+        int estimatedWeeks = 2;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(roadmap.RoadmapDataJson);
+            var root = doc.RootElement;
+            var dataEl = root.TryGetProperty("roadmap", out var rm) &&
+                         rm.TryGetProperty("data", out var d) ? d : root;
+
+            if (dataEl.TryGetProperty("curriculum", out var curr) &&
+                curr.TryGetProperty("stages", out var stagesEl) &&
+                stagesEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var stageEl in stagesEl.EnumerateArray())
+                {
+                    if (stageEl.TryGetProperty("id", out var idEl) && idEl.GetString() == stage.AiStageId)
+                    {
+                        if (stageEl.TryGetProperty("topics", out var topicsEl) && topicsEl.ValueKind == JsonValueKind.Array)
+                        {
+                            topics = topicsEl.EnumerateArray().Select(t => t.GetString() ?? "").ToList();
+                        }
+                        if (stageEl.TryGetProperty("learning_objectives", out var objectivesEl) && objectivesEl.ValueKind == JsonValueKind.Array)
+                        {
+                            learningObjectives = objectivesEl.EnumerateArray().Select(o => o.GetString() ?? "").ToList();
+                        }
+                        if (stageEl.TryGetProperty("estimated_weeks", out var weeksEl))
+                        {
+                            estimatedWeeks = weeksEl.GetInt32();
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Silently fall back to defaults
+        }
+
         // Cache miss — call AI for resources
         var result = await _aiGateway.GetStageResourcesAsync(
             userId: userId,
             careerTrack: userTrack.CareerTrack.Name,
             weeklyHours: weeklyHours,
             aiStageId: stage.AiStageId,
-            stageIndex: stage.StageIndex,
-            roadmapDataJson: roadmap.RoadmapDataJson);
+            stageName: stage.StageName,
+            topics: topics,
+            learningObjectives: learningObjectives,
+            estimatedWeeks: estimatedWeeks);
 
         // Cache the result
         stage.ResourcesDataJson = result.ResourcesDataJson;
@@ -176,20 +221,69 @@ public class StageProgressService : IStageProgressService
                 using var doc = JsonDocument.Parse(stage.ResourcesDataJson);
                 var root = doc.RootElement;
 
-                // Navigate to the actual data object where resources should live
-                // Based on AI API docs, we look inside roadmap -> data.
-                if (root.TryGetProperty("roadmap", out var roadmap) &&
-                    roadmap.TryGetProperty("data", out var data))
+                // 1. Check if it's an Adaptation Response (contains Additional_Resource)
+                if (root.TryGetProperty("Additional_Resource", out var addRes) &&
+                    addRes.TryGetProperty("data", out var addData) &&
+                    addData.TryGetProperty("curriculum", out var addCurr) &&
+                    addCurr.TryGetProperty("stages", out var addStages) &&
+                    addStages.ValueKind == JsonValueKind.Array)
                 {
-                    // If the AI team adds 'videos/articles' inside 'data' later, 
-                    // this deserialization will now work correctly.
-                    resources = JsonSerializer.Deserialize<StageResources>(data.GetRawText())
-                                ?? new StageResources();
+                    var targetStageEl = addStages.EnumerateArray()
+                        .FirstOrDefault(s => (s.TryGetProperty("id", out var idEl) && idEl.GetString() == stage.AiStageId) 
+                                             || (s.TryGetProperty("adapted", out var adaptEl) && adaptEl.GetBoolean()));
+                    
+                    if (targetStageEl.ValueKind == JsonValueKind.Object &&
+                        targetStageEl.TryGetProperty("resources", out var resourcesEl) &&
+                        resourcesEl.ValueKind == JsonValueKind.Array)
+                    {
+                        var remResources = JsonSerializer.Deserialize<List<RemediationResource>>(resourcesEl.GetRawText())
+                                           ?? new List<RemediationResource>();
+                        
+                        foreach (var res in remResources)
+                        {
+                            var type = res.ResourceType.ToLowerInvariant();
+                            if (type.Contains("video"))
+                            {
+                                resources.Videos.Add(new VideoResource
+                                {
+                                    Title = res.Title,
+                                    Url = res.Url,
+                                    DurationMinutes = res.DurationMin
+                                });
+                            }
+                            else if (type.Contains("article") || type.Contains("blog") || type.Contains("read"))
+                            {
+                                resources.Articles.Add(new ArticleResource
+                                {
+                                    Title = res.Title,
+                                    Url = res.Url,
+                                    EstimatedMinutes = res.DurationMin
+                                });
+                            }
+                            else
+                            {
+                                resources.Documentation.Add(new DocumentationResource
+                                {
+                                    Title = res.Title,
+                                    Url = res.Url
+                                });
+                            }
+                        }
+                    }
+                }
+                // 2. Check if it's a Standard Response (contains roadmap -> data)
+                else if (root.TryGetProperty("roadmap", out var roadmap) &&
+                         roadmap.TryGetProperty("data", out var data))
+                {
+                    resources = JsonSerializer.Deserialize<StageResources>(data.GetRawText(), new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    }) ?? new StageResources();
                 }
             }
             catch (Exception)
             {
-                // Silently return empty resources instead of crashing[cite: 1].
+                // Silently return empty resources instead of crashing.
                 resources = new StageResources();
             }
         }
