@@ -12,10 +12,17 @@
 *.userosscache
 *.sln.docstates
 
-# Ignore environment-specific appsettings, but KEEP the main and Dev ones
-appsettings.*.json
-!appsettings.json
+# Ignore environment-specific appsettings in ALL folders, but KEEP the main one
+**/appsettings.Development.json
+**/appsettings.*.json
+!**/appsettings.json
+
 **/Properties/launchSettings.json
+
+# Build outputs
+**/bin/
+**/obj/
+out/
 
 # ------------------------------------------
 # 2. Next.js / Node (Frontend)
