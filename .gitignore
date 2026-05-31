@@ -15,7 +15,7 @@
 # Ignore environment-specific appsettings, but KEEP the main and Dev ones
 appsettings.*.json
 !appsettings.json
-!appsettings.Development.json
+**/Properties/launchSettings.json
 
 # ------------------------------------------
 # 2. Next.js / Node (Frontend)

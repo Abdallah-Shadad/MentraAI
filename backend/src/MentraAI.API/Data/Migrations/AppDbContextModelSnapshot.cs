@@ -292,6 +292,38 @@ namespace MentraAI.API.Data.Migrations
                     b.ToTable("UserTracks");
                 });
 
+            modelBuilder.Entity("MentraAI.API.Modules.Chat.Models.Conversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ConversationTitle")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastMessageAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.ToTable("Conversations");
+                });
+
             modelBuilder.Entity("MentraAI.API.Modules.Onboarding.Models.OnboardingAnswer", b =>
                 {
                     b.Property<int>("Id")
@@ -441,6 +473,9 @@ namespace MentraAI.API.Data.Migrations
                     b.Property<bool>("IsSubmitted")
                         .HasColumnType("bit");
 
+                    b.Property<decimal?>("PassingScore")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("QuestionsDataJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -453,6 +488,9 @@ namespace MentraAI.API.Data.Migrations
 
                     b.Property<DateTime?>("SubmittedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("TimeLimitMinutes")
+                        .HasColumnType("int");
 
                     b.Property<int>("TotalQuestions")
                         .HasColumnType("int");
@@ -563,23 +601,40 @@ namespace MentraAI.API.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Background")
+                    b.Property<string>("AISelect")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("CareerGoals")
+                    b.Property<string>("Age")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CurrentSkillsJson")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("CurrentSkillsJson");
+
+                    b.Property<string>("EdLevel")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("InterestsJson")
+                    b.Property<string>("Employment")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FutureSkillsJson")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("FutureSkillsJson");
+
+                    b.Property<string>("Industry")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsOnboarded")
                         .HasColumnType("bit");
+
+                    b.Property<string>("OrgSize")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RemoteWork")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -588,8 +643,11 @@ namespace MentraAI.API.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int?>("WeeklyHours")
-                        .HasColumnType("int");
+                    b.Property<double?>("WorkExp")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("YearsCode")
+                        .HasColumnType("float");
 
                     b.HasKey("Id");
 
@@ -769,6 +827,17 @@ namespace MentraAI.API.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("CareerTrack");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MentraAI.API.Modules.Chat.Models.Conversation", b =>
+                {
+                    b.HasOne("MentraAI.API.Modules.Auth.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });

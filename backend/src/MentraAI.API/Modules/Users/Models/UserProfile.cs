@@ -6,11 +6,21 @@ namespace MentraAI.API.Modules.Users.Models
     public class UserProfile
     {
         public Guid Id { get; set; } = Guid.NewGuid();
-        public string? Background { get; set; }
+
+        // --- new questions based on ai contract ---
+        public string? Age { get; set; }
+        public string? EdLevel { get; set; }
+        public double? YearsCode { get; set; }
+        public double? WorkExp { get; set; }
+        public string? Employment { get; set; }
+        public string? RemoteWork { get; set; }
+        public string? Industry { get; set; }
+        public string? OrgSize { get; set; }
+        public string? AISelect { get; set; }
         public string? CurrentSkillsJson { get; set; }
-        public string? InterestsJson { get; set; }
-        public int? WeeklyHours { get; set; }
-        public string? CareerGoals { get; set; }
+        public string? FutureSkillsJson { get; set; }
+        // ------------------------------------
+
         public bool IsOnboarded { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }

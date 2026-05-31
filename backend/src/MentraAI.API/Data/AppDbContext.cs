@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using MentraAI.API.Modules.Auth.Models;
+using MentraAI.API.Modules.Chat.Models;
 using MentraAI.API.Modules.CareerTracks.Models;
 using MentraAI.API.Modules.Onboarding.Models;
 using MentraAI.API.Modules.Quizzes.Models;
@@ -38,6 +39,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     // == Quizzes ============
     public DbSet<QuizAttempt> QuizAttempts { get; set; }
 
+    // == Chat ===============
+    public DbSet<Conversation> Conversations { get; set; }
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         base.OnModelCreating(b);
@@ -47,10 +51,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.UserId).IsUnique();
-            e.Property(x => x.CurrentSkillsJson)
-                .HasColumnType("nvarchar(max)");
-            e.Property(x => x.InterestsJson)
-                .HasColumnType("nvarchar(max)");
+
+            // Update to match new properties
+            e.Property(x => x.CurrentSkillsJson).HasColumnName("CurrentSkillsJson");
+            e.Property(x => x.FutureSkillsJson).HasColumnName("FutureSkillsJson");
         });
 
         // == RefreshToken ===
@@ -171,6 +175,19 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // == Conversation ===
+        b.Entity<Conversation>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => new { x.UserId, x.CreatedAt });
+            e.Property(x => x.ConversationTitle).HasMaxLength(500);
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // == Seed: CareerTracks ===============
