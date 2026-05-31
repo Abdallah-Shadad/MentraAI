@@ -43,7 +43,6 @@ builder.Services.AddSwaggerGen(c =>
         Title = "MentraAI API",
         Version = "v1"
     });
-
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Description = "Enter: Bearer {your token}",
@@ -52,7 +51,6 @@ builder.Services.AddSwaggerGen(c =>
         Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
-
     c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
         {
@@ -68,6 +66,7 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+
 // === Database ===
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(
@@ -112,6 +111,14 @@ builder.Services
 //);
 
 // === JWT ====
+builder.Services
+    .AddHttpClient<IAIGatewayService, AIGatewayService>(client =>
+    {
+        client.BaseAddress = new Uri(builder.Configuration["AIService:BaseUrl"]!);
+        client.Timeout = TimeSpan.FromSeconds(130);
+    });
+
+// === JWT ===
 builder.Services
     .AddAuthentication(options =>
     {
@@ -173,10 +180,10 @@ builder.Services.AddCors(options =>
 //  AutoMapper
 builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
-//  FluentValidation 
+// === FluentValidation ===
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
-//  Module Services 
+// === Module Services ===
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -206,8 +213,15 @@ builder.Services.AddScoped<IChatService, ChatService>();
 //  Build App 
 var app = builder.Build();
 
-//  Middleware pipeline (ORDER IS CRITICAL) 
-app.UseMiddleware<GlobalExceptionMiddleware>();   // MUST be first
+// === Middleware pipeline ===
+app.UseMiddleware<GlobalExceptionMiddleware>();
+
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "MentraAI API v1");
+    c.RoutePrefix = "swagger";
+});
 
 // NEW — Swagger in all environments
 app.UseSwagger();
