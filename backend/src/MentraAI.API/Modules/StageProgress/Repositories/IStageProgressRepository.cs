@@ -1,4 +1,4 @@
-﻿// Modules/StageProgress/Repositories/IStageProgressRepository.cs
+// Modules/StageProgress/Repositories/IStageProgressRepository.cs
 using MentraAI.API.Modules.StageProgress.Models;
 
 namespace MentraAI.API.Modules.StageProgress.Repositories;
@@ -31,4 +31,8 @@ public interface IStageProgressRepository
 
     // Temporary stub until Quizzes module is built — always returns false for now
     Task<bool> HasPendingQuizAsync(Guid stageProgressId);
+
+    // Called by QuizService after successful adaptation — replaces stored resources with
+    // AI remedial content. Does not change status — stage stays ACTIVE for retry.
+    Task PatchResourcesAsync(Guid stageProgressId, string remediationResourcesJson);
 }

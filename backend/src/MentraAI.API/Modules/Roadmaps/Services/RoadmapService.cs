@@ -1,4 +1,4 @@
-﻿using MentraAI.API.Common.Errors;
+using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
 using MentraAI.API.Modules.AIGateway.InternalModels;
 using MentraAI.API.Modules.AIGateway.Services;
@@ -116,69 +116,7 @@ public class RoadmapService : IRoadmapService
         };
     }
 
-    public async Task<Roadmap> AdaptRoadmapAsync(
-        Guid stageProgressId,
-        string questionsDataJson,
-        string userAnswersDataJson,
-        decimal score,
-        string userId)
-    {
-        var stage = await _stageRepo.GetByIdAsync(stageProgressId)
-            ?? throw new AppException(ErrorCodes.STAGE_NOT_FOUND, "Stage not found.", 404);
 
-        var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
-            ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track.", 422);
-
-        var currentRoadmap = await _roadmapRepo.GetActiveRoadmapAsync(userTrack.Id)
-            ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND, "No active roadmap.", 404);
-
-        var adaptResult = await _aiGateway.GetAdaptedRoadmapAsync(
-            userId: userId,
-            careerTrack: userTrack.CareerTrack.Slug,
-            aiStageId: stage.AiStageId,
-            stageName: stage.StageName,
-            difficultyLevel: ExtractDifficultyLevel(currentRoadmap.RoadmapDataJson),
-            questionsDataJson: questionsDataJson,
-            userAnswersDataJson: userAnswersDataJson,
-            score: score);
-
-        // Prepare new version data
-        var nextVersion = await _roadmapRepo.GetMaxVersionAsync(userTrack.Id) + 1;
-        var newRoadmap = new Roadmap
-        {
-            UserTrackId = userTrack.Id,
-            VersionNumber = nextVersion,
-            IsActive = true,
-            TriggerType = "ADAPTATION",
-            RoadmapDataJson = adaptResult.RoadmapDataJson,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        var newStages = new List<UserStageProgress>();
-        int failedIndex = stage.StageIndex;
-
-        for (int i = 0; i < adaptResult.Stages.Count; i++)
-        {
-            var s = adaptResult.Stages[i];
-            var status = i < failedIndex ? "COMPLETED"
-                       : i == failedIndex ? "ACTIVE"
-                       : "LOCKED";
-
-            newStages.Add(new UserStageProgress
-            {
-                Id = Guid.NewGuid(),
-                StageIndex = i,
-                AiStageId = s.AiStageId,
-                StageName = s.Name,
-                Status = status,
-                UnlockedAt = status == "ACTIVE" ? DateTime.UtcNow : null,
-                CompletedAt = null
-            });
-        }
-
-        // Delegate transaction and saving to repository
-        return await _roadmapRepo.CreateNewVersionAsync(currentRoadmap, newRoadmap, newStages);
-    }
 
     private static RoadmapResponse BuildRoadmapResponse(
         Roadmap roadmap,
@@ -253,18 +191,5 @@ public class RoadmapService : IRoadmapService
         catch { return ("", 0, new(), new()); }
     }
 
-    private static string ExtractDifficultyLevel(string roadmapDataJson)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(roadmapDataJson);
-            var root = doc.RootElement;
-            if (root.TryGetProperty("roadmap", out var rm) &&
-                rm.TryGetProperty("data", out var data) &&
-                data.TryGetProperty("difficulty_level", out var dl))
-                return dl.GetString() ?? "";
-        }
-        catch { }
-        return "";
-    }
+
 }
