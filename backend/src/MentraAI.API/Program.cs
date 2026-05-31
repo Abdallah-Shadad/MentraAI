@@ -90,8 +90,10 @@ builder.Services
 builder.Services
     .AddHttpClient<IAIGatewayService, AIGatewayService>(client =>
     {
-        client.BaseAddress = new Uri(builder.Configuration["AIService:BaseUrl"]!);
-        client.Timeout = TimeSpan.FromSeconds(130);
+        client.BaseAddress = new Uri(
+            builder.Configuration["AIService:BaseUrl"]!);
+
+        client.Timeout = TimeSpan.FromSeconds(150);
     });
 
 // === JWT ===
