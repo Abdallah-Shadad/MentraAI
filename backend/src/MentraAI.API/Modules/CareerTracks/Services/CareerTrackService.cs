@@ -58,23 +58,32 @@ public class CareerTrackService : ICareerTrackService
     public async Task<SelectTrackResponse> SelectTrackAsync(
         string userId, SelectTrackRequest request, CancellationToken ct = default)
     {
-        // 1. Gate: Check onboarding status from UserService (Reliable source)
+        // 1. Gate: Verify onboarding status from UserService
         var isOnboarded = await _userService.GetIsOnboardedAsync(userId);
         if (!isOnboarded)
             throw new AppException(ErrorCodes.NOT_ONBOARDED, "Complete onboarding before selecting a track.", 422);
 
+        // 2. Validate career track existence
         var careerTrack = await _repo.GetTrackByIdAsync(request.CareerTrackId);
         if (careerTrack is null)
             throw new AppException(ErrorCodes.TRACK_NOT_FOUND, "Career track not found.", 404);
 
-        // 2. Fetch prediction safely
+        // 3. Fetch the latest AI prediction to determine the selection context
         var prediction = await _repo.GetLatestPredictionByUserIdAsync(userId);
 
-        // 3. Logic: If prediction exists and matches, mark as AI; otherwise MANUAL
-        var selectionType = (prediction != null && !string.IsNullOrEmpty(prediction.PrimaryRoleName) &&
-            string.Equals(careerTrack.Name, prediction.PrimaryRoleName, StringComparison.OrdinalIgnoreCase))
-            ? "AI" : "MANUAL";
+        // 4. Logic: Determine SelectionType
+        // Use 'Contains' to check if the track name exists within the prediction string 
+        // (This handles cases where the AI returns full sentences like "Backend Engineering is a great fit...")
+        var selectionType = "MANUAL";
+        if (prediction != null && !string.IsNullOrEmpty(prediction.PrimaryRoleName))
+        {
+            if (prediction.PrimaryRoleName.Contains(careerTrack.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                selectionType = "AI";
+            }
+        }
 
+        // 5. Persist the new track selection
         var newTrack = new UserTrack
         {
             UserId = userId,
@@ -84,8 +93,12 @@ public class CareerTrackService : ICareerTrackService
             SelectedAt = DateTime.UtcNow
         };
 
+        // Transactional replacement: Deactivates old tracks and inserts the new one
         var saved = await _repo.ReplaceActiveTrackAsync(userId, newTrack);
+
+        // Ensure the response includes the populated CareerTrack object
         saved.CareerTrack = careerTrack;
+
         return _mapper.Map<SelectTrackResponse>(saved);
     }
 

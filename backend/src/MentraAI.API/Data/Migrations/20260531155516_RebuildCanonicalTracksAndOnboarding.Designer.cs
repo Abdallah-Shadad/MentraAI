@@ -4,6 +4,7 @@ using MentraAI.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MentraAI.API.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260531155516_RebuildCanonicalTracksAndOnboarding")]
+    partial class RebuildCanonicalTracksAndOnboarding
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -621,7 +624,7 @@ namespace MentraAI.API.Data.Migrations
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayOrder = 10,
                             IsActive = true,
-                            OptionsJson = "[\"ada\", \"amazon redshift\", \"amazon web services (aws)\", \"angular\", \"angularjs\", \"ansible\", \"apt\", \"asp.net\", \"asp.net core\", \"assembly\", \"astro\", \"axum\", \"bash/shell (all shells)\", \"bigquery\", \"blazor\", \"bun\", \"c\", \"c#\", \"c++\", \"cargo\", \"cassandra\", \"chocolatey\", \"clickhouse\", \"cloud firestore\", \"cloudflare\", \"cobol\", \"cockroachdb\", \"composer\", \"cosmos db\", \"dart\", \"databricks sql\", \"datadog\", \"datomic\", \"delphi\", \"deno\", \"digital ocean\", \"django\", \"dynamodb\", \"express\", \"firebase\", \"gdscript\", \"gradle\", \"homebrew\", \"influxdb\", \"kotlin\", \"lua\", \"maven (build tool)\", \"microsoft sql server\", \"mysql\", \"new relic\", \"npm\", \"oracle\", \"php\", \"podman\", \"prolog\", \"railway\", \"ruby on rails\", \"splunk\", \"supabase\", \"terraform\", \"vercel\", \"docker\", \"elasticsearch\", \"f#\", \"firebase realtime database\", \"gleam\", \"groovy\", \"html/css\", \"java\", \"kubernetes\", \"make\", \"micropython\", \"drupal\", \"elixir\", \"fastapi\", \"flask\", \"duckdb\", \"erlang\", \"fastify\", \"fortran\", \"mojo\", \"go\", \"h2\", \"ibm cloud\", \"javascript\", \"laravel\", \"mariadb\", \"microsoft access\", \"mongodb\", \"webpack\", \"zig\", \"google cloud\", \"heroku\", \"ibm db2\", \"jquery\", \"lisp\", \"matlab\", \"microsoft azure\", \"msbuild\", \"neo4j\", \"next.js\", \"nuget\", \"pacman\", \"pip\", \"poetry\", \"prometheus\", \"react\", \"rust\", \"spring boot\", \"svelte\", \"typescript\", \"visual basic (.net)\", \"wordpress\", \"nestjs\", \"ninja\", \"nuxt.js\", \"perl\", \"pnpm\", \"postgresql\", \"python\", \"redis\", \"scala\", \"sql\", \"swift\", \"valkey\", \"vite\", \"netlify\", \"node.js\", \"ocaml\", \"phoenix\", \"pocketbase\", \"powershell\", \"r\", \"ruby\", \"snowflake\", \"sqlite\", \"symfony\", \"vba\", \"vue.js\", \"yandex cloud\", \"yarn\"]",
+                            OptionsJson = "[\"c#\", \"sql\", \"javascript\", \"python\", \"java\", \"html/css\"]",
                             QuestionKey = "current_skills",
                             QuestionText = "What technologies and skills do you currently know?",
                             QuestionType = "MultiSelect"
@@ -632,7 +635,7 @@ namespace MentraAI.API.Data.Migrations
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayOrder = 11,
                             IsActive = true,
-                            OptionsJson = "[\"ada\", \"amazon redshift\", \"amazon web services (aws)\", \"angular\", \"angularjs\", \"ansible\", \"apt\", \"asp.net\", \"asp.net core\", \"assembly\", \"astro\", \"axum\", \"bash/shell (all shells)\", \"bigquery\", \"blazor\", \"bun\", \"c\", \"c#\", \"c++\", \"cargo\", \"cassandra\", \"chocolatey\", \"clickhouse\", \"cloud firestore\", \"cloudflare\", \"cobol\", \"cockroachdb\", \"composer\", \"cosmos db\", \"dart\", \"databricks sql\", \"datadog\", \"datomic\", \"delphi\", \"deno\", \"digital ocean\", \"django\", \"dynamodb\", \"express\", \"firebase\", \"gdscript\", \"gradle\", \"homebrew\", \"influxdb\", \"kotlin\", \"lua\", \"maven (build tool)\", \"microsoft sql server\", \"mysql\", \"new relic\", \"npm\", \"oracle\", \"php\", \"podman\", \"prolog\", \"railway\", \"ruby on rails\", \"splunk\", \"supabase\", \"terraform\", \"vercel\", \"docker\", \"elasticsearch\", \"f#\", \"firebase realtime database\", \"gleam\", \"groovy\", \"html/css\", \"java\", \"kubernetes\", \"make\", \"micropython\", \"drupal\", \"elixir\", \"fastapi\", \"flask\", \"duckdb\", \"erlang\", \"fastify\", \"fortran\", \"mojo\", \"go\", \"h2\", \"ibm cloud\", \"javascript\", \"laravel\", \"mariadb\", \"microsoft access\", \"mongodb\", \"webpack\", \"zig\", \"google cloud\", \"heroku\", \"ibm db2\", \"jquery\", \"lisp\", \"matlab\", \"microsoft azure\", \"msbuild\", \"neo4j\", \"next.js\", \"nuget\", \"pacman\", \"pip\", \"poetry\", \"prometheus\", \"react\", \"rust\", \"spring boot\", \"svelte\", \"typescript\", \"visual basic (.net)\", \"wordpress\", \"nestjs\", \"ninja\", \"nuxt.js\", \"perl\", \"pnpm\", \"postgresql\", \"python\", \"redis\", \"scala\", \"sql\", \"swift\", \"valkey\", \"vite\", \"netlify\", \"node.js\", \"ocaml\", \"phoenix\", \"pocketbase\", \"powershell\", \"r\", \"ruby\", \"snowflake\", \"sqlite\", \"symfony\", \"vba\", \"vue.js\", \"yandex cloud\", \"yarn\"]",
+                            OptionsJson = "[\"asp.net core\", \"docker\", \"kubernetes\", \"react\", \"angular\", \"next.js\"]",
                             QuestionKey = "future_skills",
                             QuestionText = "What technologies and skills do you want to learn?",
                             QuestionType = "MultiSelect"
