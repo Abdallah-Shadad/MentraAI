@@ -1,11 +1,12 @@
 using System.Text.Json.Serialization;
+using MentraAI.API.Common.Serialization;
 
 namespace MentraAI.API.Modules.AIGateway.DTOs.Responses;
 
 public class RoadmapAIResponse
 {
-    [JsonPropertyName("signal")]  public string         Signal  { get; set; } = string.Empty;
-    [JsonPropertyName("message")] public string         Message { get; set; } = string.Empty;
+    [JsonPropertyName("signal")] public string Signal { get; set; } = string.Empty;
+    [JsonPropertyName("message")] public string Message { get; set; } = string.Empty;
     [JsonPropertyName("roadmap")] public RoadmapPayload? Roadmap { get; set; }
 }
 
@@ -33,9 +34,11 @@ public class RoadmapCurriculum
 
 public class AIStage
 {
-    [JsonPropertyName("id")]                  public string       Id                 { get; set; } = string.Empty;
-    [JsonPropertyName("name")]                public string       Name               { get; set; } = string.Empty;
-    [JsonPropertyName("topics")]              public List<string> Topics             { get; set; } = new();
-    [JsonPropertyName("learning_objectives")] public List<string> LearningObjectives { get; set; } = new();
-    [JsonPropertyName("estimated_weeks")]     public int          EstimatedWeeks     { get; set; }
+    [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
+    [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+    [JsonPropertyName("topics")] public List<string> Topics { get; set; } = new();
+    [JsonPropertyName("learning_objectives")]
+    [JsonConverter(typeof(FlexibleStringListConverter))]
+    public List<string> LearningObjectives { get; set; } = new();
+    [JsonPropertyName("estimated_weeks")] public int EstimatedWeeks { get; set; }
 }

@@ -7,6 +7,7 @@ using MentraAI.API.Modules.Chat.DTOs.Requests;
 using MentraAI.API.Modules.Users.Models;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -24,7 +25,7 @@ public class AIGatewayService : IAIGatewayService
     }
 
     // =====================================================================
-    // PREDICT CAREER  —  Phase 3
+    // PREDICT CAREER
     // =====================================================================
     public async Task<PredictionResult> PredictCareerAsync(
         string userId,
@@ -79,54 +80,42 @@ public class AIGatewayService : IAIGatewayService
         List<string> currentSkills, // kept in signature for backward compat; not sent to AI
         CancellationToken ct = default)
     {
-        // Contract Mode 1: only user_id, career_track, weekly_hours, is_stage_progression
-        // The extra profile fields (user_background, current_skills) are NOT in the contract.
-        var request = new RoadmapAIRequest
+        var request = new
         {
-            UserId             = userId,
-            CareerTrack        = careerTrackSlug,
-            WeeklyHours        = weeklyHours,
-            IsStageProgression = false,
-            CurrentStage       = null,
-            Curriculum         = null,
-            CurrentStageIndex  = null,
-            LearnerProgress    = null
+            user_id = userId,
+            career_track = careerTrackSlug,
+            weekly_hours = weeklyHours,
+            is_stage_progression = false,
+            current_stage = (object?)null,
+            curriculum = (object?)null,
+            current_stage_index = (int?)null,
+            learner_progress = (object?)null
         };
 
-        var response = await _http.PostAsJsonAsync("/api/v1/roadmap/", request, ct);
+        var options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+
+        _logger.LogInformation("AI Request => UserId: {UserId}, CareerTrack: {CareerTrack}", request.user_id, request.career_track);
+        var response = await _http.PostAsJsonAsync("/api/v1/roadmap/", request, options, ct);
 
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogError("AI roadmap error {Status}: {Body}", response.StatusCode, body);
             throw new AIServiceException($"AI returned {(int)response.StatusCode}");
         }
 
         var rawJson = await response.Content.ReadAsStringAsync(ct);
-        RoadmapAIResponse aiResponse;
-        try
-        {
-            aiResponse = JsonSerializer.Deserialize<RoadmapAIResponse>(rawJson)
-                ?? throw new AIValidationException("AI returned empty roadmap response");
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogError(ex, "Malformed roadmap JSON from AI");
-            throw new AIValidationException("AI returned malformed JSON");
-        }
+        RoadmapAIResponse aiResponse = JsonSerializer.Deserialize<RoadmapAIResponse>(rawJson) ?? throw new AIValidationException("Empty response");
 
         RoadmapAIResponseValidator.Validate(aiResponse);
-
-        var data   = aiResponse.Roadmap!.Data!;
-        var stages = data.Curriculum!.Stages;
+        var data = aiResponse.Roadmap!.Data!;
 
         return new RoadmapGenerationResult
         {
             RoadmapDataJson = rawJson,
             DifficultyLevel = data.DifficultyLevel,
-            TotalWeeks      = data.TotalWeeks,
-            SkillGaps       = data.SkillGaps,
-            Stages          = stages.Select(s => new RoadmapStage
+            TotalWeeks = data.TotalWeeks,
+            SkillGaps = data.SkillGaps,
+            Stages = data.Curriculum!.Stages.Select(s => new RoadmapStage
             {
                 AiStageId      = s.Id,
                 Name           = s.Name,
@@ -158,15 +147,12 @@ public class AIGatewayService : IAIGatewayService
             IsStageProgression = true,
             CurrentStage = new CurrentStagePayload
             {
-                Id                 = aiStageId,
-                Name               = stageName,
-                Topics             = topics,
+                Id = aiStageId,
+                Name = stageName,
+                Topics = topics,
                 LearningObjectives = learningObjectives,
-                EstimatedWeeks     = estimatedWeeks
-            },
-            Curriculum        = null,
-            CurrentStageIndex = null,
-            LearnerProgress   = null
+                EstimatedWeeks = estimatedWeeks
+            }
         };
 
         var response = await _http.PostAsJsonAsync("/api/v1/roadmap/", request, ct);
@@ -214,6 +200,7 @@ public class AIGatewayService : IAIGatewayService
         }
 
         var rawBody = await response.Content.ReadAsStringAsync(ct);
+        await System.IO.File.WriteAllTextAsync("quiz_response.json", rawBody, ct);
 
         QuizAIResponse? aiResponse;
         try
@@ -226,7 +213,15 @@ public class AIGatewayService : IAIGatewayService
             throw new AIValidationException($"AI returned invalid JSON: {ex.Message}");
         }
 
-        QuizAIResponseValidator.Validate(aiResponse!);
+        try
+        {
+            QuizAIResponseValidator.Validate(aiResponse!);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AI quiz validation failed. Raw response: {Body}", rawBody);
+            throw;
+        }
 
         var questionsDataJson = JsonSerializer.Serialize(aiResponse!.Quiz!.Questions);
 
@@ -273,14 +268,14 @@ public class AIGatewayService : IAIGatewayService
     {
         var request = new AdaptationAIRequest
         {
-            UserId             = userId,
-            CareerTrack        = careerTrack,
-            StageId            = aiStageId,
-            StageName          = stageName,
-            Score              = score,
-            DifficultyLevel    = difficultyLevel,
+            UserId = userId,
+            CareerTrack = careerTrack,
+            StageId = aiStageId,
+            StageName = stageName,
+            Score = score,
+            DifficultyLevel = difficultyLevel,
             LearningObjectives = learningObjectives,
-            FailedQuestions    = failedQuestions
+            FailedQuestions = failedQuestions
         };
 
         var response = await _http.PostAsJsonAsync("/api/v1/quiz/adaptation_stage", request, ct);
@@ -293,34 +288,21 @@ public class AIGatewayService : IAIGatewayService
         }
 
         var rawBody = await response.Content.ReadAsStringAsync(ct);
+        AdaptationAIResponse aiResponse = JsonSerializer.Deserialize<AdaptationAIResponse>(rawBody)!;
 
-        AdaptationAIResponse? aiResponse;
-        try
-        {
-            aiResponse = JsonSerializer.Deserialize<AdaptationAIResponse>(rawBody);
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogWarning("Adaptation AI returned invalid JSON. Body: {Body}", rawBody);
-            throw new AIValidationException($"Adaptation AI returned invalid JSON: {ex.Message}");
-        }
-
-        AdaptationAIResponseValidator.Validate(aiResponse!);
-
-        var data         = aiResponse!.AdditionalResource!.Data!;
-        var adaptedStage = data.Curriculum!.Stages.First(s => s.Adapted);
+        var data = aiResponse.AdditionalResource!.Data!;
 
         return new AdaptationResult
         {
-            // Store the entire raw response JSON as ResourcesDataJson.
-            // StageProgressService.BuildResourcesResponse already handles the normal
-            // stage_resources path. For adaptation we store the whole response so the
-            // frontend endpoint GET /stages/{id}/resources still works — it will need
-            // to also handle the adaptation response shape.
-            // See Note in section B about dual-format ResourcesDataJson.
             RemediationResourcesJson = rawBody,
-            Summary                  = data.Summary,
-            StrugglingTopics         = data.StrugglingTopics
+            Summary = data.Summary,
+            StrugglingTopics = data.StrugglingTopics,
+            Stages = data.Curriculum!.Stages.Select(s => new RoadmapStage
+            {
+                AiStageId = s.Id,
+                Name = s.Name,
+                EstimatedWeeks = s.EstimatedWeeks
+            }).ToList()
         };
     }
 
