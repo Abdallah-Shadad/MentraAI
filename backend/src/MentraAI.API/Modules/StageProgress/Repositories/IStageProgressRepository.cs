@@ -1,4 +1,4 @@
-﻿// Modules/StageProgress/Repositories/IStageProgressRepository.cs
+// Modules/StageProgress/Repositories/IStageProgressRepository.cs
 using MentraAI.API.Modules.StageProgress.Models;
 
 namespace MentraAI.API.Modules.StageProgress.Repositories;

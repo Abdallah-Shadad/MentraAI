@@ -1,5 +1,6 @@
 using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
+using MentraAI.API.Modules.AIGateway.DTOs.Responses;
 using MentraAI.API.Modules.AIGateway.Services;
 using MentraAI.API.Modules.CareerTracks.Models;
 using MentraAI.API.Modules.CareerTracks.Repositories;

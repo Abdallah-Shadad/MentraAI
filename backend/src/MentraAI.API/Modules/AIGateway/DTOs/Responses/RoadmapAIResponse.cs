@@ -12,19 +12,19 @@ public class RoadmapAIResponse
 
 public class RoadmapPayload
 {
-    [JsonPropertyName("status")] public string Status { get; set; } = string.Empty;
-    [JsonPropertyName("mode")] public string Mode { get; set; } = string.Empty;
-    [JsonPropertyName("user_id")] public string UserId { get; set; } = string.Empty;
-    [JsonPropertyName("career_track")] public string CareerTrack { get; set; } = string.Empty;
-    [JsonPropertyName("data")] public RoadmapData? Data { get; set; }
+    [JsonPropertyName("status")]       public string       Status     { get; set; } = string.Empty;
+    [JsonPropertyName("mode")]         public string       Mode       { get; set; } = string.Empty;
+    [JsonPropertyName("user_id")]      public string       UserId     { get; set; } = string.Empty;
+    [JsonPropertyName("career_track")] public string       CareerTrack { get; set; } = string.Empty;
+    [JsonPropertyName("data")]         public RoadmapData? Data       { get; set; }
 }
 
 public class RoadmapData
 {
-    [JsonPropertyName("difficulty_level")] public string DifficultyLevel { get; set; } = string.Empty;
-    [JsonPropertyName("skill_gaps")] public List<string> SkillGaps { get; set; } = new();
-    [JsonPropertyName("total_weeks")] public int TotalWeeks { get; set; }
-    [JsonPropertyName("curriculum")] public RoadmapCurriculum? Curriculum { get; set; }
+    [JsonPropertyName("difficulty_level")] public string            DifficultyLevel { get; set; } = string.Empty;
+    [JsonPropertyName("skill_gaps")]       public List<string>      SkillGaps       { get; set; } = new();
+    [JsonPropertyName("total_weeks")]      public int               TotalWeeks      { get; set; }
+    [JsonPropertyName("curriculum")]       public RoadmapCurriculum? Curriculum      { get; set; }
 }
 
 public class RoadmapCurriculum

@@ -1,4 +1,4 @@
-﻿using MentraAI.API.Common.Errors;
+using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
 using MentraAI.API.Modules.AIGateway.DTOs.Requests;
 using MentraAI.API.Modules.AIGateway.InternalModels;
@@ -263,18 +263,5 @@ public class RoadmapService : IRoadmapService
         catch { return ("", 0, new(), new()); }
     }
 
-    private static string ExtractDifficultyLevel(string roadmapDataJson)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(roadmapDataJson);
-            var root = doc.RootElement;
-            if (root.TryGetProperty("roadmap", out var rm) &&
-                rm.TryGetProperty("data", out var data) &&
-                data.TryGetProperty("difficulty_level", out var dl))
-                return dl.GetString() ?? "";
-        }
-        catch { }
-        return "";
-    }
+
 }
