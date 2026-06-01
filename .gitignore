@@ -14,6 +14,7 @@
 
 # Ignore environment-specific appsettings in ALL folders, but KEEP the main one
 **/appsettings.Development.json
+**/appsettings.Production.json
 **/appsettings.*.json
 !**/appsettings.json
 

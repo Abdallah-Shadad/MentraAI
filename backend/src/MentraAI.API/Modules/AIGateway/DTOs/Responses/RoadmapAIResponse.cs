@@ -5,7 +5,7 @@ namespace MentraAI.API.Modules.AIGateway.DTOs.Responses;
 public class RoadmapAIResponse
 {
     [JsonPropertyName("signal")] public string Signal { get; set; } = string.Empty;
-    [JsonPropertyName("status")] public string Status { get; set; } = string.Empty;
+    [JsonPropertyName("message")] public string Message { get; set; } = string.Empty;
     [JsonPropertyName("roadmap")] public RoadmapPayload? Roadmap { get; set; }
 }
 
@@ -36,5 +36,6 @@ public class AIStage
     [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
     [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
     [JsonPropertyName("topics")] public List<string> Topics { get; set; } = new();
+    [JsonPropertyName("learning_objectives")] public Dictionary<string, string> LearningObjectives { get; set; } = new();
     [JsonPropertyName("estimated_weeks")] public int EstimatedWeeks { get; set; }
 }

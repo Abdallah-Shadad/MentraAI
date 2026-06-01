@@ -79,17 +79,32 @@ public class AIGatewayService : IAIGatewayService
         List<string> currentSkills,
         CancellationToken ct = default)
     {
-        var request = new RoadmapAIRequest
+
+        // Contract Mode 1: only user_id, career_track, weekly_hours, is_stage_progression
+        // The extra profile fields (user_background, current_skills) are NOT in the contract.
+        var request = new
         {
-            UserId = userId,
-            CareerTrack = careerTrackSlug,
-            WeeklyHours = weeklyHours,
-            IsStageProgression = false,
-            UserBackground = userBackground,
-            CurrentSkills = currentSkills
+            user_id = userId,
+            career_track = careerTrackSlug,
+            weekly_hours = weeklyHours,
+            is_stage_progression = false,
+            // these fields are only for Mode 2 (stage resources) and Mode 3 (adaptation), so we send them as null in Mode 1
+            current_stage = (object?)null,
+            curriculum = (object?)null,
+            current_stage_index = (int?)null,
+            learner_progress = (object?)null
         };
 
-        var response = await _http.PostAsJsonAsync("/api/v1/roadmap", request, ct);
+        // Use JsonSerializerOptions to prevent sending empty fieldss as {} or [] and instead send them as null, which is what the AI contract expects for non-applicable fields in Mode 1.
+        var options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+
+        _logger.LogInformation(
+            "AI Request => UserId: {UserId}, CareerTrack: {CareerTrack}, WeeklyHours: {WeeklyHours}",
+            request.user_id,
+            request.career_track,
+            request.weekly_hours
+        );
+        var response = await _http.PostAsJsonAsync("/api/v1/roadmap/", request, options, ct);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -99,6 +114,9 @@ public class AIGatewayService : IAIGatewayService
         }
 
         var rawJson = await response.Content.ReadAsStringAsync(ct);
+        Console.WriteLine("--- RAW AI RESPONSE START ---");
+        Console.WriteLine(rawJson);
+        Console.WriteLine("--- RAW AI RESPONSE END ---");
         RoadmapAIResponse aiResponse;
         try
         {
@@ -167,10 +185,17 @@ public class AIGatewayService : IAIGatewayService
             CareerTrack = careerTrack,
             WeeklyHours = weeklyHours,
             IsStageProgression = true,
-            CurrentStageIndex = stageIndex,
-            DifficultyLevel = roadmapData.DifficultyLevel,
-            SkillGaps = roadmapData.SkillGaps,
-            Curriculum = JsonSerializer.SerializeToElement(roadmapData.Curriculum)
+            CurrentStage = new CurrentStagePayload
+            {
+                Id = aiStageId,
+                Name = stageName,
+                Topics = topics,
+                LearningObjectives = learningObjectives,
+                EstimatedWeeks = estimatedWeeks
+            },
+            Curriculum = null,
+            CurrentStageIndex = null,
+            LearnerProgress = null
         };
 
         var response = await _http.PostAsJsonAsync("/api/v1/roadmap", request, ct);
@@ -274,7 +299,59 @@ public class AIGatewayService : IAIGatewayService
         string userAnswersDataJson,
         decimal score,
         CancellationToken ct = default)
-        => throw new NotImplementedException("GetAdaptedRoadmapAsync — implemented in Phase 6");
+    {
+        var request = new AdaptationAIRequest
+        {
+            UserId = userId,
+            CareerTrack = careerTrack,
+            StageId = aiStageId,
+            StageName = stageName,
+            Score = score,
+            DifficultyLevel = difficultyLevel,
+            LearningObjectives = learningObjectives,
+            FailedQuestions = failedQuestions
+        };
+
+        var response = await _http.PostAsJsonAsync("/api/v1/quiz/adaptation_stage", request, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogError("AI adaptation error {Status}: {Body}", response.StatusCode, body);
+            throw new AIServiceException($"Adaptation AI returned {(int)response.StatusCode}");
+        }
+
+        var rawBody = await response.Content.ReadAsStringAsync(ct);
+
+        AdaptationAIResponse? aiResponse;
+        try
+        {
+            aiResponse = JsonSerializer.Deserialize<AdaptationAIResponse>(rawBody);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning("Adaptation AI returned invalid JSON. Body: {Body}", rawBody);
+            throw new AIValidationException($"Adaptation AI returned invalid JSON: {ex.Message}");
+        }
+
+        AdaptationAIResponseValidator.Validate(aiResponse!);
+
+        var data = aiResponse!.AdditionalResource!.Data!;
+        var adaptedStage = data.Curriculum!.Stages.First(s => s.Adapted);
+
+        return new AdaptationResult
+        {
+            // Store the entire raw response JSON as ResourcesDataJson.
+            // StageProgressService.BuildResourcesResponse already handles the normal
+            // stage_resources path. For adaptation we store the whole response so the
+            // frontend endpoint GET /stages/{id}/resources still works — it will need
+            // to also handle the adaptation response shape.
+            // See Note in section B about dual-format ResourcesDataJson.
+            RemediationResourcesJson = rawBody,
+            Summary = data.Summary,
+            StrugglingTopics = data.StrugglingTopics
+        };
+    }
 
     // =====================================================================
     // STREAM CHAT  

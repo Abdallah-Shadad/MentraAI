@@ -37,30 +37,34 @@ public class RoadmapService : IRoadmapService
 
     public async Task<RoadmapResponse> GenerateRoadmapAsync(string userId)
     {
+        // 1. Get the user's active track from the database
         var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
-             ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track.", 422);
+             ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track found for this user.", 422);
 
+        int lastVersion = await _roadmapRepo.GetMaxVersionAsync(userTrack.Id);
+
+
+        // 2. Ensure the user does not already have an active roadmap
         if (await _roadmapRepo.HasActiveRoadmapAsync(userTrack.Id))
             throw new AppException(ErrorCodes.ROADMAP_ALREADY_EXISTS, "An active roadmap already exists.", 409);
 
+        // 3. Retrieve the user's profile to send proper data to the AI service
         var profile = await _userService.GetProfileAsync(userId);
+        var userBackground = $"Age: {profile.Age}, Education: {profile.EdLevel}, Experience: {profile.YearsCode} years...";
 
-        // Map the new Profile structure to a background string for the AI
-        var userBackground = $"Age: {profile.Age}, Education: {profile.EdLevel}, " +
-                             $"Experience: {profile.YearsCode} years, Industry: {profile.Industry}, " +
-                             $"Role: {profile.Employment}";
-
+        // 4. Send the request to the AI using the track slug retrieved automatically from the database
         var result = await _aiGateway.GenerateRoadmapAsync(
             userId: userId,
-            careerTrackSlug: userTrack.CareerTrack.Slug,
-            weeklyHours: 10, // Default fallback
+            careerTrackSlug: userTrack.CareerTrack.Slug, // This ensures the backend always sends the correct track automatically
+            weeklyHours: 10, // Or retrieve it from the user's profile if available
             userBackground: userBackground,
-            currentSkills: profile.CurrentSkills ?? new List<string>());
+            currentSkills: profile.CurrentSkills ?? new List<string>()
+        );
 
         var roadmap = new Roadmap
         {
             UserTrackId = userTrack.Id,
-            VersionNumber = 1,
+            VersionNumber = lastVersion + 1,
             IsActive = true,
             TriggerType = "INITIAL",
             RoadmapDataJson = result.RoadmapDataJson,
@@ -244,7 +248,7 @@ public class RoadmapService : IRoadmapService
                         EstimatedWeeks = s.TryGetProperty("estimated_weeks", out var ew) ? ew.GetInt32() : 0,
                         Topics = s.TryGetProperty("topics", out var top)
                             ? top.EnumerateArray().Select(x => x.GetString() ?? "").ToList()
-                            : new List<string>()
+                            : new List<string>(),
                     });
                 }
             }
@@ -252,6 +256,16 @@ public class RoadmapService : IRoadmapService
         }
         catch { return ("", 0, new(), new()); }
     }
+    public async Task DeactivateActiveRoadmapAsync(string userId)
+    {
+        var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
+            ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track.", 422);
+
+        var roadmap = await _roadmapRepo.GetActiveRoadmapAsync(userTrack.Id)
+            ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND, "No active roadmap found.", 404);
+
+        var roadmap = await _roadmapRepo.GetActiveRoadmapAsync(userTrack.Id)
+            ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND, "No active roadmap found.", 404);
 
     private static string ExtractDifficultyLevel(string roadmapDataJson)
     {
@@ -267,4 +281,8 @@ public class RoadmapService : IRoadmapService
         catch { }
         return "";
     }
+        roadmap.IsActive = false;
+        await _roadmapRepo.UpdateAsync(roadmap);
+    }
+
 }
