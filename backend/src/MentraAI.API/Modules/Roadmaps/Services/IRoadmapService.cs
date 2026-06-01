@@ -18,5 +18,4 @@ public interface IRoadmapService
         decimal score,
         string userId);
     Task DeactivateActiveRoadmapAsync(string userId);
-    Task DeactivateActiveRoadmapAsync(string userId);
 }
