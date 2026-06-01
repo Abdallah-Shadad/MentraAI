@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
 using MentraAI.API.Common.Models;
@@ -6,6 +6,7 @@ using MentraAI.API.Modules.Auth.DTOs.Requests;
 using MentraAI.API.Modules.Auth.DTOs.Responses;
 using MentraAI.API.Modules.Auth.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -39,7 +40,7 @@ public class AuthController : ControllerBase
     // == POST /api/v1/auth/register ===
     [HttpPost("register")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(ApiResponse<RegisterResponse>), 201)]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), 201)]
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     [ProducesResponseType(typeof(ApiResponse<object>), 409)]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
@@ -55,7 +56,8 @@ public class AuthController : ControllerBase
         }
 
         var result = await _authService.RegisterAsync(request);
-        return StatusCode(201, ApiResponse<RegisterResponse>.Ok(result));
+        SetTokenCookies(result.AccessToken, result.RefreshToken, result.ExpiresIn);
+        return StatusCode(201, ApiResponse<AuthResponse>.Ok(result));
     }
 
     // == POST /api/v1/auth/login ====
@@ -72,6 +74,7 @@ public class AuthController : ControllerBase
         }
 
         var result = await _authService.LoginAsync(request);
+        SetTokenCookies(result.AccessToken, result.RefreshToken, result.ExpiresIn);
         return Ok(ApiResponse<AuthResponse>.Ok(result));
     }
 
@@ -80,8 +83,14 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<TokenResponse>), 200)]
     [ProducesResponseType(typeof(ApiResponse<object>), 401)]
-    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest? request)
     {
+        request ??= new RefreshTokenRequest();
+        if (string.IsNullOrWhiteSpace(request.RefreshToken) && Request.Cookies.TryGetValue("refresh_token", out var cookieToken))
+        {
+            request.RefreshToken = cookieToken;
+        }
+
         var validation = await _refreshValidator.ValidateAsync(request);
         if (!validation.IsValid)
         {
@@ -89,6 +98,7 @@ public class AuthController : ControllerBase
         }
 
         var result = await _authService.RefreshTokenAsync(request.RefreshToken);
+        SetTokenCookies(result.AccessToken, result.RefreshToken, result.ExpiresIn);
         return Ok(ApiResponse<TokenResponse>.Ok(result));
     }
 
@@ -96,10 +106,60 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     [Authorize]
     [ProducesResponseType(204)]
-    public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest? request)
     {
+        request ??= new LogoutRequest();
+        if (string.IsNullOrWhiteSpace(request.RefreshToken) && Request.Cookies.TryGetValue("refresh_token", out var cookieToken))
+        {
+            request.RefreshToken = cookieToken;
+        }
+
+        var validation = await _logoutValidator.ValidateAsync(request);
+        if (!validation.IsValid)
+        {
+            throw new AppException(ErrorCodes.VALIDATION_ERROR, "Refresh token is required.", 400);
+        }
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         await _authService.LogoutAsync(request.RefreshToken, userId);
+        ClearTokenCookies();
         return NoContent();
+    }
+
+    private void SetTokenCookies(string accessToken, string refreshToken, int accessExpiresInSeconds)
+    {
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = DateTimeOffset.UtcNow.AddSeconds(accessExpiresInSeconds)
+        };
+
+        Response.Cookies.Append("access_token", accessToken, cookieOptions);
+
+        var refreshCookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = DateTimeOffset.UtcNow.AddDays(7)
+        };
+
+        Response.Cookies.Append("refresh_token", refreshToken, refreshCookieOptions);
+    }
+
+    private void ClearTokenCookies()
+    {
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Expires = DateTimeOffset.UtcNow.AddDays(-1)
+        };
+
+        Response.Cookies.Delete("access_token", cookieOptions);
+        Response.Cookies.Delete("refresh_token", cookieOptions);
     }
 }

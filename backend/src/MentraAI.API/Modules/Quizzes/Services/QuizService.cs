@@ -416,6 +416,13 @@ public class QuizService : IQuizService
         return new List<string>();
     }
 
+    private class StoredQuestion
+    {
+        [JsonPropertyName("question_id")] public string QuestionId { get; set; } = string.Empty;
+        [JsonPropertyName("question_text")] public string QuestionText { get; set; } = string.Empty;
+        [JsonPropertyName("correct_answer")] public string CorrectAnswer { get; set; } = string.Empty;
+    }
+
     private class RawAIQuestion
     {
         [JsonPropertyName("question_id")] public string QuestionId { get; set; } = string.Empty;

@@ -70,14 +70,14 @@ public class AIGatewayService : IAIGatewayService
     }
 
     // =====================================================================
-    // GENERATE ROADMAP
+    // GENERATE ROADMAP — Mode 1
     // =====================================================================
     public async Task<RoadmapGenerationResult> GenerateRoadmapAsync(
         string userId,
         string careerTrackSlug,
         int weeklyHours,
-        string userBackground,
-        List<string> currentSkills,
+        string userBackground,      // kept in signature for backward compat; not sent to AI
+        List<string> currentSkills, // kept in signature for backward compat; not sent to AI
         CancellationToken ct = default)
     {
         var request = new
@@ -117,9 +117,9 @@ public class AIGatewayService : IAIGatewayService
             SkillGaps = data.SkillGaps,
             Stages = data.Curriculum!.Stages.Select(s => new RoadmapStage
             {
-                AiStageId = s.Id,
-                Name = s.Name,
-                Topics = s.Topics,
+                AiStageId      = s.Id,
+                Name           = s.Name,
+                Topics         = s.Topics,
                 EstimatedWeeks = s.EstimatedWeeks
             }).ToList()
         };
@@ -141,9 +141,9 @@ public class AIGatewayService : IAIGatewayService
     {
         var request = new RoadmapAIRequest
         {
-            UserId = userId,
-            CareerTrack = careerTrack,
-            WeeklyHours = weeklyHours,
+            UserId             = userId,
+            CareerTrack        = careerTrack,
+            WeeklyHours        = weeklyHours,
             IsStageProgression = true,
             CurrentStage = new CurrentStagePayload
             {

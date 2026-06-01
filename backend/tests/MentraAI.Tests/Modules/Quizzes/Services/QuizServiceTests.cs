@@ -362,3 +362,4 @@ public class QuizServiceTests
         _stageRepoMock.Verify(r => r.PatchResourcesAsync(stageId, "{}"), Times.Once);
     }
 }
+

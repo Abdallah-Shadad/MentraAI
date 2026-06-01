@@ -4,10 +4,10 @@ namespace MentraAI.API.Modules.AIGateway.DTOs.Requests;
 
 public class RoadmapAIRequest
 {
-    [JsonPropertyName("user_id")] public string UserId { get; set; } = string.Empty;
-    [JsonPropertyName("career_track")] public string CareerTrack { get; set; } = string.Empty;
-    [JsonPropertyName("weekly_hours")] public int WeeklyHours { get; set; }
-    [JsonPropertyName("is_stage_progression")] public bool IsStageProgression { get; set; }
+    [JsonPropertyName("user_id")]             public string  UserId            { get; set; } = string.Empty;
+    [JsonPropertyName("career_track")]        public string  CareerTrack       { get; set; } = string.Empty;
+    [JsonPropertyName("weekly_hours")]        public int     WeeklyHours       { get; set; }
+    [JsonPropertyName("is_stage_progression")] public bool   IsStageProgression { get; set; }
 
 
     // Mode 1 (roadmap_overview): all nullable fields sent as null
