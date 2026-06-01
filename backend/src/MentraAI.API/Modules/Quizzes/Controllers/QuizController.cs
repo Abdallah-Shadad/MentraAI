@@ -106,7 +106,7 @@ public class QuizController : ControllerBase
             });
         }
 
-        var result = await _service.SubmitQuizAsync(quizId, GetUserId(), request);
+        var result = await _service.SubmitQuizAsync(quizId, request, GetUserId());
         return Ok(ApiResponse<QuizSubmitResponse>.Ok(result));
     }
 
@@ -115,13 +115,13 @@ public class QuizController : ControllerBase
     // All quiz attempts for a stage — ordered by AttemptNumber ASC.
     // =====================================================================
     [HttpGet("history")]
-    [ProducesResponseType(typeof(ApiResponse<QuizHistoryResponse>), 200)]
+    [ProducesResponseType(typeof(ApiResponse<List<QuizHistoryResponse>>), 200)]
     [ProducesResponseType(typeof(object), 401)]
     [ProducesResponseType(typeof(object), 404)]
     public async Task<IActionResult> GetHistory([FromQuery] Guid stageProgressId)
     {
         var result = await _service.GetHistoryAsync(stageProgressId, GetUserId());
-        return Ok(ApiResponse<QuizHistoryResponse>.Ok(result));
+        return Ok(ApiResponse<List<QuizHistoryResponse>>.Ok(result));
     }
 
 

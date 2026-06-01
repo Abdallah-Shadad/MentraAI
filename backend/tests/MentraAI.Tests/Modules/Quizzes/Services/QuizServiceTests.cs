@@ -1,4 +1,5 @@
 using MentraAI.API.Common.Exceptions;
+using MentraAI.API.Modules.AIGateway.DTOs.Requests;
 using MentraAI.API.Modules.AIGateway.InternalModels;
 using MentraAI.API.Modules.AIGateway.Services;
 using MentraAI.API.Modules.CareerTracks.Models;
@@ -96,7 +97,7 @@ public class QuizServiceTests
 
         var ex = await Assert.ThrowsAsync<AppException>(
             () => _sut.GenerateQuizAsync(stageId, _testUserId));
-        Assert.Equal("STAGE_NOT_ACTIVE", ex.ErrorCode);
+        Assert.Equal("STAGE_LOCKED", ex.ErrorCode);
     }
 
     [Fact]
@@ -120,8 +121,8 @@ public class QuizServiceTests
         _trackRepoMock.Setup(r => r.GetActiveTrackByUserIdAsync(_testUserId))
             .ReturnsAsync(new UserTrack { Id = userTrackId });
 
-        _quizRepoMock.Setup(r => r.GetPendingByStageAsync(stageId))
-            .ReturnsAsync(new QuizAttempt { Id = Guid.NewGuid() });
+        _stageRepoMock.Setup(r => r.HasPendingQuizAsync(stageId))
+            .ReturnsAsync(true);
 
         var ex = await Assert.ThrowsAsync<AppException>(
             () => _sut.GenerateQuizAsync(stageId, _testUserId));
@@ -154,18 +155,18 @@ public class QuizServiceTests
             .ReturnsAsync(new UserTrack
             {
                 Id = userTrackId,
-                CareerTrack = new CareerTrack { Slug = careerTrackSlug }
+                CareerTrack = new CareerTrack { Slug = careerTrackSlug, Name = "Frontend Developer" }
             });
 
-        _quizRepoMock.Setup(r => r.GetPendingByStageAsync(stageId))
-            .ReturnsAsync((QuizAttempt?)null);
+        _stageRepoMock.Setup(r => r.HasPendingQuizAsync(stageId))
+            .ReturnsAsync(false);
 
         _quizRepoMock.Setup(r => r.GetNextAttemptNumberAsync(stageId))
             .ReturnsAsync(1);
 
-        // topics param must be present — topics ["HTML","CSS"] extracted from JSON
+        // topics param must be present - topics ["HTML","CSS"] extracted from JSON
         _aiGatewayMock.Setup(ai => ai.GenerateQuizAsync(
-                _testUserId, careerTrackSlug, "stage_0", "Intro",
+                _testUserId, "Frontend Developer", "stage_0", "Intro",
                 It.IsAny<string>(),
                 It.Is<List<string>>(t => t.Contains("HTML") && t.Contains("CSS")),
                 It.IsAny<CancellationToken>()))
@@ -182,7 +183,7 @@ public class QuizServiceTests
             });
 
         QuizAttempt? capturedAttempt = null;
-        _quizRepoMock.Setup(r => r.CreateAsync(It.IsAny<QuizAttempt>()))
+        _quizRepoMock.Setup(r => r.CreateAttemptAsync(It.IsAny<QuizAttempt>()))
             .Callback<QuizAttempt>(a => capturedAttempt = a)
             .ReturnsAsync((QuizAttempt a) => a);
 
@@ -199,7 +200,7 @@ public class QuizServiceTests
             It.Is<List<string>>(t => t.Contains("HTML")),
             It.IsAny<CancellationToken>()), Times.Once);
 
-        // Verify PassingScore and TimeLimitMinutes were persisted correctly (int, not decimal)
+        // Verify PassingScore and TimeLimitMinutes were persisted correctly
         Assert.NotNull(capturedAttempt);
         Assert.Equal(70, capturedAttempt!.PassingScore);
         Assert.Equal(20, capturedAttempt!.TimeLimitMinutes);
@@ -218,7 +219,7 @@ public class QuizServiceTests
             });
 
         var ex = await Assert.ThrowsAsync<AppException>(
-            () => _sut.SubmitQuizAsync(quizId, _testUserId, new SubmitQuizRequest()));
+            () => _sut.SubmitQuizAsync(quizId, new SubmitQuizRequest(), _testUserId));
         Assert.Equal("QUIZ_ALREADY_SUBMITTED", ex.ErrorCode);
     }
 
@@ -241,8 +242,12 @@ public class QuizServiceTests
         _scoringMock.Setup(s => s.Score(It.IsAny<string>(), request.Answers, It.IsAny<decimal>()))
             .Returns(new QuizScoreResult(4, 4, 100, true));
 
-        _quizRepoMock.Setup(r => r.SubmitAsync(quizId, It.IsAny<string>(), 4, 100, true))
-            .ReturnsAsync(new QuizAttempt { SubmittedAt = DateTime.UtcNow });
+        _quizRepoMock.Setup(r => r.UpdateAsync(It.IsAny<QuizAttempt>()))
+            .ReturnsAsync((QuizAttempt a) =>
+            {
+                a.SubmittedAt = DateTime.UtcNow;
+                return a;
+            });
 
         _stageRepoMock.Setup(r => r.GetByIdAsync(stageId))
             .ReturnsAsync(new UserStageProgress
@@ -260,16 +265,12 @@ public class QuizServiceTests
                 StageIndex = 1
             });
 
-        var result = await _sut.SubmitQuizAsync(quizId, _testUserId, request);
+        var result = await _sut.SubmitQuizAsync(quizId, request, _testUserId);
 
         Assert.True(result.IsPassed);
         Assert.NotNull(result.NextStage);
         _stageRepoMock.Verify(r => r.CompleteStageAsync(stageId), Times.Once);
         _stageRepoMock.Verify(r => r.UnlockNextStageAsync(1, 0), Times.Once);
-        _roadmapServiceMock.Verify(
-            r => r.AdaptRoadmapAsync(It.IsAny<Guid>(), It.IsAny<string>(),
-                                     It.IsAny<string>(), It.IsAny<decimal>(),
-                                     It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -277,7 +278,13 @@ public class QuizServiceTests
     {
         var quizId = Guid.NewGuid();
         var stageId = Guid.NewGuid();
-        var request = new SubmitQuizRequest { Answers = new List<QuizAnswerItem>() };
+        var request = new SubmitQuizRequest 
+        { 
+            Answers = new List<QuizAnswerItem> 
+            { 
+                new() { QuestionId = "q1", Answer = "B" } 
+            } 
+        };
 
         _quizRepoMock.Setup(r => r.GetByIdAsync(quizId))
             .ReturnsAsync(new QuizAttempt
@@ -285,26 +292,73 @@ public class QuizServiceTests
                 Id = quizId,
                 UserId = _testUserId,
                 IsSubmitted = false,
-                StageProgressId = stageId
+                StageProgressId = stageId,
+                QuestionsDataJson = """
+                [
+                  {
+                    "question_id": "q1",
+                    "question_text": "Question 1",
+                    "choices": [
+                      {"label": "A", "text": "Choice A"},
+                      {"label": "B", "text": "Choice B"}
+                    ],
+                    "correct_answer": "A"
+                  }
+                ]
+                """
             });
 
         _scoringMock.Setup(s => s.Score(It.IsAny<string>(), request.Answers, It.IsAny<decimal>()))
             .Returns(new QuizScoreResult(0, 4, 0, false));
 
-        _quizRepoMock.Setup(r => r.SubmitAsync(quizId, It.IsAny<string>(), 0, 0, false))
-            .ReturnsAsync(new QuizAttempt { SubmittedAt = DateTime.UtcNow });
+        _quizRepoMock.Setup(r => r.UpdateAsync(It.IsAny<QuizAttempt>()))
+            .ReturnsAsync((QuizAttempt a) =>
+            {
+                a.SubmittedAt = DateTime.UtcNow;
+                return a;
+            });
 
-        _roadmapServiceMock.Setup(r => r.AdaptRoadmapAsync(
-                stageId, It.IsAny<string>(), It.IsAny<string>(), 0, _testUserId))
-            .ReturnsAsync(new Roadmap());
+        _stageRepoMock.Setup(r => r.GetByIdAsync(stageId))
+            .ReturnsAsync(new UserStageProgress
+            {
+                Id = stageId,
+                RoadmapId = 1,
+                StageIndex = 0,
+                AiStageId = "stage_0",
+                StageName = "Intro",
+                Roadmap = new Roadmap
+                {
+                    UserTrackId = 1,
+                    RoadmapDataJson = ValidRoadmapJson
+                }
+            });
 
-        var result = await _sut.SubmitQuizAsync(quizId, _testUserId, request);
+        _trackRepoMock.Setup(r => r.GetActiveTrackByUserIdAsync(_testUserId))
+            .ReturnsAsync(new UserTrack
+            {
+                Id = 1,
+                CareerTrack = new CareerTrack { Slug = "frontend-developer" }
+            });
+
+        _aiGatewayMock.Setup(ai => ai.GetAdaptedRoadmapAsync(
+                _testUserId, "frontend-developer", "stage_0", "Intro",
+                It.IsAny<string>(), It.IsAny<List<string>>(),
+                It.IsAny<List<FailedQuestion>>(), 0, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AdaptationResult
+            {
+                RemediationResourcesJson = "{}",
+                StrugglingTopics = new List<string> { "CSS" }
+            });
+
+        var result = await _sut.SubmitQuizAsync(quizId, request, _testUserId);
 
         Assert.False(result.IsPassed);
         Assert.True(result.RoadmapAdapted);
         _stageRepoMock.Verify(r => r.CompleteStageAsync(It.IsAny<Guid>()), Times.Never);
-        _roadmapServiceMock.Verify(
-            r => r.AdaptRoadmapAsync(stageId, It.IsAny<string>(),
-                                     It.IsAny<string>(), 0, _testUserId), Times.Once);
+        _aiGatewayMock.Verify(ai => ai.GetAdaptedRoadmapAsync(
+            _testUserId, "frontend-developer", "stage_0", "Intro",
+            It.IsAny<string>(), It.IsAny<List<string>>(),
+            It.IsAny<List<FailedQuestion>>(), 0, It.IsAny<CancellationToken>()), Times.Once);
+        _stageRepoMock.Verify(r => r.PatchResourcesAsync(stageId, "{}"), Times.Once);
     }
 }

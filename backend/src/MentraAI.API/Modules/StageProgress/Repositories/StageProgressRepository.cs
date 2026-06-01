@@ -72,4 +72,15 @@ public class StageProgressRepository : IStageProgressRepository
     public async Task<bool> HasPendingQuizAsync(Guid stageProgressId) =>
         await _db.QuizAttempts
             .AnyAsync(q => q.StageProgressId == stageProgressId && !q.IsSubmitted);
+
+    public async Task PatchResourcesAsync(Guid stageProgressId, string remediationResourcesJson)
+    {
+        var stage = await _db.UserStageProgress
+            .FirstOrDefaultAsync(s => s.Id == stageProgressId);
+
+        if (stage is null) return;
+
+        stage.ResourcesDataJson = remediationResourcesJson;
+        await _db.SaveChangesAsync();
+    }
 }

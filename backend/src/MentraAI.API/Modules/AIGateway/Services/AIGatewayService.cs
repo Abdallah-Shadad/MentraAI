@@ -7,6 +7,7 @@ using MentraAI.API.Modules.Chat.DTOs.Requests;
 using MentraAI.API.Modules.Users.Models;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -24,7 +25,7 @@ public class AIGatewayService : IAIGatewayService
     }
 
     // =====================================================================
-    // PREDICT CAREER  —  Phase 3
+    // PREDICT CAREER
     // =====================================================================
     public async Task<PredictionResult> PredictCareerAsync(
         string userId,
@@ -79,60 +80,34 @@ public class AIGatewayService : IAIGatewayService
         List<string> currentSkills,
         CancellationToken ct = default)
     {
-
-        // Contract Mode 1: only user_id, career_track, weekly_hours, is_stage_progression
-        // The extra profile fields (user_background, current_skills) are NOT in the contract.
         var request = new
         {
             user_id = userId,
             career_track = careerTrackSlug,
             weekly_hours = weeklyHours,
             is_stage_progression = false,
-            // these fields are only for Mode 2 (stage resources) and Mode 3 (adaptation), so we send them as null in Mode 1
             current_stage = (object?)null,
             curriculum = (object?)null,
             current_stage_index = (int?)null,
             learner_progress = (object?)null
         };
 
-        // Use JsonSerializerOptions to prevent sending empty fieldss as {} or [] and instead send them as null, which is what the AI contract expects for non-applicable fields in Mode 1.
         var options = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 
-        _logger.LogInformation(
-            "AI Request => UserId: {UserId}, CareerTrack: {CareerTrack}, WeeklyHours: {WeeklyHours}",
-            request.user_id,
-            request.career_track,
-            request.weekly_hours
-        );
+        _logger.LogInformation("AI Request => UserId: {UserId}, CareerTrack: {CareerTrack}", request.user_id, request.career_track);
         var response = await _http.PostAsJsonAsync("/api/v1/roadmap/", request, options, ct);
 
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogError("AI roadmap error {Status}: {Body}", response.StatusCode, body);
             throw new AIServiceException($"AI returned {(int)response.StatusCode}");
         }
 
         var rawJson = await response.Content.ReadAsStringAsync(ct);
-        Console.WriteLine("--- RAW AI RESPONSE START ---");
-        Console.WriteLine(rawJson);
-        Console.WriteLine("--- RAW AI RESPONSE END ---");
-        RoadmapAIResponse aiResponse;
-        try
-        {
-            aiResponse = JsonSerializer.Deserialize<RoadmapAIResponse>(rawJson)
-                ?? throw new AIValidationException("AI returned empty roadmap response");
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogError(ex, "Malformed roadmap JSON from AI");
-            throw new AIValidationException("AI returned malformed JSON");
-        }
+        RoadmapAIResponse aiResponse = JsonSerializer.Deserialize<RoadmapAIResponse>(rawJson) ?? throw new AIValidationException("Empty response");
 
         RoadmapAIResponseValidator.Validate(aiResponse);
-
         var data = aiResponse.Roadmap!.Data!;
-        var stages = data.Curriculum!.Stages;
 
         return new RoadmapGenerationResult
         {
@@ -140,7 +115,7 @@ public class AIGatewayService : IAIGatewayService
             DifficultyLevel = data.DifficultyLevel,
             TotalWeeks = data.TotalWeeks,
             SkillGaps = data.SkillGaps,
-            Stages = stages.Select(s => new RoadmapStage
+            Stages = data.Curriculum!.Stages.Select(s => new RoadmapStage
             {
                 AiStageId = s.Id,
                 Name = s.Name,
@@ -158,27 +133,12 @@ public class AIGatewayService : IAIGatewayService
         string careerTrack,
         int weeklyHours,
         string aiStageId,
-        int stageIndex,
-        string roadmapDataJson,
+        string stageName,
+        List<string> topics,
+        List<string> learningObjectives,
+        int estimatedWeeks,
         CancellationToken ct = default)
     {
-        RoadmapData roadmapData;
-        try
-        {
-            using var doc = JsonDocument.Parse(roadmapDataJson);
-            var root = doc.RootElement;
-            var dataEl = root.TryGetProperty("roadmap", out var rm) &&
-                             rm.TryGetProperty("data", out var d) ? d : root;
-
-            roadmapData = JsonSerializer.Deserialize<RoadmapData>(dataEl.GetRawText())
-                ?? throw new AIValidationException("Stored roadmap data is invalid");
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogError(ex, "Failed to parse stored roadmap JSON");
-            throw new AIValidationException("Stored roadmap data is malformed");
-        }
-
         var request = new RoadmapAIRequest
         {
             UserId = userId,
@@ -192,13 +152,10 @@ public class AIGatewayService : IAIGatewayService
                 Topics = topics,
                 LearningObjectives = learningObjectives,
                 EstimatedWeeks = estimatedWeeks
-            },
-            Curriculum = null,
-            CurrentStageIndex = null,
-            LearnerProgress = null
+            }
         };
 
-        var response = await _http.PostAsJsonAsync("/api/v1/roadmap", request, ct);
+        var response = await _http.PostAsJsonAsync("/api/v1/roadmap/", request, ct);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -243,6 +200,7 @@ public class AIGatewayService : IAIGatewayService
         }
 
         var rawBody = await response.Content.ReadAsStringAsync(ct);
+        await System.IO.File.WriteAllTextAsync("quiz_response.json", rawBody, ct);
 
         QuizAIResponse? aiResponse;
         try
@@ -255,7 +213,15 @@ public class AIGatewayService : IAIGatewayService
             throw new AIValidationException($"AI returned invalid JSON: {ex.Message}");
         }
 
-        QuizAIResponseValidator.Validate(aiResponse!);
+        try
+        {
+            QuizAIResponseValidator.Validate(aiResponse!);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AI quiz validation failed. Raw response: {Body}", rawBody);
+            throw;
+        }
 
         var questionsDataJson = JsonSerializer.Serialize(aiResponse!.Quiz!.Questions);
 
@@ -287,16 +253,16 @@ public class AIGatewayService : IAIGatewayService
     }
 
     // =====================================================================
-    // GET ADAPTED ROADMAP  —  Phase 6 stub
+    // GET ADAPTED ROADMAP (REMEDIATION) — Mode 3
     // =====================================================================
-    public Task<RoadmapGenerationResult> GetAdaptedRoadmapAsync(
+    public async Task<AdaptationResult> GetAdaptedRoadmapAsync(
         string userId,
         string careerTrack,
         string aiStageId,
         string stageName,
         string difficultyLevel,
-        string questionsDataJson,
-        string userAnswersDataJson,
+        List<string> learningObjectives,
+        List<FailedQuestion> failedQuestions,
         decimal score,
         CancellationToken ct = default)
     {
@@ -322,34 +288,21 @@ public class AIGatewayService : IAIGatewayService
         }
 
         var rawBody = await response.Content.ReadAsStringAsync(ct);
+        AdaptationAIResponse aiResponse = JsonSerializer.Deserialize<AdaptationAIResponse>(rawBody)!;
 
-        AdaptationAIResponse? aiResponse;
-        try
-        {
-            aiResponse = JsonSerializer.Deserialize<AdaptationAIResponse>(rawBody);
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogWarning("Adaptation AI returned invalid JSON. Body: {Body}", rawBody);
-            throw new AIValidationException($"Adaptation AI returned invalid JSON: {ex.Message}");
-        }
-
-        AdaptationAIResponseValidator.Validate(aiResponse!);
-
-        var data = aiResponse!.AdditionalResource!.Data!;
-        var adaptedStage = data.Curriculum!.Stages.First(s => s.Adapted);
+        var data = aiResponse.AdditionalResource!.Data!;
 
         return new AdaptationResult
         {
-            // Store the entire raw response JSON as ResourcesDataJson.
-            // StageProgressService.BuildResourcesResponse already handles the normal
-            // stage_resources path. For adaptation we store the whole response so the
-            // frontend endpoint GET /stages/{id}/resources still works — it will need
-            // to also handle the adaptation response shape.
-            // See Note in section B about dual-format ResourcesDataJson.
             RemediationResourcesJson = rawBody,
             Summary = data.Summary,
-            StrugglingTopics = data.StrugglingTopics
+            StrugglingTopics = data.StrugglingTopics,
+            Stages = data.Curriculum!.Stages.Select(s => new RoadmapStage
+            {
+                AiStageId = s.Id,
+                Name = s.Name,
+                EstimatedWeeks = s.EstimatedWeeks
+            }).ToList()
         };
     }
 

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
+using MentraAI.API.Common.Serialization;
 
 namespace MentraAI.API.Modules.AIGateway.DTOs.Responses;
 
@@ -36,6 +37,8 @@ public class AIStage
     [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
     [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
     [JsonPropertyName("topics")] public List<string> Topics { get; set; } = new();
-    [JsonPropertyName("learning_objectives")] public Dictionary<string, string> LearningObjectives { get; set; } = new();
+    [JsonPropertyName("learning_objectives")]
+    [JsonConverter(typeof(FlexibleStringListConverter))]
+    public List<string> LearningObjectives { get; set; } = new();
     [JsonPropertyName("estimated_weeks")] public int EstimatedWeeks { get; set; }
 }
