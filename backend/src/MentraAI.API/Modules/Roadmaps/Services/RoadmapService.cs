@@ -1,5 +1,6 @@
 using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
+using MentraAI.API.Modules.AIGateway.DTOs.Requests;
 using MentraAI.API.Modules.AIGateway.InternalModels;
 using MentraAI.API.Modules.AIGateway.Services;
 using MentraAI.API.Modules.CareerTracks.Repositories;
@@ -38,29 +39,28 @@ public class RoadmapService : IRoadmapService
     public async Task<RoadmapResponse> GenerateRoadmapAsync(string userId)
     {
         var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
-             ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track.", 422);
+             ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track found for this user.", 422);
+
+        int lastVersion = await _roadmapRepo.GetMaxVersionAsync(userTrack.Id);
 
         if (await _roadmapRepo.HasActiveRoadmapAsync(userTrack.Id))
             throw new AppException(ErrorCodes.ROADMAP_ALREADY_EXISTS, "An active roadmap already exists.", 409);
 
         var profile = await _userService.GetProfileAsync(userId);
-
-        // Map the new Profile structure to a background string for the AI
-        var userBackground = $"Age: {profile.Age}, Education: {profile.EdLevel}, " +
-                             $"Experience: {profile.YearsCode} years, Industry: {profile.Industry}, " +
-                             $"Role: {profile.Employment}";
+        var userBackground = $"Age: {profile.Age}, Education: {profile.EdLevel}, Experience: {profile.YearsCode} years...";
 
         var result = await _aiGateway.GenerateRoadmapAsync(
             userId: userId,
             careerTrackSlug: userTrack.CareerTrack.Slug,
-            weeklyHours: 10, // Default fallback
+            weeklyHours: 10,
             userBackground: userBackground,
-            currentSkills: profile.CurrentSkills ?? new List<string>());
+            currentSkills: profile.CurrentSkills ?? new List<string>()
+        );
 
         var roadmap = new Roadmap
         {
             UserTrackId = userTrack.Id,
-            VersionNumber = 1,
+            VersionNumber = lastVersion + 1,
             IsActive = true,
             TriggerType = "INITIAL",
             RoadmapDataJson = result.RoadmapDataJson,
@@ -116,7 +116,79 @@ public class RoadmapService : IRoadmapService
         };
     }
 
+    // FIXED: Replaced string JSONs with List<FailedQuestion> to match the exact pipeline
+    public async Task<Roadmap> AdaptRoadmapAsync(
+        Guid stageProgressId,
+        List<FailedQuestion> failedQuestions,
+        decimal score,
+        string userId)
+    {
+        var stage = await _stageRepo.GetByIdAsync(stageProgressId)
+            ?? throw new AppException(ErrorCodes.STAGE_NOT_FOUND, "Stage not found.", 404);
 
+        var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
+            ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track.", 422);
+
+        var currentRoadmap = await _roadmapRepo.GetActiveRoadmapAsync(userTrack.Id)
+            ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND, "No active roadmap.", 404);
+
+        var adaptResult = await _aiGateway.GetAdaptedRoadmapAsync(
+            userId: userId,
+            careerTrack: userTrack.CareerTrack.Slug, // IMPORTANT: Sending the slug
+            aiStageId: stage.AiStageId,
+            stageName: stage.StageName,
+            difficultyLevel: ExtractDifficultyLevel(currentRoadmap.RoadmapDataJson),
+            learningObjectives: new List<string>(), // Handled by AI based on failed questions
+            failedQuestions: failedQuestions,
+            score: score);
+
+        var nextVersion = await _roadmapRepo.GetMaxVersionAsync(userTrack.Id) + 1;
+        var newRoadmap = new Roadmap
+        {
+            UserTrackId = userTrack.Id,
+            VersionNumber = nextVersion,
+            IsActive = true,
+            TriggerType = "ADAPTATION",
+            RoadmapDataJson = adaptResult.RemediationResourcesJson, // Stores the raw adaptation JSON
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var newStages = new List<UserStageProgress>();
+        int failedIndex = stage.StageIndex;
+
+        for (int i = 0; i < adaptResult.Stages.Count; i++)
+        {
+            var s = adaptResult.Stages[i];
+            var status = i < failedIndex ? "COMPLETED"
+                       : i == failedIndex ? "ACTIVE"
+                       : "LOCKED";
+
+            newStages.Add(new UserStageProgress
+            {
+                Id = Guid.NewGuid(),
+                StageIndex = i,
+                AiStageId = s.AiStageId,
+                StageName = s.Name,
+                Status = status,
+                UnlockedAt = status == "ACTIVE" ? DateTime.UtcNow : null,
+                CompletedAt = null
+            });
+        }
+
+        return await _roadmapRepo.CreateNewVersionAsync(currentRoadmap, newRoadmap, newStages);
+    }
+
+    public async Task DeactivateActiveRoadmapAsync(string userId)
+    {
+        var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
+            ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track.", 422);
+
+        var roadmap = await _roadmapRepo.GetActiveRoadmapAsync(userTrack.Id)
+            ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND, "No active roadmap found.", 404);
+
+        roadmap.IsActive = false;
+        await _roadmapRepo.UpdateAsync(roadmap);
+    }
 
     private static RoadmapResponse BuildRoadmapResponse(
         Roadmap roadmap,
@@ -182,7 +254,7 @@ public class RoadmapService : IRoadmapService
                         EstimatedWeeks = s.TryGetProperty("estimated_weeks", out var ew) ? ew.GetInt32() : 0,
                         Topics = s.TryGetProperty("topics", out var top)
                             ? top.EnumerateArray().Select(x => x.GetString() ?? "").ToList()
-                            : new List<string>()
+                            : new List<string>(),
                     });
                 }
             }

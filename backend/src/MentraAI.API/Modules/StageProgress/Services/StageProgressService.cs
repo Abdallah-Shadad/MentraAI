@@ -11,6 +11,7 @@ using MentraAI.API.Modules.StageProgress.Models;
 using MentraAI.API.Modules.StageProgress.Repositories;
 using MentraAI.API.Modules.Users.Services;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MentraAI.API.Modules.StageProgress.Services;
 
@@ -36,7 +37,6 @@ public class StageProgressService : IStageProgressService
         _userService = userService;
     }
 
-    // ── GET /stages ─────────────────────────────────────────────────────────
     public async Task<StageListResponse> GetAllStagesAsync(string userId)
     {
         var roadmap = await GetActiveRoadmapForUserAsync(userId);
@@ -55,14 +55,12 @@ public class StageProgressService : IStageProgressService
         };
     }
 
-    // ── GET /stages/current ──────────────────────────────────────────────────
     public async Task<CurrentStageResponse> GetCurrentStageAsync(string userId)
     {
         var roadmap = await GetActiveRoadmapForUserAsync(userId);
         var activeStage = await _stageRepo.GetActiveStageAsync(roadmap.Id)
             ?? throw new AppException(ErrorCodes.STAGE_NOT_FOUND, "No active stage found.", 404);
 
-        // FIX Issue: Implement HasPendingQuizAsync in StageProgressRepository to check for pending quizzes
         var hasPendingQuiz = await _stageRepo.HasPendingQuizAsync(activeStage.Id);
 
         return new CurrentStageResponse
@@ -76,140 +74,149 @@ public class StageProgressService : IStageProgressService
         };
     }
 
-    // ── POST /stages/{stageProgressId}/enter ────────────────────────────────
     public async Task<StageResourcesResponse> EnterStageAsync(Guid stageProgressId, string userId)
     {
         var (stage, userTrack, roadmap) = await ValidateStageOwnershipAsync(stageProgressId, userId);
 
         if (stage.Status == "LOCKED")
-            throw new AppException(ErrorCodes.STAGE_LOCKED,
-                "This stage is not unlocked yet.", 422);
+            throw new AppException(ErrorCodes.STAGE_LOCKED, "This stage is not unlocked yet.", 422);
 
-        // Cache hit
         if (stage.ResourcesDataJson != null)
             return BuildResourcesResponse(stage);
 
-        // FIX: Use safe access to profile data. 
-        // Since WeeklyHours is gone, we use a default or derive it from YearsCode.
         var profileResponse = await _userService.GetProfileAsync(userId);
-
-        // Example logic: if the user has 0-1 years of experience, assume 10 hours/week, 
-        // otherwise assume 15. Adjust this business logic as needed.
         int weeklyHours = (profileResponse.YearsCode ?? 0) < 1 ? 10 : 15;
 
-        // Parse curriculum details for current stage from RoadmapDataJson
-        List<string> topics = new();
-        List<string> learningObjectives = new();
-        int estimatedWeeks = 2;
+        var stageInfo = ExtractStageFromRoadmapJson(roadmap.RoadmapDataJson, stage.StageIndex);
 
-        try
-        {
-            using var doc = JsonDocument.Parse(roadmap.RoadmapDataJson);
-            var root = doc.RootElement;
-            var dataEl = root.TryGetProperty("roadmap", out var rm) &&
-                         rm.TryGetProperty("data", out var d) ? d : root;
-
-            if (dataEl.TryGetProperty("curriculum", out var curr) &&
-                curr.TryGetProperty("stages", out var stagesEl) &&
-                stagesEl.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var stageEl in stagesEl.EnumerateArray())
-                {
-                    if (stageEl.TryGetProperty("id", out var idEl) && idEl.GetString() == stage.AiStageId)
-                    {
-                        if (stageEl.TryGetProperty("topics", out var topicsEl) && topicsEl.ValueKind == JsonValueKind.Array)
-                        {
-                            topics = topicsEl.EnumerateArray().Select(t => t.GetString() ?? "").ToList();
-                        }
-                        if (stageEl.TryGetProperty("learning_objectives", out var objectivesEl) && objectivesEl.ValueKind == JsonValueKind.Array)
-                        {
-                            learningObjectives = objectivesEl.EnumerateArray().Select(o => o.GetString() ?? "").ToList();
-                        }
-                        if (stageEl.TryGetProperty("estimated_weeks", out var weeksEl))
-                        {
-                            estimatedWeeks = weeksEl.GetInt32();
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-        catch (Exception)
-        {
-            // Silently fall back to defaults
-        }
-
-        // Cache miss — call AI for resources
+        // FIXED: Changed careerTrack to use Slug instead of Name to perfectly match AI requirements
         var result = await _aiGateway.GetStageResourcesAsync(
             userId: userId,
-            careerTrack: userTrack.CareerTrack.Name,
+            careerTrack: userTrack.CareerTrack.Slug,
             weeklyHours: weeklyHours,
             aiStageId: stage.AiStageId,
             stageName: stage.StageName,
-            topics: topics,
-            learningObjectives: learningObjectives,
-            estimatedWeeks: estimatedWeeks);
+            topics: stageInfo.Topics,
+            learningObjectives: stageInfo.LearningObjectives,
+            estimatedWeeks: stageInfo.EstimatedWeeks);
 
-        // Cache the result
         stage.ResourcesDataJson = result.ResourcesDataJson;
         await _stageRepo.UpdateAsync(stage);
 
         return BuildResourcesResponse(stage);
     }
 
-    // ── GET /stages/{stageProgressId}/resources ──────────────────────────────
     public async Task<StageResourcesResponse> GetResourcesAsync(Guid stageProgressId, string userId)
     {
         var (stage, _, _) = await ValidateStageOwnershipAsync(stageProgressId, userId);
 
-        // FIX Issue: Reject only LOCKED stages. Allow ACTIVE and COMPLETED.
         if (stage.Status == "LOCKED")
-            throw new AppException(ErrorCodes.STAGE_LOCKED,
-                "This stage is not unlocked yet.", 422);
+            throw new AppException(ErrorCodes.STAGE_LOCKED, "This stage is not unlocked yet.", 422);
 
         if (stage.ResourcesDataJson == null)
-            throw new AppException(ErrorCodes.RESOURCES_NOT_FETCHED,
-                "Resources not available yet. Enter the stage first.", 422);
+            throw new AppException(ErrorCodes.RESOURCES_NOT_FETCHED, "Resources not available yet. Enter the stage first.", 422);
 
         return BuildResourcesResponse(stage);
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
     private async Task<Roadmap> GetActiveRoadmapForUserAsync(string userId)
     {
         var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
-            ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK,
-                "No active career track selected.", 422);
+            ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active career track selected.", 422);
 
         return await _roadmapRepo.GetActiveRoadmapAsync(userTrack.Id)
-            ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND,
-                "No active roadmap found. Generate one first.", 404);
+            ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND, "No active roadmap found. Generate one first.", 404);
     }
 
-    private async Task<(UserStageProgress stage, UserTrack userTrack, Roadmap roadmap)>
-        ValidateStageOwnershipAsync(Guid stageProgressId, string userId)
+    private async Task<(UserStageProgress stage, UserTrack userTrack, Roadmap roadmap)> ValidateStageOwnershipAsync(Guid stageProgressId, string userId)
     {
         var stage = await _stageRepo.GetByIdAsync(stageProgressId)
-            ?? throw new AppException(ErrorCodes.STAGE_NOT_FOUND,
-                "Stage not found.", 404);
+            ?? throw new AppException(ErrorCodes.STAGE_NOT_FOUND, "Stage not found.", 404);
 
-        // Verify this stage belongs to the user's active roadmap
         var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
-            ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK,
-                "No active career track selected.", 422);
+            ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active career track selected.", 422);
 
         var roadmap = await _roadmapRepo.GetActiveRoadmapAsync(userTrack.Id)
-            ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND,
-                "No active roadmap found.", 404);
+            ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND, "No active roadmap found.", 404);
 
         if (stage.RoadmapId != roadmap.Id)
-            throw new AppException(ErrorCodes.STAGE_NOT_FOUND,
-                "Stage not found.", 404);
+            throw new AppException(ErrorCodes.STAGE_NOT_FOUND, "Stage not found.", 404);
 
         return (stage, userTrack, roadmap);
     }
 
+    private static StageInfo ExtractStageFromRoadmapJson(string roadmapDataJson, int stageIndex)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(roadmapDataJson);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("roadmap", out var rm) &&
+                rm.TryGetProperty("data", out var data) &&
+                data.TryGetProperty("curriculum", out var curr) &&
+                curr.TryGetProperty("stages", out var stagesEl))
+            {
+                var stages = stagesEl.EnumerateArray().ToList();
+                if (stageIndex < stages.Count)
+                {
+                    var s = stages[stageIndex];
+                    return new StageInfo
+                    {
+                        Topics = s.TryGetProperty("topics", out var topicsEl)
+                            ? ParseJsonStringList(topicsEl)
+                            : new List<string>(),
+                        LearningObjectives = s.TryGetProperty("learning_objectives", out var loEl)
+                            ? ParseJsonStringList(loEl)
+                            : new List<string>(),
+                        EstimatedWeeks = s.TryGetProperty("estimated_weeks", out var ew) ? ew.GetInt32() : 1
+                    };
+                }
+            }
+        }
+        catch { }
+
+        return new StageInfo(new(), new(), 1);
+    }
+
+    private static List<string> ParseJsonStringList(JsonElement element)
+    {
+        var list = new List<string>();
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                var val = item.GetString();
+                if (!string.IsNullOrWhiteSpace(val))
+                    list.Add(val);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in element.EnumerateObject())
+            {
+                var val = prop.Value.GetString();
+                if (!string.IsNullOrWhiteSpace(val))
+                    list.Add($"{prop.Name}: {val}");
+                else if (!string.IsNullOrWhiteSpace(prop.Name))
+                    list.Add(prop.Name);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.String)
+        {
+            var val = element.GetString();
+            if (!string.IsNullOrWhiteSpace(val))
+                list.Add(val);
+        }
+        return list;
+    }
+
+    private record StageInfo(List<string> Topics, List<string> LearningObjectives, int EstimatedWeeks)
+    {
+        public StageInfo() : this(new(), new(), 1) { }
+    }
+
+    // FIXED: Support for dual-format (Normal Mode 2 resources AND Mode 3 adaptation resources)
     private static StageResourcesResponse BuildResourcesResponse(UserStageProgress stage)
     {
         var resources = new StageResources();
@@ -221,69 +228,54 @@ public class StageProgressService : IStageProgressService
                 using var doc = JsonDocument.Parse(stage.ResourcesDataJson);
                 var root = doc.RootElement;
 
-                // 1. Check if it's an Adaptation Response (contains Additional_Resource)
-                if (root.TryGetProperty("Additional_Resource", out var addRes) &&
-                    addRes.TryGetProperty("data", out var addData) &&
-                    addData.TryGetProperty("curriculum", out var addCurr) &&
-                    addCurr.TryGetProperty("stages", out var addStages) &&
-                    addStages.ValueKind == JsonValueKind.Array)
+                // Check if this JSON belongs to an Adaptation Engine (Mode 3) response
+                if (root.TryGetProperty("Additional_Resource", out var additionalEl))
                 {
-                    var targetStageEl = addStages.EnumerateArray()
-                        .FirstOrDefault(s => (s.TryGetProperty("id", out var idEl) && idEl.GetString() == stage.AiStageId) 
-                                             || (s.TryGetProperty("adapted", out var adaptEl) && adaptEl.GetBoolean()));
-                    
-                    if (targetStageEl.ValueKind == JsonValueKind.Object &&
-                        targetStageEl.TryGetProperty("resources", out var resourcesEl) &&
-                        resourcesEl.ValueKind == JsonValueKind.Array)
+                    if (additionalEl.TryGetProperty("data", out var adaptData) &&
+                        adaptData.TryGetProperty("curriculum", out var adaptCurr) &&
+                        adaptCurr.TryGetProperty("stages", out var adaptStages))
                     {
-                        var remResources = JsonSerializer.Deserialize<List<RemediationResource>>(resourcesEl.GetRawText())
-                                           ?? new List<RemediationResource>();
-                        
-                        foreach (var res in remResources)
+                        var targetStage = adaptStages.EnumerateArray().FirstOrDefault();
+                        if (targetStage.ValueKind != JsonValueKind.Undefined && targetStage.TryGetProperty("resources", out var resList))
                         {
-                            var type = res.ResourceType.ToLowerInvariant();
-                            if (type.Contains("video"))
+                            foreach (var item in resList.EnumerateArray())
                             {
-                                resources.Videos.Add(new VideoResource
+                                var title = item.TryGetProperty("title", out var t) ? t.GetString() ?? "" : "";
+                                var url = item.TryGetProperty("url", out var u) ? u.GetString() ?? "" : "";
+                                var source = item.TryGetProperty("source", out var src) ? src.GetString() ?? "" : "";
+
+                                if (source.ToLower() == "youtube" || source.ToLower() == "video")
                                 {
-                                    Title = res.Title,
-                                    Url = res.Url,
-                                    DurationMinutes = res.DurationMin
-                                });
-                            }
-                            else if (type.Contains("article") || type.Contains("blog") || type.Contains("read"))
-                            {
-                                resources.Articles.Add(new ArticleResource
+                                    resources.Videos.Add(new VideoResource { Title = title, Url = url });
+                                }
+                                else
                                 {
-                                    Title = res.Title,
-                                    Url = res.Url,
-                                    EstimatedMinutes = res.DurationMin
-                                });
-                            }
-                            else
-                            {
-                                resources.Documentation.Add(new DocumentationResource
-                                {
-                                    Title = res.Title,
-                                    Url = res.Url
-                                });
+                                    resources.Articles.Add(new ArticleResource { Title = title, Url = url });
+                                }
                             }
                         }
                     }
                 }
-                // 2. Check if it's a Standard Response (contains roadmap -> data)
-                else if (root.TryGetProperty("roadmap", out var roadmap) &&
-                         roadmap.TryGetProperty("data", out var data))
+                else // Default Path: Mode 2 Normal Resources
                 {
-                    resources = JsonSerializer.Deserialize<StageResources>(data.GetRawText(), new JsonSerializerOptions
+                    var raw = JsonSerializer.Deserialize<ResourcesRoot>(stage.ResourcesDataJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    var topicsResources = raw?.Roadmap?.Data?.StageResources?.TopicsResources ?? new List<TopicResources>();
+
+                    foreach (var topic in topicsResources)
                     {
-                        PropertyNameCaseInsensitive = true
-                    }) ?? new StageResources();
+                        if (topic.Videos != null)
+                            resources.Videos.AddRange(topic.Videos.Select(v => new VideoResource { Title = v.Title, Url = v.Url }));
+
+                        if (topic.Articles != null)
+                            resources.Articles.AddRange(topic.Articles.Select(a => new ArticleResource { Title = a.Title, Url = a.Url }));
+
+                        if (topic.Documentation != null)
+                            resources.Documentation.AddRange(topic.Documentation.Select(d => new DocumentationResource { Title = d.Title, Url = d.Url }));
+                    }
                 }
             }
-            catch (Exception)
+            catch
             {
-                // Silently return empty resources instead of crashing.
                 resources = new StageResources();
             }
         }
@@ -296,5 +288,41 @@ public class StageProgressService : IStageProgressService
             Status = stage.Status,
             Resources = resources
         };
+    }
+
+    private class ResourcesRoot
+    {
+        [JsonPropertyName("roadmap")] public ResourcesRoadmapPayload? Roadmap { get; set; }
+    }
+
+    private class ResourcesRoadmapPayload
+    {
+        [JsonPropertyName("data")] public ResourcesData? Data { get; set; }
+    }
+
+    private class ResourcesData
+    {
+        [JsonPropertyName("stage_resources")] public StageResourcesPayload? StageResources { get; set; }
+    }
+
+    private class StageResourcesPayload
+    {
+        [JsonPropertyName("topics_resources")] public List<TopicResources> TopicsResources { get; set; } = new();
+    }
+
+    private class TopicResources
+    {
+        [JsonPropertyName("topic_name")] public string TopicName { get; set; } = string.Empty;
+        [JsonPropertyName("videos")] public List<ResourceItem>? Videos { get; set; }
+        [JsonPropertyName("articles")] public List<ResourceItem>? Articles { get; set; }
+        [JsonPropertyName("documentation")] public List<ResourceItem>? Documentation { get; set; }
+    }
+
+    private class ResourceItem
+    {
+        [JsonPropertyName("title")] public string Title { get; set; } = string.Empty;
+        [JsonPropertyName("url")] public string Url { get; set; } = string.Empty;
+        [JsonPropertyName("type")] public string Type { get; set; } = string.Empty;
+        [JsonPropertyName("quality_score")] public double QualityScore { get; set; }
     }
 }

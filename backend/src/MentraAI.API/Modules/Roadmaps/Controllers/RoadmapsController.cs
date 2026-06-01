@@ -1,8 +1,9 @@
-﻿using System.Security.Claims;
+﻿using MentraAI.API.Common.Models;
+using MentraAI.API.Modules.Roadmaps.DTOs.Requests;
+using MentraAI.API.Modules.Roadmaps.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MentraAI.API.Common.Models;
-using MentraAI.API.Modules.Roadmaps.Services;
+using System.Security.Claims;
 
 namespace MentraAI.API.Modules.Roadmaps.Controllers;
 
@@ -43,5 +44,13 @@ public class RoadmapsController : ControllerBase
     {
         var result = await _roadmapService.GetHistoryAsync(GetUserId());
         return Ok(ApiResponse<object>.Ok(result));
+    }
+    // DELETE /api/v1/roadmaps/current
+    [HttpDelete("current")]
+    public async Task<IActionResult> DeactivateCurrentRoadmap()
+    {
+        var userId = GetUserId();
+        await _roadmapService.DeactivateActiveRoadmapAsync(userId);
+        return Ok(ApiResponse<object>.Ok("Roadmap deactivated."));
     }
 }

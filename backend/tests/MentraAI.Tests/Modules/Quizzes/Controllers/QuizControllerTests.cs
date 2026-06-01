@@ -102,7 +102,7 @@ public class QuizControllerTests
             .ReturnsAsync(new ValidationResult());
 
         _quizServiceMock
-            .Setup(s => s.SubmitQuizAsync(quizId, _testUserId, request))
+            .Setup(s => s.SubmitQuizAsync(quizId, request, _testUserId))
             .ReturnsAsync(expectedResponse);
 
         // Act

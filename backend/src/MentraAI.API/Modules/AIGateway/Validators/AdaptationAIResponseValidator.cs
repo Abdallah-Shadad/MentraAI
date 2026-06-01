@@ -1,4 +1,4 @@
-using MentraAI.API.Common.Exceptions;
+﻿using MentraAI.API.Common.Exceptions;
 using MentraAI.API.Modules.AIGateway.DTOs.Responses;
 
 namespace MentraAI.API.Modules.AIGateway.Validators;

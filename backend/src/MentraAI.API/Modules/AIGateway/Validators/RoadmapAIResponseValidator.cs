@@ -25,6 +25,9 @@ public static class RoadmapAIResponseValidator
                 throw new AIValidationException($"Stage {s.Id} has no name");
             if (s.Topics is null or { Count: 0 })
                 throw new AIValidationException($"Stage {s.Id} has no topics");
+
+            if (s.LearningObjectives is null || s.LearningObjectives.Count == 0)
+                throw new AIValidationException($"Stage {s.Id} has no learning objectives");
         }
     }
 }

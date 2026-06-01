@@ -1,4 +1,4 @@
-namespace MentraAI.API.Modules.AIGateway.InternalModels;
+﻿namespace MentraAI.API.Modules.AIGateway.InternalModels;
 
 // Internal model returned from AIGatewayService.GetAdaptedRoadmapAsync to QuizService.
 // Contains the raw remedial resources JSON to store in UserStageProgress.ResourcesDataJson
@@ -14,4 +14,7 @@ public class AdaptationResult
 
     // Topics the learner needs to review
     public List<string> StrugglingTopics { get; set; } = new();
+
+    // The new roadmap stages to insert into the user's roadmap, based on the failed quiz questions.
+    public List<RoadmapStage> Stages { get; set; } = new();
 }
