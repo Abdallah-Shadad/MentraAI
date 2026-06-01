@@ -6,9 +6,12 @@ namespace MentraAI.API.Modules.Quizzes.Services;
 public interface IQuizService
 {
     Task<QuizResponse> GenerateQuizAsync(Guid stageProgressId, string userId);
+
     Task<QuizResponse> GetQuizAsync(Guid quizId, string userId);
-    Task<QuizSubmitResponse> SubmitQuizAsync(Guid quizId, string userId, SubmitQuizRequest request);
-    Task<QuizHistoryResponse> GetHistoryAsync(Guid stageProgressId, string userId);
+
+    Task<QuizSubmitResponse> SubmitQuizAsync(Guid quizId, SubmitQuizRequest request, string userId);
+
+    Task<List<QuizHistoryResponse>> GetHistoryAsync(Guid stageProgressId, string userId);
 
     Task<string> GetQuestionHintAsync(Guid quizId, string questionId, int hintIndex, string userId);
 }

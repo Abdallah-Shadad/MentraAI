@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace MentraAI.API.Modules.AIGateway.DTOs.Requests;
 
@@ -10,14 +9,24 @@ public class RoadmapAIRequest
     [JsonPropertyName("weekly_hours")] public int WeeklyHours { get; set; }
     [JsonPropertyName("is_stage_progression")] public bool IsStageProgression { get; set; }
 
-    // Only when is_stage_progression = false (roadmap overview):
-    [JsonPropertyName("user_background")] public string? UserBackground { get; set; }
-    [JsonPropertyName("current_skills")] public List<string>? CurrentSkills { get; set; }
 
-    // Only when is_stage_progression = true (stage resources):
+    // Mode 1 (roadmap_overview): all nullable fields sent as null
+    // Mode 2 (stage_resources): current_stage is populated; rest are null
+    [JsonPropertyName("current_stage")] public CurrentStagePayload? CurrentStage { get; set; }
+    [JsonPropertyName("curriculum")] public object? Curriculum { get; set; }
     [JsonPropertyName("current_stage_index")] public int? CurrentStageIndex { get; set; }
-    [JsonPropertyName("curriculum")] public JsonElement? Curriculum { get; set; } // opaque pass-through
+    [JsonPropertyName("learner_progress")] public object? LearnerProgress { get; set; }
+
     [JsonPropertyName("difficulty_level")] public string? DifficultyLevel { get; set; }
     [JsonPropertyName("skill_gaps")] public List<string>? SkillGaps { get; set; }
-    [JsonPropertyName("learner_progress")] public JsonElement? LearnerProgress { get; set; } // opaque pass-through
+}
+
+// Used only for Stage Progression (Mode 2) — sent in the same endpoint as RoadmapAIRequest but inside the optional "current_stage" field
+public class CurrentStagePayload
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
+    [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+    [JsonPropertyName("topics")] public List<string> Topics { get; set; } = new();
+    [JsonPropertyName("learning_objectives")] public List<string> LearningObjectives { get; set; } = new();
+    [JsonPropertyName("estimated_weeks")] public int EstimatedWeeks { get; set; }
 }

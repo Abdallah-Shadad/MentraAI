@@ -1,5 +1,6 @@
 ﻿using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
+using MentraAI.API.Modules.AIGateway.DTOs.Requests;
 using MentraAI.API.Modules.AIGateway.InternalModels;
 using MentraAI.API.Modules.AIGateway.Services;
 using MentraAI.API.Modules.CareerTracks.Repositories;
@@ -37,26 +38,21 @@ public class RoadmapService : IRoadmapService
 
     public async Task<RoadmapResponse> GenerateRoadmapAsync(string userId)
     {
-        // 1. Get the user's active track from the database
         var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
              ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track found for this user.", 422);
 
         int lastVersion = await _roadmapRepo.GetMaxVersionAsync(userTrack.Id);
 
-
-        // 2. Ensure the user does not already have an active roadmap
         if (await _roadmapRepo.HasActiveRoadmapAsync(userTrack.Id))
             throw new AppException(ErrorCodes.ROADMAP_ALREADY_EXISTS, "An active roadmap already exists.", 409);
 
-        // 3. Retrieve the user's profile to send proper data to the AI service
         var profile = await _userService.GetProfileAsync(userId);
         var userBackground = $"Age: {profile.Age}, Education: {profile.EdLevel}, Experience: {profile.YearsCode} years...";
 
-        // 4. Send the request to the AI using the track slug retrieved automatically from the database
         var result = await _aiGateway.GenerateRoadmapAsync(
             userId: userId,
-            careerTrackSlug: userTrack.CareerTrack.Slug, // This ensures the backend always sends the correct track automatically
-            weeklyHours: 10, // Or retrieve it from the user's profile if available
+            careerTrackSlug: userTrack.CareerTrack.Slug,
+            weeklyHours: 10,
             userBackground: userBackground,
             currentSkills: profile.CurrentSkills ?? new List<string>()
         );
@@ -120,10 +116,10 @@ public class RoadmapService : IRoadmapService
         };
     }
 
+    // FIXED: Replaced string JSONs with List<FailedQuestion> to match the exact pipeline
     public async Task<Roadmap> AdaptRoadmapAsync(
         Guid stageProgressId,
-        string questionsDataJson,
-        string userAnswersDataJson,
+        List<FailedQuestion> failedQuestions,
         decimal score,
         string userId)
     {
@@ -138,15 +134,14 @@ public class RoadmapService : IRoadmapService
 
         var adaptResult = await _aiGateway.GetAdaptedRoadmapAsync(
             userId: userId,
-            careerTrack: userTrack.CareerTrack.Slug,
+            careerTrack: userTrack.CareerTrack.Slug, // IMPORTANT: Sending the slug
             aiStageId: stage.AiStageId,
             stageName: stage.StageName,
             difficultyLevel: ExtractDifficultyLevel(currentRoadmap.RoadmapDataJson),
-            questionsDataJson: questionsDataJson,
-            userAnswersDataJson: userAnswersDataJson,
+            learningObjectives: new List<string>(), // Handled by AI based on failed questions
+            failedQuestions: failedQuestions,
             score: score);
 
-        // Prepare new version data
         var nextVersion = await _roadmapRepo.GetMaxVersionAsync(userTrack.Id) + 1;
         var newRoadmap = new Roadmap
         {
@@ -154,7 +149,7 @@ public class RoadmapService : IRoadmapService
             VersionNumber = nextVersion,
             IsActive = true,
             TriggerType = "ADAPTATION",
-            RoadmapDataJson = adaptResult.RoadmapDataJson,
+            RoadmapDataJson = adaptResult.RemediationResourcesJson, // Stores the raw adaptation JSON
             CreatedAt = DateTime.UtcNow
         };
 
@@ -180,8 +175,19 @@ public class RoadmapService : IRoadmapService
             });
         }
 
-        // Delegate transaction and saving to repository
         return await _roadmapRepo.CreateNewVersionAsync(currentRoadmap, newRoadmap, newStages);
+    }
+
+    public async Task DeactivateActiveRoadmapAsync(string userId)
+    {
+        var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
+            ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track.", 422);
+
+        var roadmap = await _roadmapRepo.GetActiveRoadmapAsync(userTrack.Id)
+            ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND, "No active roadmap found.", 404);
+
+        roadmap.IsActive = false;
+        await _roadmapRepo.UpdateAsync(roadmap);
     }
 
     private static RoadmapResponse BuildRoadmapResponse(
@@ -256,16 +262,6 @@ public class RoadmapService : IRoadmapService
         }
         catch { return ("", 0, new(), new()); }
     }
-    public async Task DeactivateActiveRoadmapAsync(string userId)
-    {
-        var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
-            ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track.", 422);
-
-        var roadmap = await _roadmapRepo.GetActiveRoadmapAsync(userTrack.Id)
-            ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND, "No active roadmap found.", 404);
-
-        var roadmap = await _roadmapRepo.GetActiveRoadmapAsync(userTrack.Id)
-            ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND, "No active roadmap found.", 404);
 
     private static string ExtractDifficultyLevel(string roadmapDataJson)
     {
@@ -281,8 +277,4 @@ public class RoadmapService : IRoadmapService
         catch { }
         return "";
     }
-        roadmap.IsActive = false;
-        await _roadmapRepo.UpdateAsync(roadmap);
-    }
-
 }
