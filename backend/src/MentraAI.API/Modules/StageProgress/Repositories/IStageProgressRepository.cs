@@ -35,4 +35,7 @@ public interface IStageProgressRepository
     // Called by QuizService after successful adaptation — replaces stored resources with
     // AI remedial content. Does not change status — stage stays ACTIVE for retry.
     Task PatchResourcesAsync(Guid stageProgressId, string remediationResourcesJson);
+
+    // Atomic operation to complete current stage and unlock next stage
+    Task<UserStageProgress?> CompleteAndUnlockNextAsync(Guid stageProgressId, int roadmapId, int currentStageIndex);
 }

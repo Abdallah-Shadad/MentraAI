@@ -60,7 +60,7 @@ public class QuizController : ControllerBase
             });
         }
 
-        var result = await _service.GenerateQuizAsync(request.StageProgressId, GetUserId());
+        var result = await _service.GenerateQuizAsync(request.StageProgressId, GetUserId(), HttpContext.RequestAborted);
         return StatusCode(201, ApiResponse<QuizResponse>.Ok(result));
     }
 
@@ -115,13 +115,13 @@ public class QuizController : ControllerBase
     // All quiz attempts for a stage — ordered by AttemptNumber ASC.
     // =====================================================================
     [HttpGet("history")]
-    [ProducesResponseType(typeof(ApiResponse<List<QuizHistoryResponse>>), 200)]
+    [ProducesResponseType(typeof(ApiResponse<QuizHistoryResponse>), 200)]
     [ProducesResponseType(typeof(object), 401)]
     [ProducesResponseType(typeof(object), 404)]
     public async Task<IActionResult> GetHistory([FromQuery] Guid stageProgressId)
     {
         var result = await _service.GetHistoryAsync(stageProgressId, GetUserId());
-        return Ok(ApiResponse<List<QuizHistoryResponse>>.Ok(result));
+        return Ok(ApiResponse<QuizHistoryResponse>.Ok(result));
     }
 
 
@@ -130,13 +130,10 @@ public class QuizController : ControllerBase
     // Get a hint for a quiz question. hintIndex starts at 0 for the first hint.
     // Returns 404 if no more hints are available for this question.
     // =====================================================================
-    [HttpGet("{quizId}/questions/{questionId}/hint")]
+    [HttpGet("{quizId:guid}/questions/{questionId}/hint")]
     public async Task<IActionResult> GetQuestionHint(Guid quizId, string questionId, [FromQuery] int hintIndex = 0)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-
-        var hint = await _service.GetQuestionHintAsync(quizId, questionId, hintIndex, userId);
-
+        var hint = await _service.GetQuestionHintAsync(quizId, questionId, hintIndex, GetUserId());
         return Ok(ApiResponse<object>.Ok(new { hint }));
     }
 }
