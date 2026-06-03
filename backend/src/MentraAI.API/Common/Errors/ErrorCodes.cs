@@ -37,6 +37,7 @@ public static class ErrorCodes
     public const string AI_INTERNAL_ERROR = "AI_INTERNAL_ERROR";
     public const string AI_TIMEOUT = "AI_TIMEOUT";
     public const string AI_RESPONSE_INVALID = "AI_RESPONSE_INVALID";
+    public const string AI_CONTRACT_VIOLATION = "AI_CONTRACT_VIOLATION"; // Mandatory AI request fields missing
 
     // General
     public const string NOT_FOUND = "NOT_FOUND";
