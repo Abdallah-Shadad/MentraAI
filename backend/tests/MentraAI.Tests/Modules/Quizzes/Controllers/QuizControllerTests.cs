@@ -55,7 +55,7 @@ public class QuizControllerTests
             .ReturnsAsync(new ValidationResult());
 
         _quizServiceMock
-            .Setup(s => s.GenerateQuizAsync(request.StageProgressId, _testUserId))
+            .Setup(s => s.GenerateQuizAsync(request.StageProgressId, _testUserId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResponse);
 
         // Act

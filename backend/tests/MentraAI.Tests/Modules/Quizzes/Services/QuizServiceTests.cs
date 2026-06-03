@@ -257,7 +257,7 @@ public class QuizServiceTests
                 StageIndex = 0
             });
 
-        _stageRepoMock.Setup(r => r.UnlockNextStageAsync(1, 0))
+        _stageRepoMock.Setup(r => r.CompleteAndUnlockNextAsync(stageId, 1, 0))
             .ReturnsAsync(new UserStageProgress
             {
                 Id = Guid.NewGuid(),
@@ -269,8 +269,7 @@ public class QuizServiceTests
 
         Assert.True(result.IsPassed);
         Assert.NotNull(result.NextStage);
-        _stageRepoMock.Verify(r => r.CompleteStageAsync(stageId), Times.Once);
-        _stageRepoMock.Verify(r => r.UnlockNextStageAsync(1, 0), Times.Once);
+        _stageRepoMock.Verify(r => r.CompleteAndUnlockNextAsync(stageId, 1, 0), Times.Once);
     }
 
     [Fact]
@@ -337,7 +336,7 @@ public class QuizServiceTests
             .ReturnsAsync(new UserTrack
             {
                 Id = 1,
-                CareerTrack = new CareerTrack { Slug = "frontend-developer" }
+                CareerTrack = new CareerTrack { Slug = "frontend-developer", Name = "frontend-developer" }
             });
 
         _aiGatewayMock.Setup(ai => ai.GetAdaptedRoadmapAsync(
@@ -354,7 +353,7 @@ public class QuizServiceTests
 
         Assert.False(result.IsPassed);
         Assert.True(result.RoadmapAdapted);
-        _stageRepoMock.Verify(r => r.CompleteStageAsync(It.IsAny<Guid>()), Times.Never);
+        _stageRepoMock.Verify(r => r.CompleteAndUnlockNextAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>()), Times.Never);
         _aiGatewayMock.Verify(ai => ai.GetAdaptedRoadmapAsync(
             _testUserId, "frontend-developer", "stage_0", "Intro",
             It.IsAny<string>(), It.IsAny<List<string>>(),
