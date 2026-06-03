@@ -22,7 +22,7 @@ public interface IAIGatewayService
     // Roadmaps — Mode 1
     Task<RoadmapGenerationResult> GenerateRoadmapAsync(
         string userId,
-        string careerTrackSlug,
+        string careerTrack,
         int weeklyHours,
         string userBackground,
         List<string> currentSkills,

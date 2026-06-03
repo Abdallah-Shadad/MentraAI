@@ -6,6 +6,8 @@ public class QuizAIResponse
 {
     [JsonPropertyName("signal")] public string Signal { get; set; } = string.Empty;
     [JsonPropertyName("status")] public string Status { get; set; } = string.Empty;
+    [JsonPropertyName("message")] public string Message { get; set; } = string.Empty;
+    [JsonPropertyName("time_consumed")] public float TimeConsumed { get; set; }
     [JsonPropertyName("quiz")] public QuizPayload? Quiz { get; set; }
 }
 
