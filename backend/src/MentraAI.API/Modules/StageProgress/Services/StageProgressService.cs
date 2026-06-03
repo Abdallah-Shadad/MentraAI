@@ -22,19 +22,22 @@ public class StageProgressService : IStageProgressService
     private readonly ICareerTrackRepository _trackRepo;
     private readonly IAIGatewayService _aiGateway;
     private readonly IUserService _userService;
+    private readonly ILogger<StageProgressService> _logger;
 
     public StageProgressService(
         IStageProgressRepository stageRepo,
         IRoadmapRepository roadmapRepo,
         ICareerTrackRepository trackRepo,
         IAIGatewayService aiGateway,
-        IUserService userService)
+        IUserService userService,
+        ILogger<StageProgressService> logger)
     {
         _stageRepo = stageRepo;
         _roadmapRepo = roadmapRepo;
         _trackRepo = trackRepo;
         _aiGateway = aiGateway;
         _userService = userService;
+        _logger = logger;
     }
 
     public async Task<StageListResponse> GetAllStagesAsync(string userId)
@@ -85,14 +88,23 @@ public class StageProgressService : IStageProgressService
             return BuildResourcesResponse(stage);
 
         var profileResponse = await _userService.GetProfileAsync(userId);
-        int weeklyHours = (profileResponse.YearsCode ?? 0) < 1 ? 10 : 15;
+        //int weeklyHours = (profileResponse.YearsCode ?? 0) < 1 ? 10 : 15;
+        int weeklyHours = 25;
 
         var stageInfo = ExtractStageFromRoadmapJson(roadmap.RoadmapDataJson, stage.StageIndex);
 
+        _logger.LogInformation("Extracted Topics: {TopicsCount}, Objectives: {ObjCount}",
+              stageInfo.Topics.Count, stageInfo.LearningObjectives.Count);
+
+        if (!stageInfo.Topics.Any())
+        {
+            _logger.LogWarning("WARNING: Topics list is empty for stage {StageName}! AI might reject this.", stage.StageName);
+            stageInfo.Topics.Add(stage.StageName);
+        }
         // FIXED: Changed careerTrack to use Slug instead of Name to perfectly match AI requirements
         var result = await _aiGateway.GetStageResourcesAsync(
             userId: userId,
-            careerTrack: userTrack.CareerTrack.Slug,
+            careerTrack: userTrack.CareerTrack.Name,
             weeklyHours: weeklyHours,
             aiStageId: stage.AiStageId,
             stageName: stage.StageName,
@@ -135,6 +147,9 @@ public class StageProgressService : IStageProgressService
 
         var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
             ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active career track selected.", 422);
+
+        if (userTrack.CareerTrack is null)
+            throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "Active track details are missing.", 422);
 
         var roadmap = await _roadmapRepo.GetActiveRoadmapAsync(userTrack.Id)
             ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND, "No active roadmap found.", 404);
