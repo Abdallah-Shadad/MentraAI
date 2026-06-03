@@ -25,6 +25,14 @@
 **/obj/
 out/
 
+# Publish and output folders
+publish/
+out/
+*.zip
+
+AMTest/
+Scratch*/
+
 # ------------------------------------------
 # 2. Next.js / Node (Frontend)
 # ------------------------------------------

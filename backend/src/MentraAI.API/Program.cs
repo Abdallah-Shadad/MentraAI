@@ -22,8 +22,9 @@ using MentraAI.API.Modules.Users.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -169,8 +170,10 @@ builder.Services.AddCors(options =>
 });
 
 // === AutoMapper ===
-builder.Services.AddAutoMapper(typeof(Program).Assembly);
-
+builder.Services.AddAutoMapper(cfg =>
+{
+    cfg.AddMaps(typeof(Program));
+});
 // === FluentValidation ===
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
