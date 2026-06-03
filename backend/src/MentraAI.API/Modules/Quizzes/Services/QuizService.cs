@@ -56,15 +56,17 @@ public class QuizService : IQuizService
     // =====================================================================
     // GENERATE NEW QUIZ ATTEMPT
     // =====================================================================
-    public async Task<QuizResponse> GenerateQuizAsync(Guid stageProgressId, string userId)
+    public async Task<QuizResponse> GenerateQuizAsync(Guid stageProgressId, string userId, CancellationToken ct = default)
     {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        _logger.LogInformation("Starting GenerateQuizAsync for stageProgressId: {StageProgressId}, userId: {UserId}", stageProgressId, userId);
+
         var stage = await _stageRepo.GetByIdAsync(stageProgressId)
             ?? throw new AppException(ErrorCodes.STAGE_NOT_FOUND, "Stage not found.", 404);
 
         if (stage.Status == "LOCKED")
             throw new AppException(ErrorCodes.STAGE_LOCKED, "Cannot take quiz for locked stage.", 422);
 
-        // Check if a pending quiz already exists for this stage
         var hasPending = await _stageRepo.HasPendingQuizAsync(stageProgressId);
         if (hasPending)
             throw new AppException(ErrorCodes.QUIZ_PENDING_EXISTS, "A pending quiz already exists for this stage.", 409);
@@ -72,20 +74,44 @@ public class QuizService : IQuizService
         var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
             ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track.", 422);
 
-        var topics = ExtractTopicsFromRoadmapJson(stage.Roadmap.RoadmapDataJson, stage.StageIndex);
-        var difficulty = "beginner"; // Can be extracted dynamically if needed
+        if (userTrack.CareerTrack is null)
+            throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "Active track details are missing.", 422);
 
-        // Call AI to generate new quiz
+        var topics = ExtractTopicsFromRoadmapJson(stage.Roadmap.RoadmapDataJson, stage.StageIndex);
+
+        // Guarantee topics is never empty (prevents 400 Bad Request from Python AI)
+        if (topics == null || !topics.Any())
+        {
+            _logger.LogWarning("No topics extracted from roadmap JSON. Falling back to StageName.");
+            topics = new List<string> { string.IsNullOrWhiteSpace(stage.StageName) ? "General Concepts" : stage.StageName };
+        }
+
+        // Guard: AiStageId must be present — it maps to the contract's mandatory stage_id field.
+        if (string.IsNullOrWhiteSpace(stage.AiStageId))
+        {
+            _logger.LogError(
+                "Stage {StageProgressId} has an empty AiStageId. Roadmap data is incomplete. Cannot generate quiz.",
+                stageProgressId);
+            throw new AppException(
+                ErrorCodes.STAGE_NOT_FOUND,
+                "Stage identifier (stage_id) is missing. The roadmap data may be corrupt or incomplete.",
+                422);
+        }
+
+        var difficulty = "beginner";
+
+        _logger.LogInformation("Requesting quiz from AI Gateway. Elapsed: {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
         var quizResult = await _aiGateway.GenerateQuizAsync(
             userId: userId,
             careerTrack: userTrack.CareerTrack.Name,
             aiStageId: stage.AiStageId,
             stageName: stage.StageName,
             difficultyLevel: difficulty,
-            topics: topics
+            topics: topics,
+            ct: ct
         );
+        _logger.LogInformation("AI Gateway returned quiz response. Elapsed: {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
 
-        // Store as a new unsubmitted attempt
         var newAttempt = new QuizAttempt
         {
             StageProgressId = stageProgressId,
@@ -100,12 +126,15 @@ public class QuizService : IQuizService
         };
 
         await _quizRepo.CreateAttemptAsync(newAttempt);
-        return _mapper.Map<QuizResponse>(newAttempt);
+        var mappedResponse = _mapper.Map<QuizResponse>(newAttempt);
+        
+        stopwatch.Stop();
+        _logger.LogInformation("Finished GenerateQuizAsync successfully. Total Time: {ElapsedMs}ms, Questions: {TotalQuestions}", 
+            stopwatch.ElapsedMilliseconds, newAttempt.TotalQuestions);
+            
+        return mappedResponse;
     }
 
-    // =====================================================================
-    // GET EXISTING QUIZ
-    // =====================================================================
     public async Task<QuizResponse> GetQuizAsync(Guid quizId, string userId)
     {
         var attempt = await _quizRepo.GetByIdAsync(quizId)
@@ -117,9 +146,6 @@ public class QuizService : IQuizService
         return _mapper.Map<QuizResponse>(attempt);
     }
 
-    // =====================================================================
-    // GET QUESTION HINT
-    // =====================================================================
     public async Task<string> GetQuestionHintAsync(Guid quizId, string questionId, int hintIndex, string userId)
     {
         var attempt = await _quizRepo.GetByIdAsync(quizId)
@@ -133,7 +159,7 @@ public class QuizService : IQuizService
             var rawQuestions = JsonSerializer.Deserialize<List<RawAIQuestion>>(attempt.QuestionsDataJson, _json);
             var q = rawQuestions?.FirstOrDefault(x => x.QuestionId == questionId);
 
-            if (q == null || q.Hints == null)
+            if (q == null || q.Hints == null || !q.Hints.Any())
             {
                 throw new AppException(ErrorCodes.QUESTION_NOT_FOUND, "Question not found or has no hints.", 404);
             }
@@ -153,9 +179,6 @@ public class QuizService : IQuizService
         }
     }
 
-    // =====================================================================
-    // SUBMIT QUIZ
-    // =====================================================================
     public async Task<QuizSubmitResponse> SubmitQuizAsync(Guid quizId, SubmitQuizRequest request, string userId)
     {
         var attempt = await _quizRepo.GetByIdAsync(quizId)
@@ -170,7 +193,6 @@ public class QuizService : IQuizService
         var scoreResult = _scoring.Score(attempt.QuestionsDataJson, request.Answers, attempt.PassingScore ?? 70m);
         var isPassed = scoreResult.IsPassed;
 
-        // Update the existing attempt with submission details
         attempt.Score = scoreResult.Score;
         attempt.IsPassed = isPassed;
         attempt.CorrectAnswers = scoreResult.CorrectAnswers;
@@ -198,8 +220,7 @@ public class QuizService : IQuizService
         {
             if (stage != null)
             {
-                await _stageRepo.CompleteStageAsync(stageProgressId);
-                var nextStage = await _stageRepo.UnlockNextStageAsync(stage.RoadmapId, stage.StageIndex);
+                var nextStage = await _stageRepo.CompleteAndUnlockNextAsync(stageProgressId, stage.RoadmapId, stage.StageIndex);
                 if (nextStage != null)
                 {
                     response.NextStage = new NextStageInfo
@@ -213,23 +234,21 @@ public class QuizService : IQuizService
         }
         else
         {
-            // Quiz failed — trigger adaptation
             try
             {
                 var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId);
 
-                if (stage != null && userTrack != null)
+                if (stage != null && userTrack?.CareerTrack != null)
                 {
                     var (difficultyLevel, learningObjectives) = ExtractAdaptationMetadata(stage.Roadmap.RoadmapDataJson, stage.StageIndex);
 
-                    // Build failed questions using the attempt's data
                     var failedQuestions = BuildFailedQuestions(attempt.QuestionsDataJson, attempt.UserAnswersDataJson);
 
                     if (failedQuestions.Count > 0)
                     {
                         var adaptResult = await _aiGateway.GetAdaptedRoadmapAsync(
                             userId: userId,
-                            careerTrack: userTrack.CareerTrack.Slug,
+                            careerTrack: userTrack.CareerTrack.Name,
                             aiStageId: stage.AiStageId,
                             stageName: stage.StageName,
                             difficultyLevel: difficultyLevel,
@@ -237,7 +256,6 @@ public class QuizService : IQuizService
                             failedQuestions: failedQuestions,
                             score: scoreResult.Score);
 
-                        // Patch the stage's resources with remedial content
                         await _stageRepo.PatchResourcesAsync(stageProgressId, adaptResult.RemediationResourcesJson);
 
                         response.RoadmapAdapted = true;
@@ -258,15 +276,15 @@ public class QuizService : IQuizService
         return response;
     }
 
-    public async Task<List<QuizHistoryResponse>> GetHistoryAsync(Guid stageProgressId, string userId)
+    public async Task<QuizHistoryResponse> GetHistoryAsync(Guid stageProgressId, string userId)
     {
         var attempts = await _quizRepo.GetAttemptsAsync(stageProgressId, userId);
-        return _mapper.Map<List<QuizHistoryResponse>>(attempts);
+        return new QuizHistoryResponse
+        {
+            Attempts = _mapper.Map<List<QuizAttemptSummary>>(attempts)
+        };
     }
 
-    // =====================================================================
-    // ADAPTATION HELPERS
-    // =====================================================================
     private static (string difficultyLevel, List<string> learningObjectives) ExtractAdaptationMetadata(string roadmapDataJson, int stageIndex)
     {
         try
@@ -309,8 +327,7 @@ public class QuizService : IQuizService
             foreach (var item in element.EnumerateArray())
             {
                 var val = item.GetString();
-                if (!string.IsNullOrWhiteSpace(val))
-                    list.Add(val);
+                if (!string.IsNullOrWhiteSpace(val)) list.Add(val);
             }
         }
         else if (element.ValueKind == JsonValueKind.Object)
@@ -318,17 +335,14 @@ public class QuizService : IQuizService
             foreach (var prop in element.EnumerateObject())
             {
                 var val = prop.Value.GetString();
-                if (!string.IsNullOrWhiteSpace(val))
-                    list.Add($"{prop.Name}: {val}");
-                else if (!string.IsNullOrWhiteSpace(prop.Name))
-                    list.Add(prop.Name);
+                if (!string.IsNullOrWhiteSpace(val)) list.Add($"{prop.Name}: {val}");
+                else if (!string.IsNullOrWhiteSpace(prop.Name)) list.Add(prop.Name);
             }
         }
         else if (element.ValueKind == JsonValueKind.String)
         {
             var val = element.GetString();
-            if (!string.IsNullOrWhiteSpace(val))
-                list.Add(val);
+            if (!string.IsNullOrWhiteSpace(val)) list.Add(val);
         }
         return list;
     }
@@ -350,11 +364,8 @@ public class QuizService : IQuizService
 
             foreach (var q in storedQuestions)
             {
-                if (!answerByQuestionId.TryGetValue(q.QuestionId, out var userLabel))
-                    continue;
-
-                if (string.Equals(userLabel, q.CorrectAnswer, StringComparison.OrdinalIgnoreCase))
-                    continue;
+                if (!answerByQuestionId.TryGetValue(q.QuestionId, out var userLabel)) continue;
+                if (string.Equals(userLabel, q.CorrectAnswer, StringComparison.OrdinalIgnoreCase)) continue;
 
                 var choiceMap = q.Choices
                     .GroupBy(c => c.Label, StringComparer.OrdinalIgnoreCase)
@@ -389,12 +400,12 @@ public class QuizService : IQuizService
         [JsonPropertyName("text")] public string Text { get; set; } = string.Empty;
     }
 
-
-
     private static List<string> ExtractTopicsFromRoadmapJson(string roadmapDataJson, int stageIndex)
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(roadmapDataJson)) return new List<string>();
+
             using var doc = JsonDocument.Parse(roadmapDataJson);
             var root = doc.RootElement;
             if (root.TryGetProperty("roadmap", out var rm) &&
@@ -414,13 +425,6 @@ public class QuizService : IQuizService
         }
         catch { }
         return new List<string>();
-    }
-
-    private class StoredQuestion
-    {
-        [JsonPropertyName("question_id")] public string QuestionId { get; set; } = string.Empty;
-        [JsonPropertyName("question_text")] public string QuestionText { get; set; } = string.Empty;
-        [JsonPropertyName("correct_answer")] public string CorrectAnswer { get; set; } = string.Empty;
     }
 
     private class RawAIQuestion
