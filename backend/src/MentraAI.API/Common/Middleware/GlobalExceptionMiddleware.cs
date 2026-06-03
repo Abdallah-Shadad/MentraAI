@@ -1,4 +1,4 @@
-﻿using MentraAI.API.Common.Errors;
+using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
 
 namespace MentraAI.API.Common.Middleware;
@@ -43,7 +43,9 @@ public class GlobalExceptionMiddleware
             AppException a => (a.StatusCode, a.ErrorCode, a.Message, a.Errors),
             AIServiceException => (502, ErrorCodes.AI_INTERNAL_ERROR, "AI service error.", null),
             AIValidationException => (502, ErrorCodes.AI_RESPONSE_INVALID, "AI returned unexpected response.", null),
-            TaskCanceledException => (504, ErrorCodes.AI_TIMEOUT, "AI service timed out.", null),
+            OperationCanceledException when ctx.RequestAborted.IsCancellationRequested => (499, "CLIENT_CLOSED", "Client disconnected.", null),
+            OperationCanceledException => (504, ErrorCodes.AI_TIMEOUT, "AI service timed out.", null),
+            System.Net.Http.HttpRequestException => (502, ErrorCodes.AI_SERVICE_UNAVAILABLE, "AI service is unreachable.", null),
             UnauthorizedAccessException => (401, ErrorCodes.UNAUTHORIZED, "Authentication required.", null),
             _ => (500, ErrorCodes.INTERNAL_ERROR, "An unexpected error occurred.", null)
         };

@@ -1,4 +1,4 @@
-﻿using MentraAI.API.Common.Exceptions;
+using MentraAI.API.Common.Exceptions;
 using MentraAI.API.Modules.AIGateway.DTOs.Responses;
 
 namespace MentraAI.API.Modules.AIGateway.Validators;
@@ -34,8 +34,8 @@ public static class AdaptationAIResponseValidator
         if (adaptedStage is null)
             throw new AIValidationException("No adapted stage found in adaptation response.");
 
-        if (adaptedStage.Resources is null || adaptedStage.Resources.Count < 2)
+        if (adaptedStage.Resources is null || adaptedStage.Resources.Count == 0)
             throw new AIValidationException(
-                $"Adapted stage '{adaptedStage.Id}' must have at least 2 remedial resources.");
+                $"Adapted stage '{adaptedStage.Id}' has no remedial resources.");
     }
 }

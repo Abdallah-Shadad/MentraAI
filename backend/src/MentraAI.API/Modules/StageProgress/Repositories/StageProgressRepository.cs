@@ -83,4 +83,45 @@ public class StageProgressRepository : IStageProgressRepository
         stage.ResourcesDataJson = remediationResourcesJson;
         await _db.SaveChangesAsync();
     }
+
+    public async Task<UserStageProgress?> CompleteAndUnlockNextAsync(
+        Guid stageProgressId, int roadmapId, int currentStageIndex)
+    {
+        var strategy = _db.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await _db.Database.BeginTransactionAsync();
+            try
+            {
+                var stage = await _db.UserStageProgress
+                    .FirstOrDefaultAsync(s => s.Id == stageProgressId);
+                if (stage is null)
+                {
+                    await tx.RollbackAsync();
+                    return null;
+                }
+
+                stage.Status = "COMPLETED";
+                stage.CompletedAt = DateTime.UtcNow;
+
+                var next = await _db.UserStageProgress.FirstOrDefaultAsync(s =>
+                    s.RoadmapId == roadmapId && s.StageIndex == currentStageIndex + 1);
+                if (next is not null)
+                {
+                    next.Status = "ACTIVE";
+                    next.UnlockedAt = DateTime.UtcNow;
+                }
+
+                await _db.SaveChangesAsync();
+                await tx.CommitAsync();
+                return next;
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+        });
+    }
 }

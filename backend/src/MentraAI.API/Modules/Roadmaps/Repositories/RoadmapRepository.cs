@@ -1,4 +1,4 @@
-﻿// Modules/Roadmaps/Repositories/RoadmapRepository.cs
+// Modules/Roadmaps/Repositories/RoadmapRepository.cs
 using MentraAI.API.Data;
 using MentraAI.API.Modules.Roadmaps.Models;
 using MentraAI.API.Modules.StageProgress.Models;
@@ -22,6 +22,7 @@ public class RoadmapRepository : IRoadmapRepository
     public async Task<Roadmap?> GetActiveRoadmapAsync(int userTrackId) =>
         await _db.Roadmaps
             .Include(r => r.UserTrack)
+                .ThenInclude(ut => ut.CareerTrack)
             .FirstOrDefaultAsync(r => r.UserTrackId == userTrackId && r.IsActive);
 
     public async Task<List<Roadmap>> GetAllVersionsAsync(int userTrackId) =>

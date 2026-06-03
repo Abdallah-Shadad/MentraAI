@@ -15,17 +15,17 @@ namespace MentraAI.API.Modules.CareerTracks.Controllers;
 [Authorize]
 public class CareerTracksController : ControllerBase
 {
-    private readonly ICareerTrackService               _service;
-    private readonly IValidator<SelectTrackRequest>    _selectValidator;
+    private readonly ICareerTrackService _service;
+    private readonly IValidator<SelectTrackRequest> _selectValidator;
     private readonly IValidator<TrackRecommendRequest> _recommendValidator;
 
     public CareerTracksController(
-        ICareerTrackService                service,
-        IValidator<SelectTrackRequest>     selectValidator,
-        IValidator<TrackRecommendRequest>  recommendValidator)
+        ICareerTrackService service,
+        IValidator<SelectTrackRequest> selectValidator,
+        IValidator<TrackRecommendRequest> recommendValidator)
     {
-        _service            = service;
-        _selectValidator    = selectValidator;
+        _service = service;
+        _selectValidator = selectValidator;
         _recommendValidator = recommendValidator;
     }
 
@@ -78,10 +78,10 @@ public class CareerTracksController : ControllerBase
             return BadRequest(new
             {
                 success = false,
-                error   = new
+                error = new
                 {
-                    code       = ErrorCodes.VALIDATION_ERROR,
-                    message    = "Validation failed.",
+                    code = ErrorCodes.VALIDATION_ERROR,
+                    message = "Validation failed.",
                     statusCode = 400,
                     errors
                 }
@@ -114,34 +114,12 @@ public class CareerTracksController : ControllerBase
     // =====================================================================
     [HttpPost("recommendation")]
     [ProducesResponseType(typeof(ApiResponse<TrackRecommendationResponse>), 200)]
-    [ProducesResponseType(typeof(object), 400)]
-    [ProducesResponseType(typeof(object), 401)]
-    [ProducesResponseType(typeof(object), 422)]
-    [ProducesResponseType(typeof(object), 502)]
-    public async Task<IActionResult> GetRecommendation(
-        [FromBody] TrackRecommendRequest request)
+    [ProducesResponseType(401)]
+    [ProducesResponseType(422)]
+    [ProducesResponseType(502)]
+    public async Task<IActionResult> GetRecommendation(CancellationToken ct)
     {
-        var validation = await _recommendValidator.ValidateAsync(request);
-        if (!validation.IsValid)
-        {
-            var errors = validation.Errors
-                .GroupBy(e => e.PropertyName)
-                .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
-
-            return BadRequest(new
-            {
-                success = false,
-                error   = new
-                {
-                    code       = ErrorCodes.VALIDATION_ERROR,
-                    message    = "Validation failed.",
-                    statusCode = 400,
-                    errors
-                }
-            });
-        }
-
-        var result = await _service.GetRecommendationsAsync(GetUserId(), request);
+        var result = await _service.GetRecommendationsAsync(GetUserId(), ct);
         return Ok(ApiResponse<TrackRecommendationResponse>.Ok(result));
     }
 }

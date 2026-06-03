@@ -41,6 +41,9 @@ public class RoadmapService : IRoadmapService
         var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
              ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track found for this user.", 422);
 
+        if (userTrack.CareerTrack is null)
+            throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "Active track details are missing.", 422);
+
         int lastVersion = await _roadmapRepo.GetMaxVersionAsync(userTrack.Id);
 
         if (await _roadmapRepo.HasActiveRoadmapAsync(userTrack.Id))
@@ -51,8 +54,8 @@ public class RoadmapService : IRoadmapService
 
         var result = await _aiGateway.GenerateRoadmapAsync(
             userId: userId,
-            careerTrackSlug: userTrack.CareerTrack.Slug,
-            weeklyHours: 10,
+            careerTrack: userTrack.CareerTrack.Name,
+            weeklyHours: 25,
             userBackground: userBackground,
             currentSkills: profile.CurrentSkills ?? new List<string>()
         );
@@ -129,15 +132,19 @@ public class RoadmapService : IRoadmapService
         var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
             ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track.", 422);
 
+        if (userTrack.CareerTrack is null)
+            throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "Active track details are missing.", 422);
+
         var currentRoadmap = await _roadmapRepo.GetActiveRoadmapAsync(userTrack.Id)
             ?? throw new AppException(ErrorCodes.ROADMAP_NOT_FOUND, "No active roadmap.", 404);
 
         var adaptResult = await _aiGateway.GetAdaptedRoadmapAsync(
             userId: userId,
-            careerTrack: userTrack.CareerTrack.Slug, // IMPORTANT: Sending the slug
+            careerTrack: userTrack.CareerTrack.Name,
             aiStageId: stage.AiStageId,
             stageName: stage.StageName,
-            difficultyLevel: ExtractDifficultyLevel(currentRoadmap.RoadmapDataJson),
+            // difficultyLevel: ExtractDifficultyLevel(currentRoadmap.RoadmapDataJson),
+            difficultyLevel: "beginner",
             learningObjectives: new List<string>(), // Handled by AI based on failed questions
             failedQuestions: failedQuestions,
             score: score);
