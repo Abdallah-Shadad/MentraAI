@@ -201,7 +201,7 @@ async def generate_quiz(
             "signal":  "201_Created",
             "status":  "success",
             "message": "Quiz generated successfully",
-            "quiz":    final_state.get("api_response", {}),
+            "quiz":    final_state.get("api_response", {}).get("data", {}).get("quiz", {}),
             "time_consumed": time.perf_counter() - start_time,
         }),
     )
