@@ -1,3 +1,4 @@
+using MentraAI.API.Common.Errors;
 using MentraAI.API.Common.Exceptions;
 using MentraAI.API.Modules.AIGateway.DTOs.Requests;
 using MentraAI.API.Modules.AIGateway.DTOs.Responses;
@@ -7,7 +8,6 @@ using MentraAI.API.Modules.Chat.DTOs.Requests;
 using MentraAI.API.Modules.Users.Models;
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -49,18 +49,12 @@ public class AIGatewayService : IAIGatewayService
 
         var aiRecommendation = await GetTrackRecommendationsAsync(userId, trackProfile, ct);
 
-        // enforce that we have at least one recommendation (the validator should ensure this)
         var topTrack = aiRecommendation.RecommendedTracks.First();
 
         return new PredictionResult
         {
-            //take the top recommendation as the primary one
             PrimaryRoleName = topTrack.TrackName,
-
-            // confidence is normalized to 0-1 range for frontend display, assuming AI returns 0-100
             PrimaryConfidence = (decimal)topTrack.FitScore / 100m,
-
-            // sends the full list of recommended tracks and their confidence for more detailed frontend display (e.g. a ranked list)
             TopRolesJson = JsonSerializer.Serialize(aiRecommendation.RecommendedTracks.Select(t => new
             {
                 name = t.TrackName,
@@ -74,16 +68,16 @@ public class AIGatewayService : IAIGatewayService
     // =====================================================================
     public async Task<RoadmapGenerationResult> GenerateRoadmapAsync(
         string userId,
-        string careerTrackSlug,
+        string careerTrack,
         int weeklyHours,
-        string userBackground,      // kept in signature for backward compat; not sent to AI
-        List<string> currentSkills, // kept in signature for backward compat; not sent to AI
+        string userBackground,
+        List<string> currentSkills,
         CancellationToken ct = default)
     {
         var request = new
         {
             user_id = userId,
-            career_track = careerTrackSlug,
+            career_track = careerTrack,
             weekly_hours = weeklyHours,
             is_stage_progression = false,
             current_stage = (object?)null,
@@ -117,16 +111,16 @@ public class AIGatewayService : IAIGatewayService
             SkillGaps = data.SkillGaps,
             Stages = data.Curriculum!.Stages.Select(s => new RoadmapStage
             {
-                AiStageId      = s.Id,
-                Name           = s.Name,
-                Topics         = s.Topics,
+                AiStageId = s.Id,
+                Name = s.Name,
+                Topics = s.Topics,
                 EstimatedWeeks = s.EstimatedWeeks
             }).ToList()
         };
     }
 
     // =====================================================================
-    // GET STAGE RESOURCES
+    // GET STAGE RESOURCES — Mode 2
     // =====================================================================
     public async Task<StageResourcesResult> GetStageResourcesAsync(
         string userId,
@@ -141,9 +135,9 @@ public class AIGatewayService : IAIGatewayService
     {
         var request = new RoadmapAIRequest
         {
-            UserId             = userId,
-            CareerTrack        = careerTrack,
-            WeeklyHours        = weeklyHours,
+            UserId = userId,
+            CareerTrack = careerTrack,
+            WeeklyHours = weeklyHours,
             IsStageProgression = true,
             CurrentStage = new CurrentStagePayload
             {
@@ -180,32 +174,68 @@ public class AIGatewayService : IAIGatewayService
         List<string> topics,
         CancellationToken ct = default)
     {
+        // ── Pre-flight: validate mandatory AI contract fields ──────────────
+        // Contract: user_id, career_track, stage_id, topics are ALL required.
+        // Reject here with 422 (Unprocessable) instead of letting the AI
+        // return a 400 that surfaces as a confusing 502 Bad Gateway.
+        var contractViolations = new List<string>();
+        if (string.IsNullOrWhiteSpace(userId)) contractViolations.Add("user_id is required.");
+        if (string.IsNullOrWhiteSpace(careerTrack)) contractViolations.Add("career_track is required.");
+        if (string.IsNullOrWhiteSpace(aiStageId)) contractViolations.Add("stage_id is required (AiStageId is empty — roadmap data may be incomplete).");
+        if (topics == null || topics.Count == 0) contractViolations.Add("topics must contain at least one entry.");
+
+        if (contractViolations.Count > 0)
+        {
+            var violations = string.Join(" | ", contractViolations);
+            _logger.LogError("Quiz AI contract pre-flight failed: {Violations}", violations);
+            throw new AppException(
+                ErrorCodes.AI_CONTRACT_VIOLATION,
+                $"Cannot call Quiz AI — mandatory fields missing: {violations}",
+                422);
+        }
+        // ──────────────────────────────────────────────────────────────────
+
         var request = new QuizCreateAIRequest
         {
             UserId = userId,
             CareerTrack = careerTrack,
             AiStageId = aiStageId,
             StageName = stageName,
-            DifficultyLevel = difficultyLevel,
-            Topics = topics
+            DifficultyLevel = difficultyLevel ?? "beginner",
+            Topics = topics! // pre-flight guard above guarantees non-null and non-empty
+
         };
 
+        _logger.LogInformation(
+            "Sending quiz generation request to AI. user_id={UserId}, career_track={CareerTrack}, stage_id={StageId}, topics_count={TopicsCount}, topics={Topics}",
+            request.UserId, request.CareerTrack, request.AiStageId, request.Topics?.Count ?? 0,
+            string.Join(", ", request.Topics ?? new()));
+
+        var aiCallStopwatch = System.Diagnostics.Stopwatch.StartNew();
         var response = await _http.PostAsJsonAsync("/api/v1/quiz/generate", request, ct);
+        var rawBody = await response.Content.ReadAsStringAsync(ct);
+        aiCallStopwatch.Stop();
+
+        _logger.LogInformation(
+            "Quiz generation endpoint returned. HTTP Status: {Status}, Time Taken: {ElapsedMs}ms, Payload Size: {Size} bytes",
+            response.StatusCode, aiCallStopwatch.ElapsedMilliseconds, rawBody.Length);
 
         if (!response.IsSuccessStatusCode)
         {
-            var body = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogError("AI quiz error {Status}: {Body}", response.StatusCode, body);
-            throw new AIServiceException($"AI returned {(int)response.StatusCode}");
+            _logger.LogError("AI quiz error {Status}: {Body}", response.StatusCode, rawBody);
+            throw new AIServiceException($"AI returned {(int)response.StatusCode}. Details: {rawBody}");
         }
-
-        var rawBody = await response.Content.ReadAsStringAsync(ct);
-        await System.IO.File.WriteAllTextAsync("quiz_response.json", rawBody, ct);
 
         QuizAIResponse? aiResponse;
         try
         {
             aiResponse = JsonSerializer.Deserialize<QuizAIResponse>(rawBody);
+            if (aiResponse != null)
+            {
+                _logger.LogInformation(
+                    "AI reported time consumed: {TimeConsumed} seconds", 
+                    aiResponse.TimeConsumed);
+            }
         }
         catch (JsonException ex)
         {
@@ -289,6 +319,7 @@ public class AIGatewayService : IAIGatewayService
 
         var rawBody = await response.Content.ReadAsStringAsync(ct);
         AdaptationAIResponse aiResponse = JsonSerializer.Deserialize<AdaptationAIResponse>(rawBody)!;
+        AdaptationAIResponseValidator.Validate(aiResponse);
 
         var data = aiResponse.AdditionalResource!.Data!;
 
@@ -383,9 +414,6 @@ public class AIGatewayService : IAIGatewayService
         }
     }
 
-    // =====================================================================
-    // CHECK AI CHAT HEALTH
-    // =====================================================================
     public async Task<bool> CheckChatHealthAsync()
     {
         try
@@ -401,7 +429,7 @@ public class AIGatewayService : IAIGatewayService
     }
 
     // =====================================================================
-    // GET TRACK RECOMMENDATIONS — Fix: Aligned with strict direct mapping
+    // GET TRACK RECOMMENDATIONS
     // =====================================================================
     public async Task<TrackRecommendationResult> GetTrackRecommendationsAsync(
         string userId,
@@ -439,10 +467,7 @@ public class AIGatewayService : IAIGatewayService
             throw new AIValidationException($"AI returned invalid JSON: {ex.Message}");
         }
 
-        // Run the synchronized validator
         TrackRecommendAIResponseValidator.Validate(aiResponse!);
-
-        // FIXED: Deep nested path mapping to accurately locate the matching data layer
         var output = aiResponse!.Recommendations!.Data!.Recommendations!;
 
         return new TrackRecommendationResult
