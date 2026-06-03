@@ -23,6 +23,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Http.Resilience;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -102,8 +103,15 @@ builder.Services
     {
         client.BaseAddress = new Uri(
             builder.Configuration["AIService:BaseUrl"]!);
-
-        client.Timeout = TimeSpan.FromSeconds(150);
+    })
+    .AddStandardResilienceHandler(options =>
+    {
+        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(180);
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(360);
+        options.Retry.MaxRetryAttempts = 2;
+        options.Retry.Delay = TimeSpan.FromSeconds(2);
+        options.Retry.UseJitter = true;
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(600);
     });
 
 // === JWT ===
