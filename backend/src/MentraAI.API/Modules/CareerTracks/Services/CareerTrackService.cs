@@ -11,6 +11,7 @@ using MentraAI.API.Modules.CareerTracks.Models;
 using MentraAI.API.Modules.CareerTracks.Repositories;
 using MentraAI.API.Modules.Users.Services;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace MentraAI.API.Modules.CareerTracks.Services;
 
@@ -20,17 +21,20 @@ public class CareerTrackService : ICareerTrackService
     private readonly IMapper _mapper;
     private readonly IAIGatewayService _aiGateway;  // NEW — for track recommender
     private readonly IUserService _userService; // NEW — for onboarding gate + skills fallback
+    private readonly ILogger<CareerTrackService> _logger;
 
     public CareerTrackService(
         ICareerTrackRepository repo,
         IMapper mapper,
         IAIGatewayService aiGateway,
-        IUserService userService)
+        IUserService userService,
+        ILogger<CareerTrackService> logger)
     {
         _repo = repo;
         _mapper = mapper;
         _aiGateway = aiGateway;
         _userService = userService;
+        _logger = logger;
     }
 
     // === GET ALL TRACKS ===
@@ -117,10 +121,10 @@ public class CareerTrackService : ICareerTrackService
     }
 
     // =====================================================================
-    // GET TRACK RECOMMENDATIONS — Refactored for Persistence & Safety
+    // GET TRACK RECOMMENDATIONS — Profile fetched internally from UserProfiles
     // =====================================================================
     public async Task<TrackRecommendationResponse> GetRecommendationsAsync(
-        string userId, TrackRecommendRequest request, CancellationToken ct = default)
+        string userId, CancellationToken ct = default)
     {
         // 1. Gate: must be onboarded
         var isOnboarded = await _userService.GetIsOnboardedAsync(userId);
@@ -128,30 +132,31 @@ public class CareerTrackService : ICareerTrackService
             throw new AppException(ErrorCodes.NOT_ONBOARDED,
                 "Complete onboarding before getting track recommendations.", 422);
 
-        // 2. Skill Fallback Logic (Good practice)
-        List<string>? currentSkills = request.CurrentSkills;
-        if (currentSkills is null || currentSkills.Count == 0)
-        {
-            var profile = await _userService.GetProfileAsync(userId);
-            currentSkills = profile.CurrentSkills?.Count > 0 ? profile.CurrentSkills : null;
-        }
+        // 2. Fetch the user's stored profile — single source of truth
+        var profile = await _userService.GetProfileAsync(userId);
+
+        // 3. Map stored profile → AI request profile
+        //    All fields are optional in the AI contract; null means the AI
+        //    will calculate a lower profile_completeness score automatically.
+        var currentSkills = profile.CurrentSkills?.Count > 0 ? profile.CurrentSkills : null;
+        var futureSkills  = profile.FutureSkills?.Count  > 0 ? profile.FutureSkills  : null;
 
         var aiProfile = new TrackRecommendProfile
         {
-            Age = request.Age,
-            EdLevel = request.EdLevel,
-            YearsCode = request.YearsCode,
-            WorkExp = request.WorkExp,
-            Employment = request.Employment,
-            RemoteWork = request.RemoteWork,
-            Industry = request.Industry,
-            OrgSize = request.OrgSize,
-            AISelect = request.AISelect,
+            Age           = profile.Age,
+            EdLevel       = profile.EdLevel,
+            YearsCode     = profile.YearsCode,
+            WorkExp       = profile.WorkExp,
+            Employment    = profile.Employment,
+            RemoteWork    = profile.RemoteWork,
+            Industry      = profile.Industry,
+            OrgSize       = profile.OrgSize,
+            AISelect      = profile.AISelect,
             CurrentSkills = currentSkills,
-            FutureSkills = request.FutureSkills
+            FutureSkills  = futureSkills
         };
 
-        // 3. Call AI
+        // 4. Call AI
         var result = await _aiGateway.GetTrackRecommendationsAsync(userId, aiProfile, ct);
 
         // 4. Persistence: Save this recommendation as a Prediction in the database
@@ -174,7 +179,7 @@ public class CareerTrackService : ICareerTrackService
         {
             // Log the error but don't fail the request to the user
             // Because saving to MLPredictions is an auxiliary feature.
-            Console.WriteLine($"Failed to save AI prediction: {ex.Message}");
+            _logger.LogWarning(ex, "Failed to save AI prediction for user {UserId}", userId);
         }
 
         // 5. Map and Return
