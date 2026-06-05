@@ -21,6 +21,7 @@ using MentraAI.API.Modules.Users.Repositories;
 using MentraAI.API.Modules.Users.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
@@ -30,7 +31,35 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // === Controllers ===
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            // Collect all validation errors in a structured way
+            var errors = context.ModelState
+                .Where(e => e.Value.Errors.Count > 0)
+                .ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value.Errors.Select(e => e.ErrorMessage).ToArray()
+                );
+
+            // Formulate the response in the agreed standard
+            var errorResponse = new
+            {
+                success = false,
+                error = new
+                {
+                    code = "VALIDATION_ERROR",
+                    message = "Validation failed.",
+                    statusCode = 400,
+                    errors = errors
+                }
+            };
+
+            return new BadRequestObjectResult(errorResponse);
+        };
+    });
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(c =>
@@ -105,16 +134,15 @@ builder.Services
         client.BaseAddress = new Uri(
             builder.Configuration["AIService:BaseUrl"]!);
     })
-    .AddStandardResilienceHandler(options =>
+   .AddStandardResilienceHandler(options =>
     {
         options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(180);
         options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(360);
-        options.Retry.MaxRetryAttempts = 2;
+        options.Retry.MaxRetryAttempts = 1;
         options.Retry.Delay = TimeSpan.FromSeconds(2);
         options.Retry.UseJitter = true;
         options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(600);
     });
-
 // === JWT ===
 builder.Services
     .AddAuthentication(options =>

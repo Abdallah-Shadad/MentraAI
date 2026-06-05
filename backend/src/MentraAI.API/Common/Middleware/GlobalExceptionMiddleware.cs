@@ -45,6 +45,7 @@ public class GlobalExceptionMiddleware
             AIValidationException => (502, ErrorCodes.AI_RESPONSE_INVALID, "AI returned unexpected response.", null),
             OperationCanceledException when ctx.RequestAborted.IsCancellationRequested => (499, "CLIENT_CLOSED", "Client disconnected.", null),
             OperationCanceledException => (504, ErrorCodes.AI_TIMEOUT, "AI service timed out.", null),
+            Polly.Timeout.TimeoutRejectedException => (504, ErrorCodes.AI_TIMEOUT, "AI service timed out after multiple retries.", null),
             System.Net.Http.HttpRequestException => (502, ErrorCodes.AI_SERVICE_UNAVAILABLE, "AI service is unreachable.", null),
             UnauthorizedAccessException => (401, ErrorCodes.UNAUTHORIZED, "Authentication required.", null),
             _ => (500, ErrorCodes.INTERNAL_ERROR, "An unexpected error occurred.", null)
