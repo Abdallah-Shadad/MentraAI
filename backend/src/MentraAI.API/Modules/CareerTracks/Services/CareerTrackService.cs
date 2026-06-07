@@ -50,10 +50,27 @@ public class CareerTrackService : ICareerTrackService
     // === GET PREDICTION ===
     public async Task<PredictionResponse> GetPredictionAsync(string userId)
     {
-        var prediction = await _repo.GetLatestPredictionByUserIdAsync(userId);
-        if (prediction is null)
+        // 1. Gate: Verify onboarding status from UserService
+        var isOnboarded = await _userService.GetIsOnboardedAsync(userId);
+        if (!isOnboarded)
+        {
             throw new AppException(ErrorCodes.NOT_ONBOARDED,
                 "Complete onboarding before viewing your prediction.", 422);
+        }
+
+        // 2. Fetch the latest stored AI prediction
+        var prediction = await _repo.GetLatestPredictionByUserIdAsync(userId);
+        if (prediction is null)
+        {
+            // If the user has completed onboarding but hasn't run the AI recommendation yet,
+            // return a friendly default indicating we are ready for recommendation.
+            return new PredictionResponse
+            {
+                PrimaryRole = new RoleItem { Name = "Ready for Recommendation", Confidence = 0 },
+                TopRoles = new List<RoleItem>(),
+                PredictedAt = DateTime.UtcNow
+            };
+        }
 
         return PredictionMapper.ToPredictionResponse(prediction);
     }

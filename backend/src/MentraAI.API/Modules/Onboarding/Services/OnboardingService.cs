@@ -47,6 +47,11 @@ public class OnboardingService : IOnboardingService
         var activeQuestions = await _onboardingRepo.GetAllActiveQuestionsAsync();
         var isOnboarded = await _userService.GetIsOnboardedAsync(userId);
 
+        if (isOnboarded && answeredCount == 5)
+        {
+            isOnboarded = false; // Update dynamically for frontend to see correctly
+
+        }
         return new OnboardingStatusResponse
         {
             IsOnboarded = isOnboarded,
