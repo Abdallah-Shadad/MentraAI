@@ -1,6 +1,7 @@
 using FluentValidation;
 using System.Linq;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace MentraAI.API.Modules.Onboarding.DTOs.Requests;
 
@@ -12,6 +13,8 @@ public class SubmitAnswersRequest
 public class AnswerItem
 {
     public int QuestionId { get; set; }
+
+    [JsonConverter(typeof(FlexibleStringConverter))]
     public string AnswerText { get; set; } = string.Empty;
 }
 
