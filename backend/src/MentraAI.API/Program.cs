@@ -133,15 +133,16 @@ builder.Services
     {
         client.BaseAddress = new Uri(
             builder.Configuration["AIService:BaseUrl"]!);
+        client.Timeout = TimeSpan.FromSeconds(350);
     })
    .AddStandardResilienceHandler(options =>
     {
-        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(180);
-        options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(360);
+        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(300);
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(600);
         options.Retry.MaxRetryAttempts = 1;
         options.Retry.Delay = TimeSpan.FromSeconds(2);
         options.Retry.UseJitter = true;
-        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(600);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(350);
     });
 // === JWT ===
 builder.Services
