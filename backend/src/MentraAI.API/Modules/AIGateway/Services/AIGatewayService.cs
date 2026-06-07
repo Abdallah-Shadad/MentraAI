@@ -442,18 +442,41 @@ public class AIGatewayService : IAIGatewayService
             Profile = profile
         };
 
-        var response = await _http.PostAsJsonAsync("/api/v1/tracks/recommend", request, ct);
+        // Create a linked token source with a 300-second (5-minute) timeout for the AI call
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(300));
+
+        _logger.LogInformation("Sending track recommendation request to AI. UserId: {UserId}", userId);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.PostAsJsonAsync("/api/v1/tracks/recommend", request, cts.Token);
+        }
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            _logger.LogError(ex, "Track recommendation request to AI timed out after 300 seconds. UserId: {UserId}", userId);
+            throw; // Will be caught by GlobalExceptionMiddleware and return 504
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error calling Track Recommendation AI. UserId: {UserId}", userId);
+            throw;
+        }
 
         if (!response.IsSuccessStatusCode)
         {
-            var body = await response.Content.ReadAsStringAsync(ct);
-            _logger.LogError(
-                "Track recommender error {Status}: {Body}", response.StatusCode, body);
-            throw new AIServiceException(
-                $"Track recommender returned {(int)response.StatusCode}");
+            var body = await response.Content.ReadAsStringAsync(cts.Token);
+            _logger.LogError("Track recommender failed with status {Status}: {Body}. UserId: {UserId}", response.StatusCode, body, userId);
+            throw new AIServiceException($"Track recommender returned {(int)response.StatusCode}. Details: {body}");
         }
 
-        var rawBody = await response.Content.ReadAsStringAsync(ct);
+        var rawBody = await response.Content.ReadAsStringAsync(cts.Token);
+        stopwatch.Stop();
+
+        _logger.LogInformation("Track recommendation API returned. HTTP Status: {Status}, Time Taken: {ElapsedMs}ms, Payload Size: {Size} bytes. UserId: {UserId}", 
+            response.StatusCode, stopwatch.ElapsedMilliseconds, rawBody.Length, userId);
 
         TrackRecommendAIResponse? aiResponse;
         try
@@ -462,8 +485,7 @@ public class AIGatewayService : IAIGatewayService
         }
         catch (JsonException ex)
         {
-            _logger.LogWarning(
-                "Track recommender returned invalid JSON. Body: {Body}", rawBody);
+            _logger.LogError(ex, "Track recommender returned invalid JSON. Body: {Body}. UserId: {UserId}", rawBody, userId);
             throw new AIValidationException($"AI returned invalid JSON: {ex.Message}");
         }
 
