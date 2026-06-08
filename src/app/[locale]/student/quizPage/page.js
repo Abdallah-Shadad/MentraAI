@@ -49,6 +49,7 @@ export default function QuizPage() {
                 answered={answeredCount}
                 total={total}
               />
+
               <QuestionCard
                 q={question}
                 index={current}

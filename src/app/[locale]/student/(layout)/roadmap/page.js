@@ -111,7 +111,7 @@ export default function RoadmapPage() {
             <div>Loading...</div>
           </div>
         )}
-
+        {/* 
         <TrackHeader
           title="Frontend Developer – Beginner to Job Ready"
           description="Master modern frontend development with React, TypeScript, and industry best practices."
@@ -121,7 +121,7 @@ export default function RoadmapPage() {
           completedModules={2}
           totalLessons={77}
           completedLessons={18}
-        />
+        /> */}
 
         <div className="space-y-2 w-full mt-10">
           {roadmapData?.map((module, index) => (
