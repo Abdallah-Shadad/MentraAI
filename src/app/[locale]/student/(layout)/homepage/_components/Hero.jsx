@@ -1,7 +1,11 @@
 import { Home } from "lucide-react";
 import { Link } from "@/lib/i18n/navigation";
+import { useGetUserProfile } from "@/hooks/useUser";
 
 export default function Hero() {
+  const { data: userProfile } = useGetUserProfile();
+  const user = userProfile?.data;
+
   return (
     <div className="flex flex-col gap-6 w-full py-6">
       {/* Hero */}
@@ -17,7 +21,7 @@ export default function Hero() {
             <h1 className="text-4xl md:text-5xl font-extrabold text-foreground leading-tight">
               Welcome back, <br />
               <span className="text-transparent bg-clip-text bg-linear-to-r from-primary to-secondary">
-                shehab Ahmed
+                {user?.firstName} {user?.lastName}
               </span>
             </h1>
 

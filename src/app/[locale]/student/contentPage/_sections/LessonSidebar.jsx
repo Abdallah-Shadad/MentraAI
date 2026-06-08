@@ -31,31 +31,6 @@ export default function LessonSidebar({ open, lessons = [], setNumoflesson }) {
         </div>
       </Link>
 
-      <div className="px-6 py-5">
-        <p className="text-[11px] uppercase tracking-[0.18em] muted-text-foreground">
-          Track
-        </p>
-        <h2 className="mt-1 font-display text-base font-semibold">
-          Deep Learning Foundations
-        </h2>
-        <p className="mt-3 text-[11px] uppercase tracking-[0.18em] muted-text-foreground">
-          Module 02
-        </p>
-        <h3 className="mt-1 text-sm text-foreground/90">
-          Training Neural Networks
-        </h3>
-
-        <div className="mt-4">
-          <div className="flex justify-between text-xs text-foreground-muted mb-1.5">
-            <span>Progress</span>
-            <span className="text-foreground/80 font-medium">3 / 8</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-surface/20 overflow-hidden">
-            <div className="h-full w-[37%] gradient-cta  rounded-full" />
-          </div>
-        </div>
-      </div>
-
       <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 h-[calc(100vh-12rem)] px-3 pb-6">
         <TooltipProvider delayDuration={200}>
           <ul className="space-y-1">
