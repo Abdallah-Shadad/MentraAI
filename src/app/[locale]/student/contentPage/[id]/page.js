@@ -20,9 +20,7 @@ export default function LessonPage() {
   const { data: resources1 } = useGetStageResources1(id);
   const { data: resources2 } = useGetStageResources2(id);
   const resources =
-    resources1?.data?.resources?.videos?.length > 0
-      ? resources1?.data?.resources
-      : resources2?.data?.resources || {};
+    resources1?.data?.resources || resources2?.data?.resources || {};
 
   console.log(resources);
 
