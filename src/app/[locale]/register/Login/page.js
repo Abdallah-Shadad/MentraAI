@@ -13,7 +13,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     email: "",
-    password: "ShehabAhmed123/*-",
+    password: "",
   });
   const { mutate: login, isPending, isError, error, data, reset } = useLogin();
 
@@ -121,7 +121,7 @@ export default function LoginPage() {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <label className="text-sm font-semibold text-foreground-secondary ">
-                  PASSWORD ShehabAhmed123/*-
+                  PASSWORD
                 </label>
                 <a
                   href="#"
