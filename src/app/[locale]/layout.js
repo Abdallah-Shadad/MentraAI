@@ -1,5 +1,6 @@
 import { NextIntlClientProvider } from "next-intl";
 import { Inter, Roboto, Playfair_Display } from "next/font/google";
+import MyClient from "@/components/reusable/MyClient";
 import "@/_style/globals.css";
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
@@ -20,17 +21,19 @@ const playfair = Playfair_Display({
 });
 
 export const metadata = {
-  title: "User",
-  description: "User",
+  title: "MentarAi",
+  description: "MentarAi - Your AI Study Companion",
 };
 
 export default async function UserLayout({ children }) {
   return (
-    <html>
+    <html lang="en" dir="ltr">
       <body
         className={` ${inter.variable} ${roboto.variable} ${playfair.variable} antialiased`}
       >
-        <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <MyClient>
+          <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        </MyClient>
       </body>
     </html>
   );

@@ -21,7 +21,7 @@ const Footer = () => {
       <div className="main-container">
         {/* AI decoration */}
         <div className="absolute inset-0 z-0">
-          <div className="absolute top-0 left-1/4 w-64 h-64 bg-primary/5 rounded-full blur-[100px]" />
+          <div className="absolute top-0 left-1/4 w-64 h-64 bg-surface/5 rounded-full blur-[100px]" />
           <div className="absolute bottom-0 right-1/4 w-48 h-48 bg-secondary/5 rounded-full blur-[100px]" />
         </div>
 
@@ -33,11 +33,11 @@ const Footer = () => {
                 <div className="relative w-9 h-9 rounded-xl bg-linear-to-br from-primary to-secondary flex items-center justify-center">
                   <Brain className="w-5 h-5 text-foreground" />
                 </div>
-                <span className="font-heading font-bold text-xl text-text-foreground">
+                <span className="font-heading font-bold text-xl text-foreground">
                   Mentra<span className="text-secondary">Ai</span>
                 </span>
               </div>
-              <p className="text-text-muted text-sm mb-4 leading-relaxed">
+              <p className="text-foreground-muted text-sm mb-4 leading-relaxed">
                 An AI-powered learning platform transforming random learning
                 into an organized journey toward professional success
               </p>
@@ -45,13 +45,13 @@ const Footer = () => {
 
             {/* Platform Links */}
             <div>
-              <h4 className="font-bold mb-4 text-text-foreground">Platform</h4>
+              <h4 className="font-bold mb-4 text-foreground">Platform</h4>
               <ul className="space-y-3">
                 {links.platform.map((link) => (
                   <li key={link.name}>
                     <a
                       href={link.href}
-                      className="text-text-muted hover:text-secondary transition-colors text-sm"
+                      className="text-foreground-muted hover:text-secondary transition-colors text-sm"
                     >
                       {link.name}
                     </a>
@@ -62,13 +62,13 @@ const Footer = () => {
 
             {/* Legal Links */}
             <div>
-              <h4 className="font-bold mb-4 text-text-foreground">Legal</h4>
+              <h4 className="font-bold mb-4 text-foreground">Legal</h4>
               <ul className="space-y-3">
                 {links.legal.map((link) => (
                   <li key={link.name}>
                     <a
                       href={link.href}
-                      className="text-text-muted hover:text-secondary transition-colors text-sm"
+                      className="text-foreground-muted hover:text-secondary transition-colors text-sm"
                     >
                       {link.name}
                     </a>
@@ -79,11 +79,11 @@ const Footer = () => {
 
             {/* Contact */}
             <div>
-              <h4 className="font-bold mb-4 text-text-foreground">
-                Contact Us
-              </h4>
-              <p className="text-text-muted text-sm mb-2">support@mentra.ai</p>
-              <p className="text-text-muted text-sm">
+              <h4 className="font-bold mb-4 text-foreground">Contact Us</h4>
+              <p className="text-foreground-muted text-sm mb-2">
+                support@mentra.ai
+              </p>
+              <p className="text-foreground-muted text-sm">
                 Available to answer your questions
               </p>
 
@@ -97,10 +97,10 @@ const Footer = () => {
 
           {/* Bottom bar */}
           <div className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-text-muted text-sm">
+            <p className="text-foreground-muted text-sm">
               © {new Date().getFullYear()} MentraAi. All rights reserved.
             </p>
-            <div className="flex items-center gap-2 text-text-muted text-sm">
+            <div className="flex items-center gap-2 text-foreground-muted text-sm">
               <span>Made with</span>
               <Sparkles size={14} className="text-secondary" />
               <span>for learners everywhere</span>

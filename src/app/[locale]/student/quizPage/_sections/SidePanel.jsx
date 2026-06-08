@@ -18,22 +18,22 @@ export default function SidePanel() {
   }, [time]);
   return (
     <aside className="space-y-4">
-      <div className="bg-bg-card/25 border border-border rounded-2xl p-5 backdrop-blur-lg">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-text-muted">
+      <div className="bg-card/25 border border-border rounded-2xl p-5 backdrop-blur-lg">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-foreground-muted">
           <Clock className="size-3.5" /> Timer
         </div>
-        <div className="my-8 text-2xl font-semibold text-text-primary">
-          <span className="p-4 bg-bg-tertiary rounded-md mx-2">
+        <div className="my-8 text-2xl font-semibold text-foreground">
+          <span className="p-4 bg-surface-elevated rounded-md mx-2">
             {String(time.hours).padStart(2, "0")}
           </span>
-          <span className="p-4 bg-bg-tertiary rounded-md mx-2">
+          <span className="p-4 bg-surface-elevated rounded-md mx-2">
             {String(time.minutes).padStart(2, "0")}
           </span>
-          <span className="p-4 bg-bg-tertiary rounded-md mx-2">
+          <span className="p-4 bg-surface-elevated rounded-md mx-2">
             {String(time.seconds).padStart(2, "0")}
           </span>
         </div>
-        <div className="text-xs text-text-muted mt-1">
+        <div className="text-xs text-foreground-muted mt-1">
           <Sparkles className="size-3.5 inline mr-1" /> Stay focused, stay calm.
         </div>
       </div>

@@ -44,7 +44,7 @@ const AIMentorPanel = ({
     <div className="sticky top-4 z-20">
       <div className="relative overflow-hidden rounded-xl glass-card border border-primary/20 p-5 shadow-neon">
         {/* Glow decoration */}
-        <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/20 rounded-full blur-3xl" />
+        <div className="absolute -top-10 -right-10 w-32 h-32 bg-surface/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-secondary/20 rounded-full blur-2xl" />
 
         <div className="relative z-10">
@@ -52,20 +52,20 @@ const AIMentorPanel = ({
           <div className="flex items-center gap-3 mb-4">
             <div className="relative">
               <div className="w-12 h-12 rounded-full bg-linear-to-br from-primary to-secondary flex items-center justify-center animate-float">
-                <Brain className="w-6 h-6 text-primary-foreground" />
+                <Brain className="w-6 h-6 text-foreground-text-foreground" />
               </div>
 
               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-success rounded-full border-2 border-card flex items-center justify-center">
-                <Sparkles className="w-2 h-2 text-success-foreground" />
+                <Sparkles className="w-2 h-2 text-success-text-foreground" />
               </div>
             </div>
 
             <div>
-              <h3 className="font-heading font-semibold text-text-foreground text-sm">
+              <h3 className="font-heading font-semibold text-foreground text-sm">
                 Mentra AI Mentor
               </h3>
 
-              <span className="text-xs text-primary flex items-center gap-1">
+              <span className="text-xs text-foreground flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
                 Active now
               </span>
@@ -74,16 +74,16 @@ const AIMentorPanel = ({
 
           {/* Message */}
           <div className="bg-muted/30 rounded-lg p-4 mb-4 border border-border/50">
-            <p className="text-sm font-medium text-text-foreground mb-1">
+            <p className="text-sm font-medium text-foreground mb-1">
               {title}, {userName}! 👋
             </p>
 
-            <p className="text-sm text-text-muted leading-relaxed">
+            <p className="text-sm text-foreground-muted leading-relaxed">
               {isTyping ? (
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                  <span className="w-2 h-2 bg-primary rounded-full animate-pulse delay-100" />
-                  <span className="w-2 h-2 bg-primary rounded-full animate-pulse delay-200" />
+                  <span className="w-2 h-2 bg-surface rounded-full animate-pulse" />
+                  <span className="w-2 h-2 bg-surface rounded-full animate-pulse delay-100" />
+                  <span className="w-2 h-2 bg-surface rounded-full animate-pulse delay-200" />
                 </span>
               ) : (
                 message
@@ -101,7 +101,9 @@ const AIMentorPanel = ({
                   My Recommendation
                 </span>
 
-                <p className="text-xs text-text-muted">{recommendation}</p>
+                <p className="text-xs text-foreground-muted">
+                  {recommendation}
+                </p>
               </div>
             </div>
           )}
@@ -109,11 +111,11 @@ const AIMentorPanel = ({
           {/* Current Focus */}
           <div className="mt-4 pt-4 border-t border-border/50">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-text-muted">
+              <span className="text-xs text-foreground-muted">
                 Currently focusing on
               </span>
 
-              <span className="text-xs font-medium text-text-foreground bg-muted/50 px-2 py-1 rounded">
+              <span className="text-xs font-medium text-foreground bg-muted/50 px-2 py-1 rounded">
                 {currentModule}
               </span>
             </div>

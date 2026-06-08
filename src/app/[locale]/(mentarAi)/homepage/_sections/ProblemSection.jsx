@@ -1,3 +1,4 @@
+"use client";
 //icons
 import {
   Shuffle,
@@ -6,6 +7,7 @@ import {
   Layers,
   AlertTriangle,
 } from "lucide-react";
+import { motion } from "framer-motion";
 
 const problems = [
   {
@@ -34,7 +36,7 @@ const problems = [
 export default function ProblemSection() {
   return (
     <section
-      id="about"
+      id="problem"
       className="section-padding relative overflow-hidden py-20"
     >
       <div className="main-container">
@@ -44,10 +46,10 @@ export default function ProblemSection() {
             <AlertTriangle size={14} />
             <span>Self-Learning Challenges</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-text-primary mb-4">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-4">
             Struggling with Self-Learning?
           </h2>
-          <p className="text-base md:text-lg text-text-muted">
+          <p className="text-base md:text-lg text-foreground-muted">
             Most learners face these challenges — MentraAi was designed
             specifically to solve them
           </p>
@@ -55,9 +57,13 @@ export default function ProblemSection() {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {problems.map((problem, index) => (
-            <div
+            <motion.div
               key={index}
-              className="group relative p-6 rounded-2xl bg-card/50 backdrop-blur-sm border border-border hover:border-destructive/30 transition-all duration-300"
+              className="group relative p-6 rounded-2xl card/50 backdrop-blur-sm border border-border hover:border-destructive/30 transition-all duration-300"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.2 }}
             >
               {/* Hover glow overlay */}
               <div className="absolute inset-0 rounded-2xl bg-destructive/5 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -66,14 +72,14 @@ export default function ProblemSection() {
                 <div className="w-14 h-14 mb-4 rounded-xl bg-destructive/10 flex items-center justify-center group-hover:bg-destructive/15 transition-colors">
                   <problem.icon className="w-7 h-7 text-destructive" />
                 </div>
-                <h3 className="font-bold text-text-primary mb-2 text-lg">
+                <h3 className="font-bold text-foreground mb-2 text-lg">
                   {problem.title}
                 </h3>
-                <p className="text-sm md:text-base text-text-muted leading-relaxed">
+                <p className="text-sm md:text-base text-foreground-muted leading-relaxed">
                   {problem.description}
                 </p>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

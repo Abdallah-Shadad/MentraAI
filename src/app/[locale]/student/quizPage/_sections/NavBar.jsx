@@ -16,7 +16,7 @@ export default function NavBar({
       <button
         onClick={onPrev}
         disabled={current === 0}
-        className="inline-flex items-center gap-2 rounded-xl border border-border bg-bg-card px-5 py-3 md:text-sm text-xs text-text-secondary transition-colors hover:border-border-strong hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+        className="cursor-pointer inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-3 md:text-sm text-xs text-foreground-secondary transition-colors hover:border-border-strong hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <ArrowLeft className="size-4" /> Previous
       </button>
@@ -33,7 +33,7 @@ export default function NavBar({
         <button
           onClick={onNext}
           disabled={!hasAnswer}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary-dark px-6 py-3 md:text-sm text-xs font-medium text-white shadow-neon transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 md:text-sm text-xs font-medium text-white shadow-neon transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
         >
           Next question <ArrowRight className="size-4" />
         </button>

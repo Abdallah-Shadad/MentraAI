@@ -1,3 +1,4 @@
+"use client";
 //icons
 import {
   Map,
@@ -8,6 +9,8 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+
+import { motion } from "framer-motion";
 
 const features = [
   {
@@ -64,11 +67,11 @@ export default function FeaturesSection() {
               <Sparkles size={14} />
               <span>Platform Features</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-text-primary mb-4">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-4">
               Everything You Need in{" "}
               <span className="primary-gradient">One Platform</span>
             </h2>
-            <p className="text-base md:text-lg text-text-muted">
+            <p className="text-base md:text-lg text-foreground-muted">
               Smart tools powered by artificial intelligence for a successful
               learning journey
             </p>
@@ -77,11 +80,15 @@ export default function FeaturesSection() {
           {/* Features Grid */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((feature, index) => (
-              <div
+              <motion.div
                 key={index}
                 className={`group relative ${index === 4 ? "lg:col-start-2" : ""}`}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                viewport={{ once: true }}
               >
-                <div className="p-6 h-full relative bg-card/50 backdrop-blur-sm border border-border rounded-2xl hover:border-text-muted/30 transition-all duration-300">
+                <div className="p-6 h-full relative bg-card/45 backdrop-blur-sm border border-border rounded-2xl hover:border-muted/30 transition-all duration-300">
                   {/* Top gradient accent line on hover */}
                   <div
                     className={`absolute top-0 left-3 right-3 h-1 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${
@@ -95,30 +102,30 @@ export default function FeaturesSection() {
                     <div
                       className={`relative w-14 h-14 shrink-0 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 ${
                         feature.color === "secondary"
-                          ? "bg-text-muted/10 group-hover:bg-text-muted/20"
-                          : "bg-primary/10 group-hover:bg-primary/20"
+                          ? "bg-secondary group-hover:bg-secondary"
+                          : "bg-primary group-hover:bg-primary"
                       }`}
                     >
                       <feature.icon
                         className={`w-6 h-6 ${
                           feature.color === "secondary"
-                            ? "text-text-muted"
-                            : "text-primary"
+                            ? "text-foreground"
+                            : "text-muted"
                         }`}
                       />
                     </div>
 
                     <div>
-                      <h3 className="font-bold text-text-primary mb-2 text-lg">
+                      <h3 className="font-bold text-foreground mb-2 text-lg">
                         {feature.title}
                       </h3>
-                      <p className="text-sm text-text-muted leading-relaxed">
+                      <p className="text-sm text-foreground-muted leading-relaxed">
                         {feature.description}
                       </p>
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>

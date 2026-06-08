@@ -57,10 +57,10 @@ export default function StepsSection() {
               <Sparkles size={14} />
               <span>How It Works</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-text-muted mb-4">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-4">
               Four Steps to <span className="primary-gradient">Success</span>
             </h2>
-            <p className="text-base md:text-lg text-text-muted">
+            <p className="text-base md:text-lg text-foreground-muted">
               An organized journey transforming you from confused learner to
               confident professional
             </p>
@@ -90,13 +90,13 @@ export default function StepsSection() {
                   viewport={{ amount: 0.1, once: true }}
                 >
                   {/* Step card */}
-                  <div className="p-6 text-center relative z-10 bg-card/50 backdrop-blur-sm border border-border rounded-2xl h-full hover:border-secondary/30 transition-all duration-300">
+                  <div className="p-6 text-center relative z-10 card/50 backdrop-blur-sm border border-border rounded-2xl h-full hover:border-secondary/30 transition-all duration-300">
                     {/* Number badge */}
                     <div
-                      className={`absolute -top-3 left-4 px-3 py-1 rounded-full text-sm font-bold text-text-primary/80 ${
+                      className={`absolute -top-3 left-4 px-3 py-1 rounded-full text-sm font-bold text-foreground/80 ${
                         step.color === "primary"
-                          ? "bg-linear-to-r from-primary to-primary/80 text-primary-foreground shadow-[0_0_15px] shadow-primary/30"
-                          : "bg-linear-to-r from-secondary to-secondary/80 text-secondary-foreground shadow-[0_0_15px] shadow-secondary/30"
+                          ? "bg-linear-to-r from-primary to-primary/80 text-foreground-text-foreground shadow-[0_0_15px] shadow-primary/30"
+                          : "bg-linear-to-r from-secondary to-secondary/80 text-secondary-text-foreground shadow-[0_0_15px] shadow-secondary/30"
                       }`}
                     >
                       {step.number}
@@ -105,23 +105,23 @@ export default function StepsSection() {
                     <div
                       className={`w-16 h-16 mx-auto mb-4 mt-2 rounded-2xl flex items-center justify-center transition-all group-hover:scale-110 ${
                         step.color === "primary"
-                          ? "bg-primary/10 group-hover:bg-primary/20"
+                          ? "bg-surface/10 group-hover:bg-surface/20"
                           : "bg-secondary/10 group-hover:bg-secondary/20"
                       }`}
                     >
                       <step.icon
                         className={`w-8 h-8 ${
                           step.color === "primary"
-                            ? "text-primary"
+                            ? "text-foreground"
                             : "text-secondary"
                         }`}
                       />
                     </div>
 
-                    <h3 className="font-bold text-lg text-text-primary mb-2">
+                    <h3 className="font-bold text-lg text-foreground mb-2">
                       {step.title}
                     </h3>
-                    <p className="text-sm md:text-base text-text-muted leading-relaxed">
+                    <p className="text-sm md:text-base text-foreground-muted leading-relaxed">
                       {step.description}
                     </p>
                   </div>

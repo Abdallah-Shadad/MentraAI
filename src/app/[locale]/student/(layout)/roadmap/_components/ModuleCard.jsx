@@ -23,7 +23,7 @@ const statusConfig = {
     buttonLabel: "Review",
     buttonVariant: "outline",
   },
-  current: {
+  ACTIVE: {
     icon: Play,
     iconColor: "text-secondary",
     borderColor: "border-secondary/50",
@@ -33,11 +33,11 @@ const statusConfig = {
     buttonLabel: "Continue",
     buttonVariant: "default",
   },
-  locked: {
+  LOCKED: {
     icon: Lock,
-    iconColor: "text-text-muted",
+    iconColor: "text-foreground-muted",
     borderColor: "border-border",
-    bgColor: "bg-text-muted/10",
+    bgColor: "bg-muted/10",
     glowClass: "",
     label: "Locked",
     buttonLabel: "Locked",
@@ -63,13 +63,16 @@ const ModuleCard = ({
   totalModules,
   aiTooltip,
   onClick,
+  id,
 }) => {
-  const config = statusConfig[status] || statusConfig["locked"];
+  console.log("ModuleCard status:", status);
+
+  const config = statusConfig[status] || statusConfig["LOCKED"];
   const Icon = config.icon;
-  const isDisabled = status === "locked";
+  const isDisabled = status === "LOCKED";
 
   return (
-    <Link href="/student/contentPage">
+    <Link href={`/student/contentPage/${id}`}>
       <div
         className="relative flex items-start gap-4 animate-slide-in mb-4"
         style={{ animationDelay: `${index * 100}ms` }}
@@ -119,10 +122,10 @@ const ModuleCard = ({
                     "text-xs font-medium px-2 py-0.5 rounded-full border",
                     status === "completed" &&
                       "text-success bg-success/10 border-success/20",
-                    status === "current" &&
+                    status === "ACTIVE" &&
                       "text-secondary bg-secondary/10 border-secondary/20",
-                    status === "locked" &&
-                      "text-text-muted bg-background/50 border border-border",
+                    status === "LOCKED" &&
+                      "text-foreground-muted bg-background/50 border border-border",
                     status === "needsReview" &&
                       "text-destructive bg-destructive/10 border-destructive/20",
                   )}
@@ -136,21 +139,23 @@ const ModuleCard = ({
                 className={cn(
                   "font-heading font-semibold text-lg mb-2 transition-colors",
                   isDisabled
-                    ? "text-text-muted"
-                    : "text-text-foreground group-hover:text-primary",
+                    ? "text-foreground-muted"
+                    : "text-foreground group-hover:text-foreground",
                 )}
               >
                 {title}
               </h3>
 
               {/* Lessons */}
-              <p className="text-sm text-text-muted">{lessonCount} lessons</p>
+              <p className="text-sm text-foreground-muted">
+                {lessonCount} lessons
+              </p>
 
               {/* AI Tooltip */}
               {aiTooltip && status === "locked" && (
-                <div className="mt-3 p-3 rounded-lg bg-bg-card/50 border border-border/50">
-                  <p className="text-xs text-text-muted italic">
-                    <span className="text-text-primary font-medium not-italic">
+                <div className="mt-3 p-3 rounded-lg bg-card/50 border border-border/50">
+                  <p className="text-xs text-foreground-muted italic">
+                    <span className="text-foreground font-medium not-italic">
                       AI:{" "}
                     </span>
                     {aiTooltip}
@@ -165,18 +170,13 @@ const ModuleCard = ({
               size="sm"
               disabled={isDisabled}
               className={cn(
-                "shrink-0 text-text-foreground border-border hover:bg-primary/10",
-                status === "current" &&
-                  "bg-linear-to-r from-primary to-secondary hover:from-primary-dark hover:to-primary text-text-foreground border-0",
+                "shrink-0 text-foreground border-border hover:bg-surface/10",
+                status === "ACTIVE" &&
+                  "bg-linear-to-r from-primary to-secondary hover:from-primary-dark hover:to-primary text-background border-0 cursor-pointer",
               )}
             >
-              {status === "needsReview" && (
-                <RotateCcw className="w-4 h-4 mr-1" />
-              )}
               {config.buttonLabel}
-              {status === "current" && (
-                <ChevronRight className="w-4 h-4 ml-1" />
-              )}
+              {status === "ACTIVE" && <ChevronRight className="w-4 h-4 ml-1" />}
             </Button>
           </div>
         </div>

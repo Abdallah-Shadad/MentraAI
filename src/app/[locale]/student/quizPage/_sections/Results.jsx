@@ -103,17 +103,17 @@ export default function Results({ answers, onReset }) {
   return (
     <div className="mt-12 grid lg:grid-cols-[1.3fr_1fr] gap-6 animate-fade-in">
       {/* Left: Understanding metrics */}
-      <section className="rounded-3xl border border-border bg-bg-card/80 shadow-card p-7 sm:p-9">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-text-accent">
+      <section className="rounded-3xl border border-border bg-card/80 shadow-card p-7 sm:p-9">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-foreground-accent">
           <Sparkles className="size-3.5" /> Understanding analysis
         </div>
-        <h2 className="mt-3 text-2xl md:text-3xl font-semibold text-text-primary">
+        <h2 className="mt-3 text-2xl md:text-3xl font-semibold text-foreground">
           You score is{" "}
-          <span className="gradient-cta font-bold text-text-primary p-2 inline-flex items-center justify-center rounded-full w-fit">
+          <span className="gradient-cta font-bold text-foreground p-2 inline-flex items-center justify-center rounded-full w-fit">
             {score}%
           </span>
         </h2>
-        <p className="mt-3 text-text-secondary leading-relaxed max-w-xl">
+        <p className="mt-3 text-foreground-secondary leading-relaxed max-w-xl">
           {aiMessage}
         </p>
 
@@ -127,7 +127,7 @@ export default function Results({ answers, onReset }) {
         </div>
 
         <div className="mt-8">
-          <div className="text-xs uppercase tracking-wider text-text-muted mb-3">
+          <div className="text-xs uppercase tracking-wider text-foreground-muted mb-3">
             Per-concept breakdown
           </div>
           <div className="space-y-2.5">
@@ -136,14 +136,14 @@ export default function Results({ answers, onReset }) {
               return (
                 <div
                   key={q.id}
-                  className="flex items-center gap-3 rounded-xl border border-border bg-bg-tertiary/40 px-4 py-3"
+                  className="flex items-center gap-3 rounded-xl border border-border bg-surface-elevated/40 px-4 py-3"
                 >
                   <span
                     className={`size-2 rounded-full ${
                       right ? "bg-success" : "bg-amber-400"
                     }`}
                   />
-                  <div className="flex-1 text-sm text-text-primary">
+                  <div className="flex-1 text-sm text-foreground">
                     {q.concept}
                   </div>
                   <span
@@ -166,7 +166,7 @@ export default function Results({ answers, onReset }) {
 
         <button
           onClick={onReset}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-bg-card px-5 py-3 text-sm text-text-secondary hover:border-border-strong hover:text-foreground transition-colors"
+          className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 py-3 text-sm text-foreground-secondary hover:border-border-strong hover:text-foreground transition-colors"
         >
           <RefreshCw className="size-4" /> Try the assessment again
         </button>
@@ -192,14 +192,14 @@ function NextActionCard({ tier }) {
   };
   const v = map[tier];
   return (
-    <div className="rounded-3xl border border-border bg-bg-card p-6">
-      <div className="text-xs uppercase tracking-wider text-text-muted">
+    <div className="rounded-3xl border border-border bg-card p-6">
+      <div className="text-xs uppercase tracking-wider text-foreground-muted">
         Next step
       </div>
-      <div className="mt-1 text-lg font-semibold text-text-primary">
+      <div className="mt-1 text-lg font-semibold text-foreground">
         {v.title}
       </div>
-      <div className="text-sm text-text-secondary mt-1">{v.sub}</div>
+      <div className="text-sm text-foreground-secondary mt-1">{v.sub}</div>
       <Link href="/student/homepage">
         <button className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl gradient-cta px-5 py-3 text-sm font-medium text-white shadow-neon hover:scale-[1.01] transition-transform cursor-pointer">
           Continue learning <ArrowRight className="size-4" />

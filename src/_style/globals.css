@@ -1,57 +1,154 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  /* =================== Backgrounds =================== */
+
+  --background: #fafafa;
+  --surface: #fafafa;
+  --surface-elevated: #f4f4f5;
+  --card: #ffffff;
+
+  --bg-gradient: linear-gradient(135deg, #ffffff 0%, #f7f5ff 50%, #f8fafc 100%);
+
+  /* =================== Foreground =================== */
+
+  --foreground: #09090bea;
+  --foreground-secondary: #52525b;
+  --foreground-muted: #71717a;
+  --foreground-accent: #7c3aed;
+
+  /* =================== Primary / Secondary / Accent =================== */
+
+  --primary: #7c3aed;
+  --primary-dark: #6d28d9;
+  --primary-light: #a78bfa;
+
+  --secondary: #2563eb;
+
+  --accent: #ede9fe;
+
+  --muted: #f4f4f5;
+
+  --accent-glow: rgba(124, 58, 237, 0.15);
+
+  /* =================== Card & Popover =================== */
+
+  --card-text-foreground: #09090b;
+
+  --popover: #ffffff;
+  --popover-text-foreground: #09090b;
+
+  /* =================== Borders =================== */
+
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --input: #e4e4e7;
+
+  /* =================== Ring =================== */
+
+  --ring: #7c3aed;
+
+  /* =================== Shadows =================== */
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.05);
+
+  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.06);
+
+  --shadow-neon: 0 0 0 rgba(0, 0, 0, 0);
+
+  --shadow-blue: 0 0 0 rgba(0, 0, 0, 0);
+
+  /* =================== Radius =================== */
+
+  --radius: 0.875rem;
+  --radius-sm: 0.625rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.25rem;
+
+  /* =================== Transitions =================== */
+
+  --transition: all 0.3s ease;
+  --transition-fast: all 0.15s ease;
+
+  /* =================== Status =================== */
+
+  --success: #16a34a;
+  --success-text-foreground: #ffffff;
+
+  --destructive: #dc2626;
+  --destructive-text-foreground: #ffffff;
+
+  /* =================== Gradients =================== */
+
+  --gradient-hero: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #f7f5ff 50%,
+    #eef4ff 100%
+  );
+
+  --gradient-cta: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+
+  --gradient-ai: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
+
+  --gradient-neural: linear-gradient(
+    180deg,
+    rgba(124, 58, 237, 0.08) 0%,
+    transparent 100%
+  );
+
+  --gradient-dark: linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%);
+
+  /* =================== Charts =================== */
+
+  --chart-1: #7c3aed;
+  --chart-2: #2563eb;
+  --chart-3: #14b8a6;
+  --chart-4: #f59e0b;
+  --chart-5: #ec4899;
+}
+.dark {
   /* =================== خلفيات (Backgrounds) =================== */
   --background: #13162f; /* الخلفية الرئيسية الداكنة جدًا (shadcn base) */
-  --bg-primary: #0a0a0f; /* alias للـ background */
-  --bg-card: #111118; /* خلفيات الكروت / sections */
-  --bg-tertiary: #1a1a2e; /* طبقة أعلى للـ hover أو overlays */
+  --surface: #0a0a0f;
+  --surface-elevated: #1a1a2e;
+  --card: #111118;
   --bg-gradient: linear-gradient(
     135deg,
     #0f0f1a,
     #1a1033
   ); /* gradient للـ hero */
 
-  /* =================== ألوان النصوص (Text / Foreground) =================== */
-  --text-foreground: #f1f5f9; /* نص رئيسي فاتح (shadcn) */
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8; /* نصوص خفيفة / descriptions */
-  --text-accent: #c084fc; /* نصوص مميزة / links hover */
+  /* =================== ألوان النصوص (Text / text-foreground) =================== */
+  --foreground: #f1f5f9; /* نص رئيسي فاتح (shadcn) */
+  --foreground-secondary: #cbd5e1;
+  --foreground-muted: #94a3b8; /* نصوص خفيفة / descriptions */
+  --foreground-accent: #c084fc; /* نصوص مميزة / links hover */
 
   /* =================== الألوان الأساسية / Accents (shadcn + نيون) =================== */
-  --primary: #8b5cf6; /* violet/neon purple الرئيسي */
-  --primary-foreground: #ffffff; /* نص على الـ primary (أبيض) */
-  --primary-dark: #7c3aed; /* hover أو pressed */
-  --primary-light: #a78bfa; /* lighter variant / glow */
-
-  --secondary: #60a5fa; /* أزرق نيون */
-  --secondary-foreground: #ffffff;
-
-  --accent: #c084fc; /* للـ selected / subtle highlights */
-  --accent-foreground: #0f0f1a;
-
-  --muted: #1e293b; /* خلفيات خفيفة / disabled states */
-  --muted-foreground: #94a3b8;
-
-  --accent-glow: #c084fc; /* للـ glow text أو borders */
+  --primary: #8b5cf6;
+  --primary-dark: #7c3aed;
+  --primary-light: #a78bfa;
+  --secondary: #60a5fa;
+  --accent: #c084fc;
+  --muted: #1e293b;
+  --accent-glow: #c084fc;
 
   /* =================== Card & Popover (shadcn) =================== */
-  --card: #111118; /* = --bg-secondary */
-  --card-foreground: #f1f5f9;
+  --card-text-foreground: #f1f5f9;
 
   --popover: #111118;
-  --popover-foreground: #f1f5f9;
+  --popover-text-foreground: #f1f5f9;
 
   /* =================== حدود وفواصل (Borders / Dividers) =================== */
-  --border: #1e293b; /* حدود خفيفة (shadcn) */
-  --border-strong: #334155; /* حدود أقوى */
-  --input: #1e293b; /* input borders */
+  --border: #1e293b;
+  --border-strong: #334155;
+  --input: #1e293b;
 
   /* =================== Ring / Focus (shadcn) =================== */
-  --ring: #8b5cf6; /* focus ring = primary */
+  --ring: #8b5cf6;
 
   /* =================== تأثيرات (Shadows / Glows) =================== */
   --shadow-neon: 0 0 20px rgba(139, 92, 246, 0.4); /* glow بنفسجي */
@@ -69,10 +166,10 @@
 
   /* =================== ألوان إضافية (نجاح، تحذير، إلخ) =================== */
   --success: #10b981;
-  --success-foreground: #ffffff;
+  --success-text-foreground: #ffffff;
 
   --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
+  --destructive-text-foreground: #ffffff;
 
   --gradient-hero: linear-gradient(
     135deg,
@@ -113,22 +210,23 @@
 @theme {
   /*خلفيات*/
   --color-background: var(--background);
-  --color-bg-primary: var(--bg-primary);
-  --color-bg-card: var(--bg-card);
-  --color-bg-tertiary: var(--bg-tertiary);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-card: var(--card);
   --color-bg-gradient: var(--bg-gradient);
 
   /*نصوص*/
-  --color-text-primary: var(--text-primary);
-  --color-text-foreground: var(--text-foreground);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-muted: var(--text-muted);
-  --color-text-accent: var(--text-accent);
+  --color-foreground: var(--foreground);
+  --color-foreground-secondary: var(--foreground-secondary);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-accent: var(--foreground-accent);
+  /*الألوان الأساسية*/
   --color-primary: var(--primary);
   --color-primary-dark: var(--primary-dark);
   --color-primary-light: var(--primary-light);
   --color-secondary: var(--secondary);
   --color-accent-glow: var(--accent-glow);
+  --color-muted: var(--muted);
   /*حدود*/
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
@@ -146,12 +244,12 @@
   --color-transition-fast: var(--transition-fast);
   /*ألوان إضافية*/
   --color-success: #10b981;
-  --color-success-foreground: #ffffff;
+  --color-success-text-foreground: #ffffff;
   --color-accent: var(--accent);
   --color-accent-glow: var(--accent-glow);
 
   --color-destructive: #ef4444;
-  --color-destructive-foreground: #ffffff;
+  --color-destructive-text-foreground: #ffffff;
 
   /*رسوم بيانية*/
   --color-chart-1: #8b5cf6;

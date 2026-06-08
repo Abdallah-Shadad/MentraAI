@@ -3,11 +3,11 @@
 export default function NeuralBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute -top-32 -left-24 size-[480px] rounded-full bg-primary/20 blur-[120px]" />
+      <div className="absolute -top-32 -left-24 size-[480px] rounded-full bg-surface/20 blur-[120px]" />
       <div className="absolute top-1/3 -right-32 size-[420px] rounded-full bg-secondary/15 blur-[120px]" />
       <div className="absolute bottom-0 left-1/3 size-[360px] rounded-full bg-accent/15 blur-[120px]" />
       <svg
-        className="absolute inset-0 w-full h-full opacity-[0.06]"
+        className="absolute inset-0 w-full h-full dark:opacity-[0.06] opacity-[1]"
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>

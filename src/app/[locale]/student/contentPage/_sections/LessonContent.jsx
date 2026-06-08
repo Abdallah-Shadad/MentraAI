@@ -17,28 +17,28 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Link } from "@/lib/i18n/navigation";
 
-export default function LessonContent({ setOpenSidebar }) {
+export default function LessonContent({ setOpenSidebar, video, article }) {
+  console.log("video", video);
+  console.log("article", article);
   const [breakpointAnswer, setBreakpointAnswer] = useState(null);
 
   return (
     <main className="flex-1 overflow-y-auto">
       {/* Top bar */}
       <div className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border mb-4">
-        <div className="max-w-3xl mx-auto px-4 md:px-8 py-3 flex items-center justify-between text-xs text-muted-foreground">
+        <div className="max-w-3xl mx-auto px-4 md:px-8 py-3 flex items-center justify-between text-xs muted-text-foreground">
           <div className="flex items-center gap-2">
-            <Link href="/" className="hover:underline">
+            <Link href="/student" className="hover:underline">
               Home
             </Link>{" "}
             <ChevronRight className="h-3 w-3 shrink-0" />
-            <Link href="/student/homepage" className="hover:underline">
+            <Link href="/student/roadmap" className="hover:underline">
               Roadmap
             </Link>{" "}
             <ChevronRight className="h-3 w-3 shrink-0" />
             <span>Module 02</span>
             <ChevronRight className="h-3 w-3 shrink-0" />
-            <span className="text-foreground/80">
-              Lesson 04 · Gradient Descent in Practice
-            </span>
+            <span className="text-foreground/80">{video?.title}</span>
           </div>
         </div>
       </div>
@@ -50,13 +50,13 @@ export default function LessonContent({ setOpenSidebar }) {
             <div className="flex items-center gap-2 mb-4">
               <Badge
                 variant="outline"
-                className="border-primary/30 bg-primary/5 text-primary-light font-normal"
+                className="border-primary/30 bg-surface/5 text-foreground-light font-normal"
               >
                 Core Concept
               </Badge>
               <Badge
                 variant="outline"
-                className="border-border text-muted-foreground font-normal gap-1.5"
+                className="border-border muted-text-foreground font-normal gap-1.5"
               >
                 <Clock className="h-3 w-3" /> 18 min
               </Badge>
@@ -65,21 +65,21 @@ export default function LessonContent({ setOpenSidebar }) {
               className="flex items-center gap-2 lg:hidden"
               onClick={() => setOpenSidebar(true)}
             >
-              <Menu className="h-6 w-6 text-muted-foreground cursor-pointer" />
+              <Menu className="h-6 w-6 muted-text-foreground cursor-pointer" />
             </div>
           </div>
 
           <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tight leading-[1.05] flex items-center gap-2">
-            <Tag className="h-8 w-8 text-primary" /> Function in Python
+            <Tag className="h-8 w-8 text-foreground" /> {video?.title}
           </h1>
 
           <div className="mt-6 rounded-lg border border-primary/20 bg-linear-to-br from-primary/8 to-secondary/5 p-5">
             <div className="flex items-start gap-3">
               <div className="h-8 w-8 shrink-0 rounded-md gradient-ai flex items-center justify-center">
-                <Sparkles className="h-4 w-4 text-primary-foreground" />
+                <Sparkles className="h-4 w-4 text-foreground-text-foreground" />
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-[0.16em] text-primary-light mb-1.5">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-foreground-light mb-1.5">
                   AI Insight
                 </p>
                 <p className="text-sm text-foreground/90 leading-relaxed">
@@ -99,43 +99,38 @@ export default function LessonContent({ setOpenSidebar }) {
         <section className="flex flex-col gap-12">
           <iframe
             className="w-full h-[400px] rounded-lg"
-            src="https://www.youtube.com/embed/Izwd_n-Ufqo?si=NLUFhYHbI1eVbAVq"
+            src={
+              video?.url
+                ? `https://www.youtube.com/embed/${video.url.split("v=")[1]}`
+                : ""
+            }
             title="YouTube video player"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             referrerPolicy="strict-origin-when-cross-origin"
             allowFullScreen
           ></iframe>
           <h2 className="font-display text-2xl md:text-3xl font-semibold tracking-tight leading-[1.05] flex items-center gap-2">
-            <BookOpenText className="h-8 w-8 text-primary" /> Read the
-            documentation
+            <BookOpenText className="h-8 w-8 text-foreground" /> Read the
+            Article From Here
           </h2>
-          <iframe
-            className="w-full h-[550px] rounded-lg"
-            src="https://python-adv-web-apps.readthedocs.io/en/latest/functions.html"
-            title="Python Functions"
-          ></iframe>
 
           <div>
-            <p className="text-sm md:text-base italic text-foreground/90 leading-relaxed mb-4">
-              if the documentation is not loading here , please click the button
-              below to read the documentation:
-            </p>
             <Link
-              href="https://python-adv-web-apps.readthedocs.io/en/latest/functions.html"
+              href={article?.url || ""}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-primary text-primary-foreground px-4 py-2 rounded-lg"
+              className="bg-surface text-foreground-text-foreground px-18 py-4 rounded-lg hover:bg-surface-hover transition-colors duration-200"
             >
-              Read the documentation
+              Read the Article
             </Link>
           </div>
         </section>
 
         {/* End-of-lesson */}
-        <section className="mt-16 rounded-2xl border border-border bg-linear-to-br from-bg-card to-bg-tertiary/40 p-8">
+        <section className="mt-16 rounded-2xl border border-border bg-linear-to-br from-card to-surface-elevated/40 p-8">
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="h-4 w-4 text-primary-light" />
-            <p className="text-[11px] uppercase tracking-[0.18em] text-primary-light">
+            <Sparkles className="h-4 w-4 text-foreground-light" />
+            <p className="text-[11px] uppercase tracking-[0.18em] text-foreground-light">
               AI Summary
             </p>
           </div>
@@ -182,7 +177,7 @@ export default function LessonContent({ setOpenSidebar }) {
             href="/student/quizPage"
             className="mt-7 flex items-center gap-3"
           >
-            <Button className="group cursor-pointer hover:opacity-90 transition shadow-neon text-primary-foreground gap-2 h-11 px-6">
+            <Button className="group cursor-pointer hover:opacity-90 transition shadow-neon text-foreground bg-primary hover:bg-primary-dark gap-2 h-11 px-6">
               Start Quiz{" "}
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Button>

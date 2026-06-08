@@ -1,28 +1,43 @@
 "use client";
 
-import { useState } from "react";
-import { Menu, X, Brain } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
+import { Link, useRouter } from "@/lib/i18n/navigation";
+
+//components
 import { Button } from "@/components/ui/button";
-import { Link } from "@/lib/i18n/navigation";
+import ThemeToggle from "./ThemeToggle";
+//icons
+import { Menu, X, Brain } from "lucide-react";
+//hooks
+import { useGetCurrentUser } from "@/hooks/useAuth";
+
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const t = useTranslations("Navbar");
+  const user = useGetCurrentUser();
+
+  const router = useRouter();
 
   const navLinks = [
+    { name: "Real Problems", href: "#problem" },
     { name: "Features", href: "#features" },
     { name: "How It Works", href: "#how-it-works" },
-    { name: "About Us", href: "#about" },
   ];
 
   return (
     <nav className="fixed inset-x-0 top-0 z-50 bg-background/60 backdrop-blur-xl">
       <div className="flex h-16 items-center justify-between main-container">
         {/* Logo */}
-        <Link href="/" className="group flex items-center gap-2">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-primary to-secondary transition-shadow group-hover:shadow-neon">
-            <Brain className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="primary-gradient font-bold text-xl">MentraAi</span>
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/" className="group flex items-center gap-2">
+            <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-primary to-secondary transition-shadow group-hover:shadow-neon">
+              <Brain className="h-5 w-5 text-foreground-text-foreground" />
+            </div>
+            <span className="primary-gradient font-bold text-xl">MentraAi</span>
+          </Link>
+          <ThemeToggle />
+        </div>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
@@ -30,7 +45,7 @@ const Navbar = () => {
             <a
               key={link.name}
               href={link.href}
-              className="text-sm font-medium text-text-muted transition-colors hover:text-text-foreground"
+              className="text-sm font-medium text-foreground-muted transition-colors hover:text-foreground"
             >
               {link.name}
             </a>
@@ -39,14 +54,23 @@ const Navbar = () => {
 
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center gap-3">
-          <Link href="/register/Login">
+          {!user?.isSuccess ? (
+            <Link href="/register/Login">
+              <Button
+                variant="ghost"
+                className="rounded-full border border-border px-6 text-foreground-muted hover:text-foreground cursor-pointer"
+              >
+                Login
+              </Button>
+            </Link>
+          ) : (
             <Button
-              variant="ghost"
-              className="rounded-full border border-border px-6 text-text-muted hover:text-text-foreground cursor-pointer"
+              onClick={() => router.push("/student")}
+              className="rounded-full gradient-cta px-6 hover:opacity-90 hover:scale-105 cursor-pointer"
             >
-              Login
+              Dashboard
             </Button>
-          </Link>
+          )}
 
           <Link href="/register/SignUp">
             <Button className="rounded-full gradient-cta px-6 hover:opacity-90 hover:scale-105 cursor-pointer">
@@ -57,7 +81,7 @@ const Navbar = () => {
 
         {/* Mobile Toggle */}
         <button
-          className="md:hidden rounded-md p-2 text-text-primary"
+          className="md:hidden rounded-md p-2 text-foreground"
           onClick={() => setIsOpen((prev) => !prev)}
         >
           {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -73,7 +97,7 @@ const Navbar = () => {
                 key={link.name}
                 href={link.href}
                 onClick={() => setIsOpen(false)}
-                className="block py-2 font-medium text-text-muted transition-colors hover:text-text-foreground"
+                className="block py-2 font-medium text-foreground-muted transition-colors hover:text-foreground"
               >
                 {link.name}
               </a>
@@ -83,13 +107,13 @@ const Navbar = () => {
               <Link href="/register/Login">
                 <Button
                   variant="ghost"
-                  className="w-full rounded-full border border-border text-text-muted hover:text-text-foreground"
+                  className="w-full rounded-full border border-border text-foreground-muted hover:text-foreground"
                 >
                   Login
                 </Button>
               </Link>
               <Link href="/register/SignUp">
-                <Button className="w-full rounded-full gradient-cta text-text-foreground hover:bg-gradient-cta cursor-pointer">
+                <Button className="w-full rounded-full gradient-cta text-foreground hover:bg-gradient-cta cursor-pointer">
                   Sign up
                 </Button>
               </Link>

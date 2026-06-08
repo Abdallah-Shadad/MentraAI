@@ -47,7 +47,7 @@ export default function Analyzing({ step }) {
           />
         ))}
       </div>
-      <h2 className="mt-10 text-2xl font-semibold text-text-primary">
+      <h2 className="mt-10 text-2xl font-semibold text-foreground">
         Reading how you think
       </h2>
       <div className="mt-4 space-y-2 max-w-sm mx-auto">
@@ -56,8 +56,8 @@ export default function Analyzing({ step }) {
             key={l}
             className={`flex items-center gap-3 text-sm transition-all ${
               i <= step
-                ? "text-text-primary opacity-100"
-                : "text-text-muted opacity-40"
+                ? "text-foreground opacity-100"
+                : "text-foreground-muted opacity-40"
             }`}
           >
             <span
@@ -65,8 +65,8 @@ export default function Analyzing({ step }) {
                 i < step
                   ? "bg-success"
                   : i === step
-                    ? "bg-primary animate-pulse"
-                    : "bg-text-muted"
+                    ? "bg-surface animate-pulse"
+                    : "bg-muted"
               }`}
             />
             {l}
