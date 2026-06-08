@@ -1,9 +1,7 @@
 import axios from "axios";
 
-const API_URL = "https://mentraai-api.runasp.net/api/v1";
-
 const axiosInstance = axios.create({
-  baseURL: API_URL,
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
   withCredentials: true,
 });
 
