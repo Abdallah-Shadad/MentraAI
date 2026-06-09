@@ -1,5 +1,21 @@
 services:
-    # FastAPI
+  # Next.js Frontend (production standalone build)
+  nextjs:
+    build:
+      context: ..
+      dockerfile: docker/nextjs/Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost/api}
+    container_name: nextjs
+    ports:
+      - "3000:3000"
+    networks:
+      - frontend
+    env_file:
+      - ./env/.env.nextjs
+    restart: unless-stopped
+
+  # FastAPI — Python AI/LLM service (internal only, not exposed via nginx)
   fastapi:
     build:
       context: ..
@@ -77,7 +93,7 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Nginx Service 
+  # Nginx Service — joins both networks to bridge frontend ↔ backend
   nginx:
     image: nginx:stable-alpine3.23-perl
     container_name: nginx
@@ -86,9 +102,10 @@ services:
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
     depends_on:
-      - fastapi
+      - nextjs
       - dotnet_api
     networks:
+      - frontend
       - backend
     restart: always
 
@@ -111,7 +128,7 @@ services:
   #   image: grafana/grafana:12.4.0-ubuntu
   #   container_name: grafana
   #   ports:
-  #     - "3000:3000"
+  #     - "3001:3000"  # changed from 3000 — conflicts with Next.js
   #   volumes:
   #     - grafana_data:/var/lib/grafana
   #   env_file:
@@ -142,6 +159,10 @@ services:
   #   restart: always
   
 networks:
+  # frontend: Next.js + nginx only
+  frontend:
+    driver: bridge
+  # backend: all internal services (FastAPI, .NET, Redis, Postgres)
   backend:
     driver: bridge
 
