@@ -1,0 +1,85 @@
+# ==========================================
+# MENTRA AI - FULL PROJECT .GITIGNORE
+# ==========================================
+
+# ------------------------------------------
+# 1. .NET Core (Backend)
+# ------------------------------------------
+[Bb]in/
+[Oo]bj/
+[Tt]est[Rr]esult*/
+*.user
+*.userosscache
+*.sln.docstates
+
+# Ignore environment-specific appsettings in ALL folders, but KEEP the main one
+**/appsettings.Development.json
+**/appsettings.Production.json
+**/appsettings.*.json
+!**/appsettings.json
+
+**/Properties/launchSettings.json
+
+# Build outputs
+**/bin/
+**/obj/
+out/
+
+# Publish and output folders
+publish/
+out/
+*.zip
+
+AMTest/
+Scratch*/
+publish*/
+
+# ------------------------------------------
+# 2. Next.js / Node (Frontend)
+# ------------------------------------------
+node_modules/
+.pnp
+.pnp.js
+.next/
+out/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Ignore environment variables (never commit secrets!)
+.env
+.env.*.local
+.env.local
+*.pem
+
+# npm / yarn / pnpm debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ------------------------------------------
+# 3. IDEs and Editor Folders
+# ------------------------------------------
+# Visual Studio
+.vs/
+*.suo
+
+# VS Code (Ignore local workspace stuff, keep shared team settings)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# ------------------------------------------
+# 4. OS Generated Files (Windows & Mac)
+# ------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
