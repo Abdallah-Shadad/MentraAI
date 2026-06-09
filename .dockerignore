@@ -1,0 +1,34 @@
+# Ignore Git files
+.git
+.github
+
+# Ignore Frontend dependencies and build outputs
+**/node_modules
+**/node_modules/
+Frontend/node_modules/
+Frontend/.next/
+Frontend/out/
+Frontend/build/
+Frontend/dist/
+
+# Ignore .NET dependencies and build outputs
+**/bin/
+**/obj/
+**/publish/
+**/out/
+
+# Ignore local config and temporary files
+**/env/.env.*.local
+**/env/.env.local
+**/*.pem
+**/*.user
+**/*.suo
+.vs/
+.vscode/
+.idea/
+.gemini/
+
+# System files
+.DS_Store
+Thumbs.db
+ehthumbs.db
