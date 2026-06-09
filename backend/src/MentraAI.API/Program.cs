@@ -38,10 +38,10 @@ builder.Services.AddControllers()
         {
             // Collect all validation errors in a structured way
             var errors = context.ModelState
-                .Where(e => e.Value.Errors.Count > 0)
+                .Where(e => e.Value != null && e.Value.Errors.Count > 0)
                 .ToDictionary(
                     kvp => kvp.Key,
-                    kvp => kvp.Value.Errors.Select(e => e.ErrorMessage).ToArray()
+                    kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
                 );
 
             // Formulate the response in the agreed standard
@@ -169,6 +169,14 @@ builder.Services
         {
             OnMessageReceived = context =>
             {
+                // Prioritize Authorization header if present
+                var authHeader = context.Request.Headers["Authorization"].ToString();
+                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Task.CompletedTask;
+                }
+
+                // Fallback to cookie-based extraction
                 if (context.Request.Cookies.TryGetValue("access_token", out var accessToken))
                 {
                     context.Token = accessToken;
