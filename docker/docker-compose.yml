@@ -16,6 +16,43 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    restart: unless-stopped
+
+  # PostgreSQL — database for the .NET API
+  postgres:
+    image: postgres:17.5-alpine
+    container_name: postgres_db
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - ./env/.env.postgres
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # .NET ASP.NET Core 9 API
+  dotnet_api:
+    build:
+      context: ..
+      dockerfile: docker/dotnet_api/Dockerfile
+    container_name: dotnet_api
+    ports:
+      - "8080:8080"
+    networks:
+      - backend
+    env_file:
+      - ./env/.env.dotnet
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
   # Redis Stack — includes RediSearch (FT.*), RedisJSON, RedisBloom
   # Latest pinned release: 7.4.0-v8 (confirmed from hub.docker.com/r/redis/redis-stack-server/tags)
@@ -50,6 +87,7 @@ services:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - fastapi
+      - dotnet_api
     networks:
       - backend
     restart: always
@@ -110,5 +148,6 @@ networks:
 volumes:
   fastapi_data:
   redis_data:
+  postgres_data:
   # prometheus_data:
   # grafana_data:
