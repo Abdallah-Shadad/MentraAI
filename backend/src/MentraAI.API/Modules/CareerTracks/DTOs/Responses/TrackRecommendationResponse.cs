@@ -13,6 +13,7 @@ public class TrackRecommendationResponse
 public class TrackMatchResponse
 {
     public string       TrackName                { get; set; } = string.Empty;
+    public int?         CareerTrackId            { get; set; }
     public int          FitScore                 { get; set; }
     public string       Reasoning                { get; set; } = string.Empty;
     public List<string> SkillOverlap             { get; set; } = new();
