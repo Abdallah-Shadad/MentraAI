@@ -6,8 +6,10 @@ using MentraAI.API.Modules.Auth.DTOs.Requests;
 using MentraAI.API.Modules.Auth.DTOs.Responses;
 using MentraAI.API.Modules.Auth.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 using System.Security.Claims;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
@@ -18,6 +20,7 @@ namespace MentraAI.API.Modules.Auth.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IWebHostEnvironment _env;
     private readonly IValidator<RegisterRequest> _registerValidator;
     private readonly IValidator<LoginRequest> _loginValidator;
     private readonly IValidator<RefreshTokenRequest> _refreshValidator;
@@ -25,12 +28,14 @@ public class AuthController : ControllerBase
 
     public AuthController(
         IAuthService authService,
+        IWebHostEnvironment env,
         IValidator<RegisterRequest> registerValidator,
         IValidator<LoginRequest> loginValidator,
         IValidator<RefreshTokenRequest> refreshValidator,
         IValidator<LogoutRequest> logoutValidator)
     {
         _authService = authService;
+        _env = env;
         _registerValidator = registerValidator;
         _loginValidator = loginValidator;
         _refreshValidator = refreshValidator;
@@ -128,36 +133,58 @@ public class AuthController : ControllerBase
 
     private void SetTokenCookies(string accessToken, string refreshToken, int accessExpiresInSeconds)
     {
+        var isDevelopment = _env.IsDevelopment();
+
         var cookieOptions = new CookieOptions
         {
             HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
-            Expires = DateTimeOffset.UtcNow.AddSeconds(accessExpiresInSeconds)
+            Secure = !isDevelopment, // Secure cookies only in non-development (requires HTTPS)
+            SameSite = isDevelopment ? SameSiteMode.Lax : SameSiteMode.None,
+            Path = "/",
+            MaxAge = TimeSpan.FromSeconds(accessExpiresInSeconds)
         };
+
+        if (!isDevelopment)
+        {
+            cookieOptions.Extensions.Add("Partitioned");
+        }
 
         Response.Cookies.Append("access_token", accessToken, cookieOptions);
 
         var refreshCookieOptions = new CookieOptions
         {
             HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
-            Expires = DateTimeOffset.UtcNow.AddDays(7)
+            Secure = !isDevelopment,
+            SameSite = isDevelopment ? SameSiteMode.Lax : SameSiteMode.None,
+            Path = "/",
+            MaxAge = TimeSpan.FromDays(7) // Explicitly set MaxAge for refresh token
         };
+
+        if (!isDevelopment)
+        {
+            refreshCookieOptions.Extensions.Add("Partitioned");
+        }
 
         Response.Cookies.Append("refresh_token", refreshToken, refreshCookieOptions);
     }
 
     private void ClearTokenCookies()
     {
+        var isDevelopment = _env.IsDevelopment();
+
         var cookieOptions = new CookieOptions
         {
             HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.None,
-            Expires = DateTimeOffset.UtcNow.AddDays(-1)
+            Secure = !isDevelopment,
+            SameSite = isDevelopment ? SameSiteMode.Lax : SameSiteMode.None,
+            Path = "/",
+            Expires = DateTimeOffset.UtcNow.AddDays(-1) // Deleting cookie still uses Expires in the past
         };
+
+        if (!isDevelopment)
+        {
+            cookieOptions.Extensions.Add("Partitioned");
+        }
 
         Response.Cookies.Delete("access_token", cookieOptions);
         Response.Cookies.Delete("refresh_token", cookieOptions);
