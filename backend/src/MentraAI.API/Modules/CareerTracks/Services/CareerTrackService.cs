@@ -199,24 +199,44 @@ public class CareerTrackService : ICareerTrackService
             _logger.LogWarning(ex, "Failed to save AI prediction for user {UserId}", userId);
         }
 
-        // 5. Map and Return
+        // 5. Fetch all active tracks to map recommended track names to database IDs
+        var activeTracks = await _repo.GetAllActiveTracksAsync();
+
+        var recommendedTracksList = new List<TrackMatchResponse>();
+        foreach (var t in result.RecommendedTracks)
+        {
+            var dbTrack = activeTracks.FirstOrDefault(db => string.Equals(db.Name, t.TrackName, StringComparison.OrdinalIgnoreCase));
+            int? careerTrackId = null;
+
+            if (dbTrack != null)
+            {
+                careerTrackId = dbTrack.Id;
+            }
+            else
+            {
+                _logger.LogWarning("AI recommended track '{TrackName}' does not match any active career track in the database for user {UserId}.", t.TrackName, userId);
+            }
+
+            recommendedTracksList.Add(new TrackMatchResponse
+            {
+                TrackName = t.TrackName,
+                CareerTrackId = careerTrackId,
+                FitScore = t.FitScore,
+                Reasoning = t.Reasoning,
+                SkillOverlap = t.SkillOverlap,
+                SkillsToLearn = t.SkillsToLearn,
+                EstimatedTransitionWeeks = t.EstimatedTransitionWeeks
+            });
+        }
+
+        // 6. Map and Return
         return new TrackRecommendationResponse
         {
             UserSummary = result.UserSummary,
             PrimaryRecommendation = result.PrimaryRecommendation,
             ProfileCompleteness = result.ProfileCompleteness,
             MissingInfoSuggestions = result.MissingInfoSuggestions ?? new List<string>(),
-            RecommendedTracks = result.RecommendedTracks
-                .Select(t => new TrackMatchResponse
-                {
-                    TrackName = t.TrackName,
-                    FitScore = t.FitScore,
-                    Reasoning = t.Reasoning,
-                    SkillOverlap = t.SkillOverlap,
-                    SkillsToLearn = t.SkillsToLearn,
-                    EstimatedTransitionWeeks = t.EstimatedTransitionWeeks
-                })
-                .ToList()
+            RecommendedTracks = recommendedTracksList
         };
     }
 }
