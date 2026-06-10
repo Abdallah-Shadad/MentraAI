@@ -17,11 +17,11 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY src/requirements.txt .
+COPY AI/src/requirements.txt .
 
 RUN uv pip install -r requirements.txt --system
 
-COPY src/ .
+COPY AI/src/ .
 
 COPY docker/mentra_ai/entrypoint.sh /entrypoint.sh
 
