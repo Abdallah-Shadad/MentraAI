@@ -17,10 +17,10 @@ jobs:
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SSH_MAIN_HOST_IP }}
-          username: mentr_github_user
+          username: mentrai_github_user
           key: ${{ secrets.SSH_MAIN_PRIVATE_KEY }}
           script: |
-            cd /home/mentr_github_user/workspace/Mentra-AI
+            cd /home/mentrai_github_user/workspace/MentraAI
             git checkout main
             git pull
             sudo systemctl restart mentrai.service
