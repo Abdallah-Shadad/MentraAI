@@ -5,7 +5,7 @@ services:
       context: ..
       dockerfile: docker/nextjs/Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost/api}
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}
     container_name: nextjs
     ports:
       - "3000:3000"
@@ -47,7 +47,7 @@ services:
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -87,7 +87,7 @@ services:
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping | grep -E -q 'PONG|NOAUTH'"]
+      test: [ "CMD-SHELL", "redis-cli ping | grep -E -q 'PONG|NOAUTH'" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -108,8 +108,6 @@ services:
       - frontend
       - backend
     restart: always
-
-
   # # Prometheus Monitoring
   # prometheus:
   #   image: prom/prometheus:v3.10.0
@@ -157,7 +155,7 @@ services:
   #     - '--path.rootfs=/rootfs'
   #     - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
   #   restart: always
-  
+
 networks:
   # frontend: Next.js + nginx only
   frontend:
@@ -170,5 +168,5 @@ volumes:
   fastapi_data:
   redis_data:
   postgres_data:
-  # prometheus_data:
-  # grafana_data:
+    # prometheus_data:
+    # grafana_data:
