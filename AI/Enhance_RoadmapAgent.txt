@@ -1,0 +1,394 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║         ROADMAP MULTI-AGENT — FULL ENHANCEMENT PLAN (Production Ready)      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 ── SCHEMA FIXES  (agents/schemas/)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1.1  ProfileAnalyzer.py  ← WRONG SCHEMA
+  CURRENT (WRONG):
+    class ProfileAnalyzerOutput(BaseModel):
+        name, skills, experience, summary        ← generic, not what state needs
+
+  REQUIRED (what RoadmapState + _supervisor_node + build_messages expect):
+    class ProfileAnalyzerOutput(BaseModel):
+        difficulty_level: str        # "beginner" | "intermediate" | "advanced"
+        skill_gaps: List[str]        # e.g. ["python", "machine learning"]
+        prerequisite_analysis: Dict[str, Any]  # {"has_python": true, ...}
+        estimated_duration_weeks: int
+
+  WHY IT MATTERS:
+    - BaseWorkerAgent.invoke() writes response to state["profile_analysis"]
+    - But RoadmapGraph._deterministic_routing checks state["profile_agent_done"]
+      and then supervisor reads state["difficulty_level"], state["skill_gaps"] etc.
+    - Currently the wrong keys are written → CurriculumGenerator gets None for inputs
+
+  FIX:
+    Replace the entire ProfileAnalyzerOutput model with the correct one above.
+    Also change _output_key() in ProfileAnalyzer.py from "profile_analysis"
+    to the INDIVIDUAL FIELDS, OR make BaseWorkerAgent unpack the output —
+    see Section 3.1 for the recommended approach.
+
+──────────────────────────────────────────────────────────────────
+
+1.2  ResourceCurator.py  ← WRONG SCHEMA
+  CURRENT (WRONG):
+    class ResourceCuratorOutput(BaseModel):
+        topic: str
+        resources: Dict[str, str]   # just name→link, no type or quality_score
+
+  REQUIRED (matches supervisor prompt + state["stage_resources"] usage):
+    class LearningResource(BaseModel):
+        title: str
+        url: str
+        type: str       # "video" | "article" | "documentation" | "course"
+        quality_score: float   # 0.0 – 1.0
+        description: Optional[str] = None
+
+    class ResourceCuratorOutput(BaseModel):
+        stage_id: str
+        resources: List[LearningResource]   # 3–5 resources
+
+  WHY IT MATTERS:
+    - _response_formatter_node writes stage_resources to the API response
+    - Frontend expects rich resource objects, not bare name→link dicts
+    - quality_score is mentioned in the prompt but never captured
+
+──────────────────────────────────────────────────────────────────
+
+1.3  AdaptationEngine.py  ← WRONG SCHEMA (completely off)
+  CURRENT (WRONG):
+    class AdaptationEngineOutput(BaseModel):
+        topic: str
+        resources: List[str]
+        Where_in_stage_will_add_resource: str
+
+  REQUIRED (matches _DEFAULT_SYSTEM_PROMPT in AdaptationEngine.py):
+    class StageAdjustment(BaseModel):
+        action: str       # "reorder" | "insert_remedial"
+        stage_id: str
+        reason: str
+
+    class RecommendedResource(BaseModel):
+        title: str
+        url: str
+
+    class AdaptationEngineOutput(BaseModel):
+        struggling_topics: List[str]
+        recommended_resources: List[RecommendedResource]
+        stage_adjustments: List[StageAdjustment]
+        summary: str
+
+  WHY IT MATTERS:
+    - The prompt says return {"struggling_topics", "recommended_resources",
+      "stage_adjustments", "summary"} but the schema captures none of these
+    - with_structured_output will FAIL or return garbage because schema and
+      prompt are completely misaligned
+
+──────────────────────────────────────────────────────────────────
+
+1.4  CurriculumAgent.py  ← MOSTLY OK, minor gap
+  CURRENT: CurriculumStage has no "description" or "prerequisites" fields
+  SUGGESTED ADDITION:
+    class CurriculumStage(BaseModel):
+        id: str
+        name: str
+        description: Optional[str] = None     # ← ADD: brief stage summary
+        topics: List[str]
+        learning_objectives: Dict[str, str]
+        estimated_weeks: int
+        prerequisites: List[str] = []         # ← ADD: list of stage ids
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 ── SYSTEM PROMPT FIXES  (agents/prompts/ + agent files)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2.1  ProfileAnalyzer.py  ← _DEFAULT_SYSTEM_PROMPT is too vague
+  CURRENT: Returns generic JSON with 4 keys, no instructions on assessment depth
+  ENHANCED PROMPT should include:
+    - Role: "You are an expert career-track skill assessor."
+    - Explicit output format matching ProfileAnalyzerOutput schema exactly
+    - Assessment rules: beginner = <1yr exp, intermediate = 1-3yr, advanced = 3yr+
+    - Mapping examples: career_track → required_skills for common tracks
+    - Instruction: do NOT ask for more info, estimate based on available data
+    - Must return ONLY valid JSON, no markdown wrapping
+
+  MOVE PROMPT TO: agents/prompts/ProfileAnalyzerPrompt.py
+  Then in ProfileAnalyzer.py:
+    from .prompts.ProfileAnalyzerPrompt import SYSTEM_PROMPT
+    _DEFAULT_SYSTEM_PROMPT = SYSTEM_PROMPT
+
+──────────────────────────────────────────────────────────────────
+
+2.2  ResourceCurator.py  ← _DEFAULT_SYSTEM_PROMPT missing key rules
+  CURRENT: Generic "find high-quality materials" instruction
+  ENHANCED PROMPT should include:
+    - Role: "You are a senior learning-resource curator."
+    - Must output ONLY resources for the single stage provided (not all stages)
+    - Resource scoring criteria (official docs=0.9+, YouTube tutorials=0.6-0.75, etc.)
+    - Minimum 3, maximum 5 resources per stage
+    - Prefer: official documentation, reputable MOOCs (Coursera, edX, Udemy),
+      established YouTube channels
+    - Never return paywalled resources without noting it
+    - Output format must match ResourceCuratorOutput exactly (stage_id + resources list)
+
+  MOVE PROMPT TO: agents/prompts/ResourceCuratorPrompt.py
+
+──────────────────────────────────────────────────────────────────
+
+2.3  AdaptationEngine.py  ← _DEFAULT_SYSTEM_PROMPT is good BUT needs alignment
+  CURRENT: Prompt describes correct output format (struggling_topics etc.)
+  PROBLEM: Schema does NOT match the prompt (see Section 1.3)
+  ACTION: Fix the schema (1.3) — the prompt itself is acceptable
+  ENHANCEMENT: Add instructions for severity scoring:
+    - quiz_score < 60 → insert remedial stage before current
+    - quiz_score 60-75 → add supplemental resources only
+    - quiz_score > 75 → minor reorder or no change
+
+  MOVE PROMPT TO: agents/prompts/AdaptationEnginePrompt.py
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 ── BUILD_MESSAGES FIXES  (each agent file)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3.1  ProfileAnalyzer.build_messages()  ← MISSING STATE CONTEXT
+  CURRENT:
+    HumanMessage(content= user_id + career_track only)
+
+  PROBLEM: No user background info → LLM has NOTHING to base skill assessment on.
+    The state has no "user_background" field yet (see Section 5).
+
+  FIX:
+    - Add optional "user_background" field to RoadmapState (free-text or structured)
+    - Include it in HumanMessage if provided:
+      f"User career goal  : {career_track}\n"
+      f"Weekly hours      : {weekly_hours}\n"
+      f"User background   : {state.get('user_background', 'Not provided')}\n"
+      f"Current skills    : {state.get('current_skills', [])}\n"
+
+──────────────────────────────────────────────────────────────────
+
+3.2  ResourceCurator.build_messages()  ← MISSING CAREER TRACK CONTEXT
+  CURRENT:
+    Only sends difficulty_level + current_stage
+
+  FIX:
+    Add career_track and total curriculum context:
+      f"Career track      : {career_track}\n"
+      f"Difficulty level  : {difficulty_level}\n"
+      f"Stage to curate   : {current_stage}\n"
+      f"Other stages (for context): {[s.get('name') for s in all_stages]}\n"
+
+──────────────────────────────────────────────────────────────────
+
+3.3  AdaptationEngine.build_messages()  ← MISSING CURRENT STAGE CONTEXT
+  CURRENT:
+    Only sends curriculum + learner_progress
+
+  FIX:
+    Add current_stage and difficulty_level:
+      f"Career track      : {career_track}\n"
+      f"Current stage     : {current_stage}\n"
+      f"Difficulty level  : {difficulty_level}\n"
+      f"Full curriculum   : {curriculum}\n"
+      f"Learner progress  : {learner_progress}\n"
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 ── BASEWORKERAGENT CRITICAL BUG  (BaseWorkerAgent.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4.1  invoke() writes Pydantic model OBJECT to state, not individual fields
+  CURRENT:
+    return {
+        **state,
+        self._output_key(): response,   ← response is a ProfileAnalyzerOutput OBJECT
+        self._done_key(): True,
+    }
+
+  PROBLEM FOR ProfileAnalyzer:
+    - _output_key() = "profile_analysis"
+    - But RoadmapState has NO "profile_analysis" key
+    - Supervisor checks state["difficulty_level"], state["skill_gaps"] directly
+    - These are NEVER written → supervisor always falls back incorrectly
+
+  FIX OPTION A (recommended — clean):
+    In ProfileAnalyzer, override _write_to_state() hook:
+    def _write_to_state(self, response, state):
+        return {
+            **state,
+            "difficulty_level": response.difficulty_level,
+            "skill_gaps": response.skill_gaps,
+            "prerequisite_analysis": response.prerequisite_analysis,
+            "estimated_duration_weeks": response.estimated_duration_weeks,
+            "profile_agent_done": True,
+        }
+
+    Then in BaseWorkerAgent.invoke(), call self._write_to_state(response, state)
+    instead of the hardcoded dict.
+
+  FIX OPTION B (simpler, all agents): Add model_dump() call in invoke():
+    return {
+        **state,
+        **response.model_dump(),   ← spread all Pydantic fields directly into state
+        self._done_key(): True,
+    }
+    This works if the Pydantic field names EXACTLY match the RoadmapState keys.
+
+  RECOMMENDATION: Use Option B for ProfileAnalyzer once schema is fixed (Section 1.1).
+    For other agents (ResourceCurator, AdaptationEngine), keep _output_key()
+    approach since they write to a single key ("resources", "adapted_curriculum").
+    But also fix ResourceCurator to write to "stage_resources" not "resources"
+    during stage progression mode (see Section 4.2).
+
+──────────────────────────────────────────────────────────────────
+
+4.2  ResourceCurator writes to "resources" but state expects "stage_resources"
+  CURRENT: _output_key() = "resources"
+  PROBLEM: _response_formatter_node reads state.get("stage_resources") for Mode 2
+  FIX:
+    In ResourceCurator.py, override invoke() or add logic:
+      output_key = "stage_resources" if state.get("is_stage_progression") else "resources"
+    OR: change _stage_extractor_node to always reset "resources" = None and let
+    ResourceCurator always write to "stage_resources".
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 ── ROADMAPSTATE MISSING FIELDS  (RoadmapGraph.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+5.1  Add missing input fields needed by ProfileAnalyzer
+  ADD to RoadmapState:
+    user_background: Annotated[Optional[str], "Free-text description of user's background"]
+    current_skills: Annotated[Optional[List[str]], "Skills user already has"]
+
+5.2  Add "response_formatter_done" flag for clean supervisor termination
+  ADD to RoadmapState:
+    response_formatter_done: Annotated[bool, "Signals response_formatter completed"]
+  FIX in _response_formatter_node: set response_formatter_done = True
+
+5.3  Add "api_response" field to RoadmapState (it's written but not declared!)
+  ADD to RoadmapState:
+    api_response: Annotated[Optional[Dict[str, Any]], "Final JSON response for API"]
+
+5.4  Add retry counter for supervisor rule 8 (repeat agent if quality insufficient)
+  ADD to RoadmapState:
+    retry_counts: Annotated[Dict[str, int], "How many times each agent has been retried"]
+    max_retries: Annotated[int, "Max retries per agent before forcing next step"]
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6 ── SUPERVISOR LOGIC IMPROVEMENTS  (RoadmapGraph.py)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+6.1  LLM supervisor is not reliable — add fallback validation
+  CURRENT: LLM returns next_agent, falls back to _deterministic_routing on error
+  PROBLEM: LLM might return a valid node name but at the WRONG time (e.g.
+    skip stage_extractor even though stage_extractor_done=False)
+  FIX: After LLM decides, VALIDATE the decision against the rules in
+    _deterministic_routing. If invalid, override with deterministic result.
+
+6.2  Supervisor prompt rule 8 is implemented but no retry_counts tracked
+  FIX: In _supervisor_node, track how many times each agent has been called
+    using state["retry_counts"] and enforce state["max_retries"] = 2.
+
+6.3  _deterministic_routing MODE 1 skips stage_extractor and resource_curator
+  CURRENT MODE 1 ends at FINISH after curriculum is done — correct for roadmap overview
+  HOWEVER: The comment says "Build All Stages with First stage resources" (Skills.md)
+  CLARIFY: Mode 1 should ONLY build profile + curriculum, NOT resources.
+    Resources are always Mode 2. This is currently correct but needs a comment.
+
+6.4  Supervisor LLM state_summary missing "response_formatter_done"
+  FIX: Add to state_summary dict in _supervisor_node:
+    "response_formatter_done": state.get("response_formatter_done", False)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 7 ── MISSING PROMPT FILES  (agents/prompts/)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+7.1  CurriculumAgentPrompt.py  ✅ EXISTS — good quality, keep as-is
+
+7.2  ProfileAnalyzerPrompt.py  ❌ MISSING — create it
+  File: agents/prompts/ProfileAnalyzerPrompt.py
+
+7.3  ResourceCuratorPrompt.py  ❌ MISSING — create it
+  File: agents/prompts/ResourceCuratorPrompt.py
+
+7.4  AdaptationEnginePrompt.py  ❌ MISSING — create it
+  File: agents/prompts/AdaptationEnginePrompt.py
+
+7.5  Update agents/prompts/__init__.py to export all 4 prompts
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 8 ── PRODUCTION-READINESS ADDITIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+8.1  Add max_iterations guard to prevent infinite loops
+  In RoadmapGraph.compile(), use:
+    self._app = self._graph.compile()
+  Consider wrapping invoke() with an iteration counter or use
+    langgraph's recursion_limit:
+    self._app.invoke(state, config={"recursion_limit": 15})
+
+8.2  Add input validation in RoadmapGraph.invoke()
+  Before calling self._app.invoke(state), validate:
+    - state["user_id"] is present
+    - state["career_track"] is a non-empty string
+    - state["weekly_hours"] is a positive int
+  Raise ValueError with clear message if invalid.
+
+8.3  Add structured error response in _response_formatter_node
+  If state.get("error") is not None, format an error API response:
+    "api_response": {"status": "error", "error": state["error"], ...}
+
+8.4  Add logging timestamps and execution time to each node
+  Wrap each node with: start = time.time() ... elapsed = time.time() - start
+  self.logger.info(f"[{NodeName}] done in {elapsed:.2f}s")
+
+8.5  Add __init__.py exports for agents/
+  Currently agents/__init__.py may be empty
+  Add: from .ProfileAnalyzer import ProfileAnalyzer (etc.)
+  So GraphFactory can import cleanly
+
+8.6  AgentProviderFactory should register all 4 agents
+  Verify AgentProviderFactory.create() handles:
+    AgentType.PROFILE_ANALYZER, CURRICULUM_GENERATOR,
+    RESOURCE_CURATOR, ADAPTATION_ENGINE
+  If any is missing, the _setup_agents() call will fail silently.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUMMARY — PRIORITY ORDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CRITICAL (must fix to run correctly):
+  [1] Fix ProfileAnalyzerOutput schema        (Section 1.1)
+  [2] Fix how ProfileAnalyzer writes to state (Section 4.1)
+  [3] Fix ResourceCuratorOutput schema        (Section 1.2)
+  [4] Fix AdaptationEngineOutput schema       (Section 1.3)
+  [5] Add missing RoadmapState fields         (Section 5.3 — api_response)
+
+HIGH (required for correct data flow):
+  [6] Fix ResourceCurator stage_resources key (Section 4.2)
+  [7] Improve ProfileAnalyzer build_messages  (Section 3.1)
+  [8] Create missing prompt files             (Section 7)
+  [9] Fix supervisor state_summary            (Section 6.4)
+
+MEDIUM (production hardening):
+  [10] Add user_background + current_skills to state (Section 5.1)
+  [11] Add max_iterations / recursion_limit   (Section 8.1)
+  [12] Add input validation in invoke()       (Section 8.2)
+  [13] Fix ResourceCurator build_messages     (Section 3.2)
+  [14] Fix AdaptationEngine build_messages    (Section 3.3)
+  [15] Add retry_counts tracking              (Section 6.2)
+
+LOW (polish):
+  [16] Add stage description to CurriculumStage (Section 1.4)
+  [17] Add execution time logging             (Section 8.4)
+  [18] Structured error response              (Section 8.3)

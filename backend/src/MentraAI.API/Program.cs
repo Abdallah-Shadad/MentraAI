@@ -26,6 +26,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.IdentityModel.Tokens;
+using Prometheus;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -249,6 +250,10 @@ var app = builder.Build();
 // === Middleware pipeline ===
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
+// Track HTTP request metrics (duration, count, in-flight) for Prometheus
+// Must be placed early in the pipeline to capture all requests
+app.UseHttpMetrics();
+
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -281,6 +286,12 @@ catch (Exception ex)
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     logger.LogError(ex, "Migration failed on startup.");
 }
+
+app.MapControllers();
+
+// Expose Prometheus metrics at /metrics
+// Prometheus scrapes this endpoint to collect request metrics
+app.MapMetrics();
 
 app.MapControllers();
 app.Run();

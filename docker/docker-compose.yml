@@ -1,0 +1,172 @@
+services:
+  # Next.js Frontend (production standalone build)
+  nextjs:
+    build:
+      context: ..
+      dockerfile: docker/nextjs/Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}
+    container_name: nextjs
+    ports:
+      - "3000:3000"
+    networks:
+      - frontend
+    env_file:
+      - ./env/.env.nextjs
+    restart: unless-stopped
+
+  # FastAPI — Python AI/LLM service (internal only, not exposed via nginx)
+  fastapi:
+    build:
+      context: ..
+      dockerfile: docker/mentra_ai/Dockerfile
+    container_name: fastapi
+    ports:
+      - "8000:8000"
+    volumes:
+      - fastapi_data:/app/assets
+    networks:
+      - backend
+    env_file:
+      - ./env/.env.app
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # PostgreSQL — database for the .NET API
+  postgres:
+    image: postgres:17.5-alpine
+    container_name: postgres_db
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - ./env/.env.postgres
+    networks:
+      - backend
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # .NET ASP.NET Core 9 API
+  dotnet_api:
+    build:
+      context: ..
+      dockerfile: docker/dotnet_api/Dockerfile
+    container_name: dotnet_api
+    ports:
+      - "8080:8080"
+    networks:
+      - backend
+    env_file:
+      - ./env/.env.dotnet
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Redis Stack — includes RediSearch (FT.*), RedisJSON, RedisBloom
+  # Latest pinned release: 7.4.0-v8 (confirmed from hub.docker.com/r/redis/redis-stack-server/tags)
+  redis:
+    image: redis/redis-stack-server:7.4.0-v8
+    container_name: redis_cache
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    # IMPORTANT: Never override `command:` on this image — doing so runs plain redis-server
+    # which bypasses the Stack entrypoint and skips loading all modules (FT.*, JSON, Bloom).
+    # Password and persistence flags are set via REDIS_ARGS in ./env/.env.redis instead.
+    env_file:
+      - ./env/.env.redis
+    networks:
+      - backend
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli ping | grep -E -q 'PONG|NOAUTH'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Nginx Service — joins both networks to bridge frontend ↔ backend
+  nginx:
+    image: nginx:stable-alpine3.23-perl
+    container_name: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - nextjs
+      - dotnet_api
+    networks:
+      - frontend
+      - backend
+    restart: always
+  # # Prometheus Monitoring
+  # prometheus:
+  #   image: prom/prometheus:v3.10.0
+  #   container_name: prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - prometheus_data:/prometheus
+  #     - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+  #   networks:
+  #     - backend
+  #   restart: always
+
+  # # Grafana Dashboard
+  # grafana:
+  #   image: grafana/grafana:12.4.0-ubuntu
+  #   container_name: grafana
+  #   ports:
+  #     - "3001:3000"  # changed from 3000 — conflicts with Next.js
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #   env_file:
+  #     - ./env/.env.grafana
+  #   depends_on:
+  #     - prometheus
+  #   networks:
+  #     - backend
+  #   restart: always
+
+  # # Node Exporter for system Metrics
+  # node-exporter:
+  #   image: prom/node-exporter:v1.10.2
+  #   container_name: node-exporter
+  #   ports:
+  #     - "9100:9100"
+  #   networks:
+  #     - backend
+  #   volumes:
+  #     - /proc:/host/proc:ro
+  #     - /sys:/host/sys:ro
+  #     - /:/rootfs:ro
+  #   command:
+  #     - '--path.procfs=/host/proc'
+  #     - '--path.sysfs=/host/sys'
+  #     - '--path.rootfs=/rootfs'
+  #     - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+  #   restart: always
+
+networks:
+  # frontend: Next.js + nginx only
+  frontend:
+    driver: bridge
+  # backend: all internal services (FastAPI, .NET, Redis, Postgres)
+  backend:
+    driver: bridge
+
+volumes:
+  fastapi_data:
+  redis_data:
+  postgres_data:
+    # prometheus_data:
+    # grafana_data:

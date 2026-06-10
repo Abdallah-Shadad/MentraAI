@@ -39,7 +39,7 @@ publish*/
 # ------------------------------------------
 node_modules/
 .pnp
-.pnp.jss
+.pnp.js
 .next/
 out/
 build/

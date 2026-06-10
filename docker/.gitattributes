@@ -1,0 +1,12 @@
+* text=auto
+
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Ensure .env files are treated as text but keep their current line endings
+.env text eol=auto
+.env.example.nextjs text eol=auto
+.env.example.fastapi text eol=auto
+.env.example.dotnet text eol=auto
