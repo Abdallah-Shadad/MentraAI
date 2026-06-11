@@ -22,13 +22,37 @@ export const register = async (userData) => {
 };
 
 // Logout
-export const logout = async () => {
+export const logout = async (queryClient) => {
   try {
-    const response = await axiosInstance.post("/auth/logout");
-    return response.data;
+    await axiosInstance.post("/auth/logout");
   } catch (error) {
-    console.error("Error logging out:", error);
-    throw error;
+    console.error("Error logging out from backend:", error);
+  } finally {
+    // Client-side session wiping
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.clear();
+        localStorage.removeItem("user"); // clear any stored user summary
+      } catch (storageError) {
+        console.error("Error clearing client storage:", storageError);
+      }
+
+      // Clear React Query cache
+      if (queryClient) {
+        try {
+          queryClient.clear();
+        } catch (queryError) {
+          console.error("Error clearing query client cache:", queryError);
+        }
+      }
+
+      // Determine active locale for redirect
+      const segments = window.location.pathname.split("/");
+      const locale = ["en", "ar"].includes(segments[1]) ? segments[1] : "en";
+
+      // Hard redirect to clear all in-memory React states
+      window.location.href = `/${locale}/register/Login`;
+    }
   }
 };
 

@@ -1,5 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { register, login, getUser } from "../services/auth.service";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { register, login, getUser, logout } from "../services/auth.service";
 
 export const useRegister = () => {
   return useMutation({
@@ -40,3 +40,11 @@ export const useGetCurrentUser = () => {
     },
   });
 };
+
+export const useLogout = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => logout(queryClient),
+  });
+};
+

@@ -8,3 +8,12 @@ export const getUserProfile = async () => {
     throw error;
   }
 };
+
+export const updateUserProfile = async (profileData) => {
+  try {
+    const response = await axiosInstance.put("/users/me", profileData);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
