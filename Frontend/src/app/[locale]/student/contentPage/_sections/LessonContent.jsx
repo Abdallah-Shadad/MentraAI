@@ -97,18 +97,37 @@ export default function LessonContent({ setOpenSidebar, video, article }) {
 
         {/* Lesson Content */}
         <section className="flex flex-col gap-12">
-          <iframe
-            className="w-full h-[400px] rounded-lg"
-            src={
-              video?.url
-                ? `https://www.youtube.com/embed/${video.url.split("v=")[1]}`
-                : ""
-            }
-            title="YouTube video player"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allowFullScreen
-          ></iframe>
+          {(() => {
+            const getEmbedUrl = (url) => {
+              if (!url) return null;
+              if (url.includes("v=")) {
+                const parts = url.split("v=");
+                const id = parts[1]?.split("&")[0];
+                return id ? `https://www.youtube.com/embed/${id}` : null;
+              }
+              if (url.includes("youtu.be/")) {
+                const parts = url.split("youtu.be/");
+                const id = parts[1]?.split("?")[0];
+                return id ? `https://www.youtube.com/embed/${id}` : null;
+              }
+              if (url.includes("embed/")) {
+                return url;
+              }
+              return null;
+            };
+            const embedUrl = getEmbedUrl(video?.url);
+            if (!embedUrl) return null;
+            return (
+              <iframe
+                className="w-full h-[400px] rounded-lg"
+                src={embedUrl}
+                title="YouTube video player"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              ></iframe>
+            );
+          })()}
           <h2 className="font-display text-2xl md:text-3xl font-semibold tracking-tight leading-[1.05] flex items-center gap-2">
             <BookOpenText className="h-8 w-8 text-foreground" /> Read the
             Article From Here
