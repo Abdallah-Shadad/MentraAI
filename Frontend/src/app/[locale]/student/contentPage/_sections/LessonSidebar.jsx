@@ -35,7 +35,7 @@ export default function LessonSidebar({ open, lessons = [], setNumoflesson }) {
         <TooltipProvider delayDuration={200}>
           <ul className="space-y-1">
             {lessons.map((lesson, idx) => (
-              <Tooltip key={lesson.id}>
+              <Tooltip key={lesson.id || lesson.lessonId || `lesson-${idx}`}>
                 <TooltipTrigger asChild>
                   <button
                     className={cn(
