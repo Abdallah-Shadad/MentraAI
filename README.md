@@ -1,6 +1,5 @@
 # Welcome in Mentra AI
 
-
 <div align="center">
 
 <h2> ⚠️ you must update the base_url in the ```studio_app.py```, ```main.py``` file</h2>
