@@ -2,6 +2,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { Inter, Roboto, Playfair_Display } from "next/font/google";
 import MyClient from "@/components/reusable/MyClient";
 import "@/_style/globals.css";
+import { ChatProvider } from "@/components/chat/ChatProvider";
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
   weight: ["400", "500", "600", "700"],
@@ -32,7 +33,9 @@ export default async function UserLayout({ children }) {
         className={` ${inter.variable} ${roboto.variable} ${playfair.variable} antialiased`}
       >
         <MyClient>
-          <NextIntlClientProvider>{children}</NextIntlClientProvider>
+          <NextIntlClientProvider>
+            <ChatProvider>{children}</ChatProvider>
+          </NextIntlClientProvider>
         </MyClient>
       </body>
     </html>
