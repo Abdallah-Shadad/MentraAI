@@ -136,6 +136,10 @@ builder.Services
             builder.Configuration["AIService:BaseUrl"]!);
         client.Timeout = TimeSpan.FromSeconds(350);
     })
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
+    })
    .AddStandardResilienceHandler(options =>
     {
         options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(300);
