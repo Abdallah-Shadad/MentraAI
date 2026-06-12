@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY_CURRICULUM: str = ""
     GEMINI_API_KEY_RESOURCE: str = ""
     GEMINI_API_KEY_ADAPTATION: str = ""
+    GEMINI_API_KEY_TRACK_RECOMMENDER: str = ""
+    GEMINI_API_KEY_QUESTION_GENERATOR: str = ""
+    GEMINI_API_KEY_PROJECT_RECOMMENDER: str = ""
 
     # Groq fallback keys (2 keys — first hits limit → switches to second)
     GROQ_API_KEY_1: str = ""
@@ -129,6 +132,17 @@ def get_llm_config() -> dict:
         "model": "gemini-2.5-flash",
         "provider": "gemini",
 
+        # Catch-all fallback config for any unregistered agent
+        "default_llm_config": {
+            "primary": {
+                "provider": "gemini",
+                "model": "gemini-2.5-flash",
+                "api_key": default_gemini_key,
+                "temperature": 0.1
+            },
+            "fallbacks": fallbacks
+        },
+
         # ── Agent-Specific LLM Configs with Groq Fallback ──────────────────
         "agent_llm_configs": {
             "ProfileAnalyzer": {
@@ -163,6 +177,69 @@ def get_llm_config() -> dict:
                     "provider": "gemini",
                     "model": "gemini-2.5-flash-lite",  # 1500 req/day
                     "api_key": gemini_key("GEMINI_API_KEY_ADAPTATION"),
+                    "temperature": 0.1
+                },
+                "fallbacks": fallbacks
+            },
+            "TrackRecommender": {
+                "primary": {
+                    "provider": "gemini",
+                    "model": "gemini-2.5-flash",
+                    "api_key": gemini_key("GEMINI_API_KEY_TRACK_RECOMMENDER"),
+                    "temperature": 0.1
+                },
+                "fallbacks": fallbacks
+            },
+            "QuestionGenerator": {
+                "primary": {
+                    "provider": "gemini",
+                    "model": "gemini-2.5-flash",
+                    "api_key": gemini_key("GEMINI_API_KEY_QUESTION_GENERATOR"),
+                    "temperature": 0.1
+                },
+                "fallbacks": fallbacks
+            },
+            "ProjectRecommender": {
+                "primary": {
+                    "provider": "gemini",
+                    "model": "gemini-2.5-flash",
+                    "api_key": gemini_key("GEMINI_API_KEY_PROJECT_RECOMMENDER"),
+                    "temperature": 0.1
+                },
+                "fallbacks": fallbacks
+            },
+            "ClassifyAgent": {
+                "primary": {
+                    "provider": (settings.ROUTER_LLM_TYPE.lower() if settings else "gemini"),
+                    "model": (settings.ROUTER_LLM_MODEL if settings else "gemini-2.5-flash-lite"),
+                    "api_key": default_gemini_key,
+                    "temperature": 0.1
+                },
+                "fallbacks": fallbacks
+            },
+            "ChatSimple": {
+                "primary": {
+                    "provider": (settings.SIMPLE_LLM_TYPE.lower() if settings else "gemini"),
+                    "model": (settings.SIMPLE_LLM_MODEL if settings else "gemini-2.5-flash-lite"),
+                    "api_key": default_gemini_key,
+                    "temperature": 0.1
+                },
+                "fallbacks": fallbacks
+            },
+            "ChatMedium": {
+                "primary": {
+                    "provider": (settings.MEDIUM_LLM_TYPE.lower() if settings else "gemini"),
+                    "model": (settings.MEDIUM_LLM_MODEL if settings else "gemini-2.5-flash-lite"),
+                    "api_key": default_gemini_key,
+                    "temperature": 0.1
+                },
+                "fallbacks": fallbacks
+            },
+            "ChatAdvanced": {
+                "primary": {
+                    "provider": (settings.ADVANCED_LLM_TYPE.lower() if settings else "gemini"),
+                    "model": (settings.ADVANCED_LLM_MODEL if settings else "gemini-2.5-flash"),
+                    "api_key": default_gemini_key,
                     "temperature": 0.1
                 },
                 "fallbacks": fallbacks
