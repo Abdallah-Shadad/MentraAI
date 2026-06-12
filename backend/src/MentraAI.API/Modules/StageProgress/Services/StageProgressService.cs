@@ -243,10 +243,100 @@ public class StageProgressService : IStageProgressService
                 using var doc = JsonDocument.Parse(stage.ResourcesDataJson);
                 var root = doc.RootElement;
 
-                // Check if this JSON belongs to an Adaptation Engine (Mode 3) response
-                if (root.TryGetProperty("Additional_Resource", out var additionalEl))
+                string? originalJson = null;
+                string? remediationJson = null;
+
+                // Check if this JSON is a merged format containing both original and remediation
+                if (root.TryGetProperty("original", out var origEl) && root.TryGetProperty("remediation", out var remedEl))
                 {
-                    if (additionalEl.TryGetProperty("data", out var adaptData) &&
+                    originalJson = origEl.GetString();
+                    remediationJson = remedEl.GetString();
+                }
+                else
+                {
+                    // Fallback to legacy formats
+                    if (root.TryGetProperty("Additional_Resource", out _))
+                    {
+                        remediationJson = stage.ResourcesDataJson;
+                    }
+                    else
+                    {
+                        originalJson = stage.ResourcesDataJson;
+                    }
+                }
+
+                // Parse Original (Default) Resources
+                if (!string.IsNullOrWhiteSpace(originalJson))
+                {
+                    using var origDoc = JsonDocument.Parse(originalJson);
+                    var origRoot = origDoc.RootElement;
+                    var raw = JsonSerializer.Deserialize<ResourcesRoot>(originalJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    var topicsResources = raw?.Roadmap?.Data?.StageResources?.TopicsResources ?? new List<TopicResources>();
+
+                    foreach (var topic in topicsResources)
+                    {
+                        if (topic.Videos != null)
+                            resources.Videos.AddRange(topic.Videos.Select(v => new VideoResource { Title = v.Title, Url = v.Url, IsRemedial = false }));
+
+                        if (topic.Articles != null)
+                            resources.Articles.AddRange(topic.Articles.Select(a => new ArticleResource { Title = a.Title, Url = a.Url, IsRemedial = false }));
+
+                        if (topic.Documentation != null)
+                            resources.Documentation.AddRange(topic.Documentation.Select(d => new DocumentationResource { Title = d.Title, Url = d.Url, IsRemedial = false }));
+                    }
+
+                    // Fallback
+                    if (resources.Videos.Count == 0 && resources.Articles.Count == 0)
+                    {
+                        try
+                        {
+                            if (origRoot.TryGetProperty("roadmap", out var roadmapEl) &&
+                                roadmapEl.TryGetProperty("error", out var errorEl))
+                            {
+                                var errorText = errorEl.GetString();
+                                if (!string.IsNullOrWhiteSpace(errorText))
+                                {
+                                    int idx = errorText.IndexOf("topics_resources=");
+                                    if (idx != -1)
+                                    {
+                                        var arrayText = errorText.Substring(idx + "topics_resources=".Length).Trim();
+                                        int startIdx = arrayText.IndexOf('[');
+                                        int endIdx = arrayText.LastIndexOf(']');
+                                        if (startIdx != -1 && endIdx != -1 && endIdx > startIdx)
+                                        {
+                                            arrayText = arrayText.Substring(startIdx, endIdx - startIdx + 1);
+                                            var fallbackTopics = JsonSerializer.Deserialize<List<TopicResources>>(arrayText, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                                            if (fallbackTopics != null)
+                                            {
+                                                foreach (var topic in fallbackTopics)
+                                                {
+                                                    if (topic.Videos != null)
+                                                        resources.Videos.AddRange(topic.Videos.Select(v => new VideoResource { Title = v.Title, Url = v.Url, IsRemedial = false }));
+
+                                                    if (topic.Articles != null)
+                                                        resources.Articles.AddRange(topic.Articles.Select(a => new ArticleResource { Title = a.Title, Url = a.Url, IsRemedial = false }));
+
+                                                    if (topic.Documentation != null)
+                                                        resources.Documentation.AddRange(topic.Documentation.Select(d => new DocumentationResource { Title = d.Title, Url = d.Url, IsRemedial = false }));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        catch {}
+                    }
+                }
+
+                // Parse Remediation Resources (Mode 3)
+                if (!string.IsNullOrWhiteSpace(remediationJson))
+                {
+                    using var remedDoc = JsonDocument.Parse(remediationJson);
+                    var remedRoot = remedDoc.RootElement;
+
+                    if (remedRoot.TryGetProperty("Additional_Resource", out var additionalEl) &&
+                        additionalEl.TryGetProperty("data", out var adaptData) &&
                         adaptData.TryGetProperty("curriculum", out var adaptCurr) &&
                         adaptCurr.TryGetProperty("stages", out var adaptStages))
                     {
@@ -261,31 +351,14 @@ public class StageProgressService : IStageProgressService
 
                                 if (source.ToLower() == "youtube" || source.ToLower() == "video")
                                 {
-                                    resources.Videos.Add(new VideoResource { Title = title, Url = url });
+                                    resources.Videos.Add(new VideoResource { Title = title, Url = url, IsRemedial = true });
                                 }
                                 else
                                 {
-                                    resources.Articles.Add(new ArticleResource { Title = title, Url = url });
+                                    resources.Articles.Add(new ArticleResource { Title = title, Url = url, IsRemedial = true });
                                 }
                             }
                         }
-                    }
-                }
-                else // Default Path: Mode 2 Normal Resources
-                {
-                    var raw = JsonSerializer.Deserialize<ResourcesRoot>(stage.ResourcesDataJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                    var topicsResources = raw?.Roadmap?.Data?.StageResources?.TopicsResources ?? new List<TopicResources>();
-
-                    foreach (var topic in topicsResources)
-                    {
-                        if (topic.Videos != null)
-                            resources.Videos.AddRange(topic.Videos.Select(v => new VideoResource { Title = v.Title, Url = v.Url }));
-
-                        if (topic.Articles != null)
-                            resources.Articles.AddRange(topic.Articles.Select(a => new ArticleResource { Title = a.Title, Url = a.Url }));
-
-                        if (topic.Documentation != null)
-                            resources.Documentation.AddRange(topic.Documentation.Select(d => new DocumentationResource { Title = d.Title, Url = d.Url }));
                     }
                 }
             }

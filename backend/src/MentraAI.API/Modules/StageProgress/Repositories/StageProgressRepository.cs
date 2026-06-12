@@ -80,7 +80,32 @@ public class StageProgressRepository : IStageProgressRepository
 
         if (stage is null) return;
 
-        stage.ResourcesDataJson = remediationResourcesJson;
+        var originalJson = stage.ResourcesDataJson;
+        if (!string.IsNullOrWhiteSpace(originalJson))
+        {
+            string cleanOriginal = originalJson;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(originalJson);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("original", out var origEl))
+                {
+                    cleanOriginal = origEl.GetString() ?? originalJson;
+                }
+            }
+            catch {}
+
+            var merged = new {
+                original = cleanOriginal,
+                remediation = remediationResourcesJson
+            };
+            stage.ResourcesDataJson = System.Text.Json.JsonSerializer.Serialize(merged);
+        }
+        else
+        {
+            stage.ResourcesDataJson = remediationResourcesJson;
+        }
+
         await _db.SaveChangesAsync();
     }
 

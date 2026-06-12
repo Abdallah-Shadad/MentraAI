@@ -14,6 +14,7 @@ using MentraAI.API.Modules.Roadmaps.Services;
 using MentraAI.API.Modules.StageProgress.Repositories;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MentraAI.API.Modules.Quizzes.Services;
 
@@ -26,6 +27,7 @@ public class QuizService : IQuizService
     private readonly IQuizScoringService _scoring;
     private readonly IRoadmapService _roadmapService;
     private readonly IMapper _mapper;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<QuizService> _logger;
 
     private static readonly JsonSerializerOptions _json = new()
@@ -41,6 +43,7 @@ public class QuizService : IQuizService
         IQuizScoringService scoring,
         IRoadmapService roadmapService,
         IMapper mapper,
+        IServiceProvider serviceProvider,
         ILogger<QuizService> logger)
     {
         _quizRepo = quizRepo;
@@ -50,6 +53,7 @@ public class QuizService : IQuizService
         _scoring = scoring;
         _roadmapService = roadmapService;
         _mapper = mapper;
+        _serviceProvider = serviceProvider;
         _logger = logger;
     }
 
@@ -67,9 +71,12 @@ public class QuizService : IQuizService
         if (stage.Status == "LOCKED")
             throw new AppException(ErrorCodes.STAGE_LOCKED, "Cannot take quiz for locked stage.", 422);
 
-        var hasPending = await _stageRepo.HasPendingQuizAsync(stageProgressId);
-        if (hasPending)
-            throw new AppException(ErrorCodes.QUIZ_PENDING_EXISTS, "A pending quiz already exists for this stage.", 409);
+        var existingPending = await _quizRepo.GetActiveQuizByStageIdAsync(stageProgressId);
+        if (existingPending != null)
+        {
+            _logger.LogInformation("Returning existing pending quiz attempt {AttemptId} for stage {StageProgressId}", existingPending.Id, stageProgressId);
+            return _mapper.Map<QuizResponse>(existingPending);
+        }
 
         var userTrack = await _trackRepo.GetActiveTrackByUserIdAsync(userId)
             ?? throw new AppException(ErrorCodes.NO_ACTIVE_TRACK, "No active track.", 422);
@@ -118,7 +125,7 @@ public class QuizService : IQuizService
             UserId = userId,
             AttemptNumber = await _quizRepo.GetNextAttemptNumberAsync(stageProgressId),
             QuestionsDataJson = quizResult.QuestionsDataJson,
-            PassingScore = quizResult.PassingScore,
+            PassingScore = 70m, // Strict policy requirement: 70% passing score
             TimeLimitMinutes = quizResult.TimeLimitMinutes,
             TotalQuestions = quizResult.TotalQuestions,
             IsSubmitted = false,
@@ -190,7 +197,7 @@ public class QuizService : IQuizService
         if (attempt.IsSubmitted)
             throw new AppException(ErrorCodes.QUIZ_ALREADY_SUBMITTED, "Quiz already submitted.", 409);
 
-        var scoreResult = _scoring.Score(attempt.QuestionsDataJson, request.Answers, attempt.PassingScore ?? 70m);
+        var scoreResult = _scoring.Score(attempt.QuestionsDataJson, request.Answers, 70m);
         var isPassed = scoreResult.IsPassed;
 
         attempt.Score = scoreResult.Score;
@@ -246,23 +253,44 @@ public class QuizService : IQuizService
 
                     if (failedQuestions.Count > 0)
                     {
-                        var adaptResult = await _aiGateway.GetAdaptedRoadmapAsync(
-                            userId: userId,
-                            careerTrack: userTrack.CareerTrack.Name,
-                            aiStageId: stage.AiStageId,
-                            stageName: stage.StageName,
-                            difficultyLevel: difficultyLevel,
-                            learningObjectives: learningObjectives,
-                            failedQuestions: failedQuestions,
-                            score: scoreResult.Score);
-
-                        await _stageRepo.PatchResourcesAsync(stageProgressId, adaptResult.RemediationResourcesJson);
-
                         response.RoadmapAdapted = true;
-                        _logger.LogInformation(
-                            "Adaptation succeeded for stage {StageId}, user {UserId}. Topics: {Topics}",
-                            stageProgressId, userId,
-                            string.Join(", ", adaptResult.StrugglingTopics));
+
+                        // Pre-evaluate properties to prevent referencing disposed DbContext entities in background thread
+                        var careerTrackName = userTrack.CareerTrack.Name;
+                        var aiStageId = stage.AiStageId;
+                        var stageName = stage.StageName;
+                        var scoreValue = scoreResult.Score;
+
+                        _ = Task.Run(async () =>
+                        {
+                            using (var scope = _serviceProvider.CreateScope())
+                            {
+                                try
+                                {
+                                    var scopedAiGateway = scope.ServiceProvider.GetRequiredService<IAIGatewayService>();
+                                    var scopedStageRepo = scope.ServiceProvider.GetRequiredService<IStageProgressRepository>();
+
+                                    var adaptResult = await scopedAiGateway.GetAdaptedRoadmapAsync(
+                                        userId: userId,
+                                        careerTrack: careerTrackName,
+                                        aiStageId: aiStageId,
+                                        stageName: stageName,
+                                        difficultyLevel: difficultyLevel,
+                                        learningObjectives: learningObjectives,
+                                        failedQuestions: failedQuestions,
+                                        score: scoreValue);
+
+                                    await scopedStageRepo.PatchResourcesAsync(stageProgressId, adaptResult.RemediationResourcesJson);
+                                    _logger.LogInformation(
+                                        "Background adaptation succeeded for stage {StageId}, user {UserId}.",
+                                        stageProgressId, userId);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex, "Background adaptation failed for stage {StageId}, user {UserId}", stageProgressId, userId);
+                                }
+                            }
+                        });
                     }
                 }
             }
