@@ -1,15 +1,26 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   generateRoadmap,
   getCurrentRoadmap,
 } from "../services/roadmap.service";
 
-export const useGenerateRoadmap = () => {
+export const useGenerateRoadmap = (options = {}) => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: generateRoadmap,
-
-    onError: (error) => {
+    ...options,
+    onSuccess: (...args) => {
+      queryClient.invalidateQueries({ queryKey: ["current-roadmap"] });
+      queryClient.invalidateQueries({ queryKey: ["career-track"] });
+      if (options.onSuccess) {
+        options.onSuccess(...args);
+      }
+    },
+    onError: (error, ...args) => {
       console.log(error);
+      if (options.onError) {
+        options.onError(error, ...args);
+      }
     },
   });
 };

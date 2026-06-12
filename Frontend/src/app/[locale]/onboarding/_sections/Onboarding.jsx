@@ -3,13 +3,25 @@
 import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "@/lib/i18n/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-//components
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import ErrorState from "@/components/reusable/ErrorState";
 import SuccessState from "@/components/reusable/SuccessState";
-//hooks
 import { useOnboarding } from "@/hooks/useOnboarding";
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Check, 
+  Sparkles, 
+  User, 
+  Briefcase, 
+  Cpu, 
+  Target, 
+  Search,
+  Plus,
+  Minus
+} from "lucide-react";
 
 export default function Onboarding() {
   const {
@@ -23,11 +35,95 @@ export default function Onboarding() {
   const questions = onboardingData;
   const router = useRouter();
   const queryClient = useQueryClient();
-  //step management
-  const [step, setStep] = useState(0);
   
+  // Step management
+  const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1); // 1 = forward, -1 = backward
+
+  const next = () => {
+    setDirection(1);
+    setStep((s) => Math.min(s + 1, 3));
+  };
+  const back = () => {
+    setDirection(-1);
+    setStep((s) => Math.max(s - 1, 0));
+  };
+
+  // Answers management
+  const [answers, setAnswers] = useState([
+    { questionId: 1, answerText: "" },
+    { questionId: 2, answerText: "" },
+    { questionId: 3, answerText: 0 },
+    { questionId: 4, answerText: 0 },
+    { questionId: 5, answerText: "" },
+    { questionId: 6, answerText: "" },
+    { questionId: 7, answerText: "" },
+    { questionId: 8, answerText: "" },
+    { questionId: 9, answerText: "" },
+    { questionId: 10, answerText: [] },
+    { questionId: 11, answerText: [] },
+  ]);
+
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedDraft = localStorage.getItem("mentraai_onboarding_draft");
+      if (savedDraft) {
+        try {
+          const parsed = JSON.parse(savedDraft);
+          if (Array.isArray(parsed) && parsed.length === answers.length) {
+            setAnswers(parsed);
+          }
+        } catch (e) {
+          console.error("Failed to parse onboarding draft", e);
+        }
+      }
+    }
+  }, []);
+
+  // Save draft to localStorage on answers change
+  const setAnswer = (id, value) => {
+    setAnswers((prev) => {
+      const updated = prev.map((answer) =>
+        answer.questionId === id ? { ...answer, answerText: value } : answer
+      );
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mentraai_onboarding_draft", JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  // Keyboard navigation: Enter to proceed or submit
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        // Prevent enter on textareas or inputs if needed, but for choices it is safe
+        const activeEl = document.activeElement;
+        if (activeEl && activeEl.tagName === "INPUT" && activeEl.type === "number") {
+          activeEl.blur();
+        }
+        
+        // Check if current step answers are valid (optional validation could go here)
+        if (step === 3) {
+          handleSubmit();
+        } else {
+          next();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [step, answers]);
+
+  // Success flow
   useEffect(() => {
     if (isSuccess) {
+      // Clear draft on success
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("mentraai_onboarding_draft");
+      }
+      
       // Invalidate user query to synchronize onboarded status across components
       queryClient.invalidateQueries({ queryKey: ["user"] });
       
@@ -42,67 +138,7 @@ export default function Onboarding() {
     }
   }, [isSuccess, queryClient]);
 
-  const next = () => setStep((s) => Math.min(s + 1, 3));
-  const back = () => setStep((s) => Math.max(s - 1, 0));
-
-  //answers management
-  const [answers, setAnswers] = useState([
-    {
-      questionId: 1,
-      answerText: "",
-    },
-    {
-      questionId: 2,
-      answerText: "",
-    },
-    {
-      questionId: 3,
-      answerText: 0,
-    },
-    {
-      questionId: 4,
-      answerText: 0,
-    },
-    {
-      questionId: 5,
-      answerText: "",
-    },
-    {
-      questionId: 6,
-      answerText: "",
-    },
-    {
-      questionId: 7,
-      answerText: "",
-    },
-    {
-      questionId: 8,
-      answerText: "",
-    },
-    {
-      questionId: 9,
-      answerText: "",
-    },
-    {
-      questionId: 10,
-      answerText: [],
-    },
-    {
-      questionId: 11,
-      answerText: [],
-    },
-  ]);
-
-  //answer setter
-  const setAnswer = (id, value) => {
-    setAnswers((prev) =>
-      prev.map((answer) =>
-        answer.questionId === id ? { ...answer, answerText: value } : answer,
-      ),
-    );
-  };
-
-  //submit handler
+  // Submit handler
   const handleSubmit = async () => {
     const formattedAnswers = answers.map((answer) => {
       let formattedVal = answer.answerText;
@@ -131,8 +167,43 @@ export default function Onboarding() {
     return errorData.message || "Validation failed";
   };
 
+  // Stepper steps configuration
+  const stepsConfig = [
+    { title: "Personal Info", icon: <User className="w-4 h-4" /> },
+    { title: "Career Profile", icon: <Briefcase className="w-4 h-4" /> },
+    { title: "AI & Tech", icon: <Cpu className="w-4 h-4" /> },
+    { title: "Learning Goals", icon: <Target className="w-4 h-4" /> },
+  ];
+
+  // Framer Motion Variants for step slide transition
+  const slideVariants = {
+    enter: (dir) => ({
+      x: dir > 0 ? 150 : -150,
+      opacity: 0,
+      filter: "blur(4px)",
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+      filter: "blur(0px)",
+      transition: {
+        x: { type: "spring", stiffness: 300, damping: 30 },
+        opacity: { duration: 0.2 },
+      },
+    },
+    exit: (dir) => ({
+      x: dir > 0 ? -150 : 150,
+      opacity: 0,
+      filter: "blur(4px)",
+      transition: {
+        x: { type: "spring", stiffness: 300, damping: 30 },
+        opacity: { duration: 0.2 },
+      },
+    }),
+  };
+
   return (
-    <div className="min-h-[60vh] bg-background text-foreground flex flex-col justify-between">
+    <div className="w-full max-w-4xl mx-auto px-4 md:px-8 py-4 min-h-[75vh] flex flex-col justify-between text-foreground">
       {isSuccess && (
         <SuccessState
           close={() => {
@@ -154,144 +225,190 @@ export default function Onboarding() {
           }}
         />
       )}
-      <div className="flex-1 flex items-start justify-center py-6">
-        {/* Step 0: Personal Info */}
-        {step === 0 && (
-          <div className="w-full space-y-6">
-            <ChoiceGroup
-              question={questions[0]}
-              value={
-                answers.find((a) => a.questionId === questions[0].questionId)
-                  ?.answerText
-              }
-              onChange={(v) => setAnswer(1, v)}
-              layout="flex"
-            />
 
-            <ChoiceGroup
-              question={questions[1]}
-              value={
-                answers.find((a) => a.questionId === questions[1].questionId)
-                  ?.answerText
-              }
-              onChange={(v) => setAnswer(2, v)}
-            />
-
-            <NumberField
-              label={questions[2].questionText}
-              value={
-                answers.find((a) => a.questionId === questions[2].questionId)
-                  ?.answerText || 0
-              }
-              onChange={(v) => setAnswer(3, v)}
-            />
-
-            <NumberField
-              label={questions[3].questionText}
-              value={
-                answers.find((a) => a.questionId === questions[3].questionId)
-                  ?.answerText || 0
-              }
-              onChange={(v) => setAnswer(4, v)}
+      {/* Stepper Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between relative">
+          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 bg-border rounded-full z-0">
+            <div 
+              className="h-full bg-linear-to-r from-primary to-secondary transition-all duration-300"
+              style={{ width: `${(step / 3) * 100}%` }}
             />
           </div>
-        )}
 
-        {/* Step 1: Career Profile */}
-        {step === 1 && (
-          <StepContainer title="Career Profile">
-            <ChoiceGroup
-              question={questions[4]}
-              value={
-                answers.find((a) => a.questionId === questions[4].questionId)
-                  ?.answerText
-              }
-              onChange={(v) => setAnswer(5, v)}
-              layout="flex"
-            />
-
-            <ChoiceGroup
-              question={questions[5]}
-              value={
-                answers.find((a) => a.questionId === questions[5].questionId)
-                  ?.answerText
-              }
-              onChange={(v) => setAnswer(6, v)}
-            />
-
-            <ChoiceGroup
-              question={questions[6]}
-              value={
-                answers.find((a) => a.questionId === questions[6].questionId)
-                  ?.answerText
-              }
-              onChange={(v) => setAnswer(7, v)}
-            />
-
-            <ChoiceGroup
-              question={questions[7]}
-              value={
-                answers.find((a) => a.questionId === questions[7].questionId)
-                  ?.answerText
-              }
-              onChange={(v) => setAnswer(8, v)}
-            />
-          </StepContainer>
-        )}
-
-        {/* Step 2: AI & Tech Usage */}
-        {step === 2 && (
-          <StepContainer title="AI & Tech Usage">
-            <ChoiceGroup
-              question={questions[8]}
-              value={
-                answers.find((a) => a.questionId === questions[8].questionId)
-                  ?.answerText
-              }
-              onChange={(v) => setAnswer(9, v)}
-            />
-
-            <MultiSelect
-              question={questions[9]}
-              value={
-                answers.find((a) => a.questionId === questions[9].questionId)
-                  ?.answerText || []
-              }
-              onChange={(v) => setAnswer(10, v)}
-            />
-          </StepContainer>
-        )}
-
-        {step === 3 && (
-          <StepContainer title="Learning Goals">
-            <MultiSelect
-              question={questions[10]}
-              value={
-                answers.find((a) => a.questionId === questions[10].questionId)
-                  ?.answerText || []
-              }
-              onChange={(v) => setAnswer(11, v)}
-            />
-          </StepContainer>
-        )}
+          {stepsConfig.map((sConfig, index) => {
+            const isActive = index === step;
+            const isCompleted = index < step;
+            return (
+              <div key={index} className="flex flex-col items-center z-10">
+                <button
+                  onClick={() => {
+                    setDirection(index > step ? 1 : -1);
+                    setStep(index);
+                  }}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-2 cursor-pointer ${
+                    isActive
+                      ? "bg-background border-primary text-primary shadow-[0_0_15px_rgba(var(--color-primary),0.35)] scale-110"
+                      : isCompleted
+                      ? "bg-primary border-primary text-white"
+                      : "bg-background border-border text-foreground-muted hover:border-primary/50"
+                  }`}
+                >
+                  {isCompleted ? <Check className="w-5 h-5" /> : sConfig.icon}
+                </button>
+                <span className={`text-xs mt-2 font-medium hidden sm:inline ${isActive ? "text-primary font-semibold" : "text-foreground-muted"}`}>
+                  {sConfig.title}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="p-6 flex justify-between border-t border-border mt-6">
+      {/* Content Area with Slide Animation */}
+      <div className="flex-1 min-h-[50vh] relative overflow-hidden flex flex-col justify-start py-4">
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={step}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            className="w-full flex flex-col gap-6"
+          >
+            {/* Step 0: Personal Info */}
+            {step === 0 && (
+              <StepContainer title="Personal Background" description="Let's build a foundation. Tell us about your background to help customize your curriculum.">
+                <div className="space-y-6">
+                  <PremiumChoiceGroup
+                    question={questions[0]}
+                    value={answers.find((a) => a.questionId === 1)?.answerText}
+                    onChange={(v) => setAnswer(1, v)}
+                  />
+
+                  <PremiumChoiceGroup
+                    question={questions[1]}
+                    value={answers.find((a) => a.questionId === 2)?.answerText}
+                    onChange={(v) => setAnswer(2, v)}
+                  />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <PremiumNumberField
+                      label={questions[2].questionText}
+                      value={answers.find((a) => a.questionId === 3)?.answerText || 0}
+                      onChange={(v) => setAnswer(3, v)}
+                    />
+                    <PremiumNumberField
+                      label={questions[3].questionText}
+                      value={answers.find((a) => a.questionId === 4)?.answerText || 0}
+                      onChange={(v) => setAnswer(4, v)}
+                    />
+                  </div>
+                </div>
+              </StepContainer>
+            )}
+
+            {/* Step 1: Career Profile */}
+            {step === 1 && (
+              <StepContainer title="Career Profile" description="Your professional preferences directly influence the practical application challenges in your roadmap.">
+                <div className="space-y-6">
+                  <PremiumChoiceGroup
+                    question={questions[4]}
+                    value={answers.find((a) => a.questionId === 5)?.answerText}
+                    onChange={(v) => setAnswer(5, v)}
+                  />
+                  <PremiumChoiceGroup
+                    question={questions[5]}
+                    value={answers.find((a) => a.questionId === 6)?.answerText}
+                    onChange={(v) => setAnswer(6, v)}
+                  />
+                  <PremiumChoiceGroup
+                    question={questions[6]}
+                    value={answers.find((a) => a.questionId === 7)?.answerText}
+                    onChange={(v) => setAnswer(7, v)}
+                  />
+                  <PremiumChoiceGroup
+                    question={questions[7]}
+                    value={answers.find((a) => a.questionId === 8)?.answerText}
+                    onChange={(v) => setAnswer(8, v)}
+                  />
+                </div>
+              </StepContainer>
+            )}
+
+            {/* Step 2: AI & Tech Usage */}
+            {step === 2 && (
+              <StepContainer title="AI & Current Technologies" description="Identify the tech stack you're comfortable with and your familiarity with AI workflows.">
+                <div className="space-y-6">
+                  <PremiumChoiceGroup
+                    question={questions[8]}
+                    value={answers.find((a) => a.questionId === 9)?.answerText}
+                    onChange={(v) => setAnswer(9, v)}
+                  />
+                  <PremiumMultiSelect
+                    question={questions[9]}
+                    value={answers.find((a) => a.questionId === 10)?.answerText || []}
+                    onChange={(v) => setAnswer(10, v)}
+                  />
+                </div>
+              </StepContainer>
+            )}
+
+            {/* Step 3: Learning Goals */}
+            {step === 3 && (
+              <StepContainer title="Future Learning Goals" description="Select the skills, programming languages, and architectures you want to master.">
+                <PremiumMultiSelect
+                  question={questions[10]}
+                  value={answers.find((a) => a.questionId === 11)?.answerText || []}
+                  onChange={(v) => setAnswer(11, v)}
+                />
+              </StepContainer>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Navigation Controls */}
+      <div className="border-t border-border mt-8 pt-6 flex justify-between items-center backdrop-blur-md bg-background/5 sticky bottom-0 z-30">
         <Button
           variant="outline"
           onClick={back}
           disabled={step === 0}
-          className="hover:bg-surface/80"
+          className="border-border hover:bg-muted/50 cursor-pointer transition-all duration-200"
         >
+          <ChevronLeft className="w-4 h-4 mr-2" />
           Back
         </Button>
 
+        <span className="text-sm font-medium text-foreground-muted">
+          Step {step + 1} of 4
+        </span>
+
         <Button
-          className={`bg-primary ${step === 3 && "gradient-cta px-12"} text-white hover:bg-primary/85 cursor-pointer`}
           onClick={step === 3 ? handleSubmit : next}
           disabled={isPending}
+          className={`relative cursor-pointer transition-all duration-300 font-semibold px-8 overflow-hidden bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] ${
+            step === 3 ? "bg-gradient-to-r from-primary to-secondary px-12" : ""
+          }`}
         >
-          {isPending ? "Submitting..." : step === 3 ? "Submit" : "Next"}
+          {isPending ? (
+            <span className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" />
+              <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce delay-100" />
+              <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce delay-200" />
+            </span>
+          ) : step === 3 ? (
+            <span className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              Generate My Track
+            </span>
+          ) : (
+            <span className="flex items-center gap-1">
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </span>
+          )}
         </Button>
       </div>
     </div>
@@ -301,84 +418,111 @@ export default function Onboarding() {
 /* ===========================
    STEP CONTAINER
 =========================== */
-
-function StepContainer({ title, children }) {
+function StepContainer({ title, description, children }) {
   return (
-    <div className="w-full max-w-2xl space-y-6">
-      <h2 className="text-2xl font-semibold">{title}</h2>
-      <div className="space-y-4">{children}</div>
+    <div className="w-full space-y-4">
+      <div className="mb-2">
+        <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground bg-clip-text bg-gradient-to-r from-foreground to-foreground-light">
+          {title}
+        </h2>
+        {description && (
+          <p className="text-foreground-muted text-sm mt-1.5 leading-relaxed">
+            {description}
+          </p>
+        )}
+      </div>
+      <div className="space-y-6">{children}</div>
     </div>
   );
 }
 
 /* ===========================
-   CHOICE GROUP
+   PREMIUM CHOICE GROUP
 =========================== */
-
-function ChoiceGroup({ question, value, onChange, layout = "grid" }) {
+function PremiumChoiceGroup({ question, value, onChange }) {
   return (
-    <div className="space-y-2">
-      <p className="text-foreground font-medium text-base md:text-lg lg:text-xl mb-4">
+    <div className="space-y-3">
+      <h3 className="text-foreground font-semibold text-base md:text-lg">
         {question.questionText}
-      </p>
-      <div
-        className={
-          layout === "grid" ? "grid grid-cols-2 gap-3" : "flex flex-wrap gap-3"
-        }
-      >
-        {question.options.map((opt) => (
-          <div
-            key={opt}
-            onClick={() => onChange(opt)}
-            className={`p-3 rounded-lg border cursor-pointer transition flex items-center gap-2
-          ${
-            value === opt
-              ? "border-primary bg-[rgba(139,92,246,0.1)]"
-              : "border-border hover:border-primary"
-          }`}
-          >
-            <div className="text-foreground w-4 h-4 rounded-full border border-border flex items-center justify-center mr-2 shrink-0">
-              {value === opt && (
-                <span className="w-2 h-2 rounded-full bg-primary"></span>
-              )}
-            </div>
-
-            <p className="text-foreground font-medium text-sm md:text-base">
-              {opt}
-            </p>
-          </div>
-        ))}
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {question.options.map((opt) => {
+          const isSelected = value === opt;
+          return (
+            <motion.div
+              key={opt}
+              onClick={() => onChange(opt)}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 flex items-center justify-between ${
+                isSelected
+                  ? "border-primary bg-primary/5 shadow-[0_0_15px_rgba(var(--color-primary),0.1)]"
+                  : "border-border/60 bg-card/45 hover:border-primary/50 hover:bg-card/75"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                  isSelected ? "border-primary text-primary" : "border-border"
+                }`}>
+                  {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                </div>
+                <span className="text-foreground font-medium text-sm md:text-base leading-snug">
+                  {opt}
+                </span>
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 /* ===========================
-   NUMBER FIELD
+   PREMIUM NUMBER FIELD
 =========================== */
+function PremiumNumberField({ label, value, onChange }) {
+  const increment = () => onChange(Math.max(0, value + 1));
+  const decrement = () => onChange(Math.max(0, value - 1));
 
-function NumberField({ label, value, onChange }) {
   return (
-    <div className="space-y-2">
-      <p className="text-foreground font-medium text-base md:text-lg lg:text-xl mb-4">
+    <div className="space-y-3 p-5 rounded-xl border border-border/60 bg-card/30 flex flex-col justify-center">
+      <h3 className="text-foreground font-semibold text-sm md:text-base mb-1">
         {label}
-      </p>
-      <input
-        type="number"
-        value={value}
-        min="0"
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full p-3 rounded-lg card border border-border"
-      />
+      </h3>
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={decrement}
+          className="w-10 h-10 rounded-lg border border-border hover:border-primary flex items-center justify-center transition-all bg-card/60 cursor-pointer"
+        >
+          <Minus className="w-4 h-4" />
+        </button>
+        <input
+          type="number"
+          value={value}
+          min="0"
+          onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
+          className="flex-1 text-center p-3 text-lg font-bold rounded-lg border border-border bg-background/50 focus:border-primary focus:outline-hidden"
+        />
+        <button
+          type="button"
+          onClick={increment}
+          className="w-10 h-10 rounded-lg border border-border hover:border-primary flex items-center justify-center transition-all bg-card/60 cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 }
 
 /* ===========================
-   MULTI SELECT (SKILLS)
+   PREMIUM MULTI SELECT
 =========================== */
-
-function MultiSelect({ question, value, onChange }) {
+function PremiumMultiSelect({ question, value, onChange }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  
   const toggle = (item) => {
     if (value.includes(item)) {
       onChange(value.filter((v) => v !== item));
@@ -387,35 +531,61 @@ function MultiSelect({ question, value, onChange }) {
     }
   };
 
-  return (
-    <div className="space-y-2">
-      <p className="text-foreground font-medium text-base md:text-lg lg:text-xl mb-4">
-        {question.questionText}
-      </p>
+  const filteredOptions = useMemo(() => {
+    return question.options.filter(opt => 
+      opt.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [question.options, searchQuery]);
 
-      <div className="flex flex-wrap gap-2 max-h-[220px] overflow-auto p-4 border border-border rounded-lg">
-        {question.options.map((opt) => (
-          <Badge
-            key={opt}
-            onClick={() => toggle(opt)}
-            className={`cursor-pointer ${
-              value.includes(opt)
-                ? "bg-primary text-muted dark:text-foreground"
-                : "bg-card"
-            } px-4 py-2`}
-          >
-            {opt}
-          </Badge>
-        ))}
+  return (
+    <div className="space-y-3">
+      <h3 className="text-foreground font-semibold text-base md:text-lg">
+        {question.questionText}
+      </h3>
+      
+      {/* Search Filter */}
+      <div className="relative w-full max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted" />
+        <input
+          type="text"
+          placeholder="Filter skills..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-9 pr-4 py-2 border border-border/80 rounded-lg bg-background/50 text-sm focus:outline-hidden focus:border-primary"
+        />
+      </div>
+
+      {/* Grid of tags */}
+      <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto p-4 border border-border/60 bg-card/30 rounded-xl scrollbar-thin">
+        {filteredOptions.length === 0 ? (
+          <p className="text-sm text-foreground-muted italic py-4">No matching skills found.</p>
+        ) : (
+          filteredOptions.map((opt) => {
+            const isSelected = value.includes(opt);
+            return (
+              <Badge
+                key={opt}
+                onClick={() => toggle(opt)}
+                className={`cursor-pointer px-4 py-2 text-sm font-medium border transition-all rounded-lg select-none ${
+                  isSelected
+                    ? "bg-primary border-primary text-white hover:bg-primary/90"
+                    : "bg-background border-border text-foreground hover:border-primary/50 hover:bg-muted/30"
+                }`}
+              >
+                {isSelected && <Check className="w-3.5 h-3.5 mr-1 inline-block" />}
+                {opt}
+              </Badge>
+            );
+          })
+        )}
       </div>
     </div>
   );
 }
 
 /* ===========================
-   DATA (from your JSON)
+   DATA (Onboarding Questions)
 =========================== */
-
 const onboardingData = [
   {
     questionId: 1,

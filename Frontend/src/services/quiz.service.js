@@ -30,3 +30,11 @@ export const getQuizHistory = async (stageProgressId) => {
   });
   return response.data;
 };
+
+// GET /api/v1/quizzes/{quizId}/questions/{questionId}/hint?hintIndex={index}
+export const getQuestionHint = async (quizId, questionId, hintIndex = 0) => {
+  const response = await axiosInstance.get(`/quizzes/${quizId}/questions/${questionId}/hint`, {
+    params: { hintIndex },
+  });
+  return response.data;
+};

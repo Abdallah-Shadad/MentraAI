@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getMyTrack,
   postTrackSelection,
@@ -24,12 +24,17 @@ export function useCareerTrack() {
 }
 
 export function useTrackSelection() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (trackId) => {
       const response = await postTrackSelection(trackId);
       return response;
     },
-
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["career-track"] });
+      queryClient.invalidateQueries({ queryKey: ["roadmap"] });
+      queryClient.invalidateQueries({ queryKey: ["current-roadmap"] });
+    },
     onError: (err) => {
       console.error(err.response?.data?.message || "An error occurred");
     },

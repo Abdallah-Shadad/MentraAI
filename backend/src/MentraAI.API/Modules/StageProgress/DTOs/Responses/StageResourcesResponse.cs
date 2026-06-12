@@ -1,4 +1,4 @@
-﻿namespace MentraAI.API.Modules.StageProgress.DTOs.Responses;
+namespace MentraAI.API.Modules.StageProgress.DTOs.Responses;
 
 public class StageResourcesResponse
 {
@@ -21,6 +21,7 @@ public class VideoResource
     public string Title { get; set; } = string.Empty;
     public string Url { get; set; } = string.Empty;
     public int DurationMinutes { get; set; }
+    public bool IsRemedial { get; set; }
 }
 
 public class ArticleResource
@@ -28,10 +29,12 @@ public class ArticleResource
     public string Title { get; set; } = string.Empty;
     public string Url { get; set; } = string.Empty;
     public int EstimatedMinutes { get; set; }
+    public bool IsRemedial { get; set; }
 }
 
 public class DocumentationResource
 {
     public string Title { get; set; } = string.Empty;
     public string Url { get; set; } = string.Empty;
+    public bool IsRemedial { get; set; }
 }

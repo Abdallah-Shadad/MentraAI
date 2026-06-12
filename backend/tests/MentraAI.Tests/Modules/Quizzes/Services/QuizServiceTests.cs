@@ -15,6 +15,7 @@ using MentraAI.API.Modules.StageProgress.Repositories;
 using AutoMapper;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MentraAI.Tests.Modules.Quizzes.Services;
 
@@ -63,6 +64,30 @@ public class QuizServiceTests
         _mapperMock = new Mock<IMapper>();
         _loggerMock = new Mock<ILogger<QuizService>>();
 
+        var serviceProviderMock = new Mock<IServiceProvider>();
+        var serviceScopeMock = new Mock<IServiceScope>();
+        var serviceScopeFactoryMock = new Mock<IServiceScopeFactory>();
+
+        serviceProviderMock
+            .Setup(x => x.GetService(typeof(IServiceScopeFactory)))
+            .Returns(serviceScopeFactoryMock.Object);
+
+        serviceScopeFactoryMock
+            .Setup(x => x.CreateScope())
+            .Returns(serviceScopeMock.Object);
+
+        serviceScopeMock
+            .Setup(x => x.ServiceProvider)
+            .Returns(serviceProviderMock.Object);
+
+        serviceProviderMock
+            .Setup(x => x.GetService(typeof(IAIGatewayService)))
+            .Returns(_aiGatewayMock.Object);
+
+        serviceProviderMock
+            .Setup(x => x.GetService(typeof(IStageProgressRepository)))
+            .Returns(_stageRepoMock.Object);
+
         _sut = new QuizService(
             _quizRepoMock.Object,
             _stageRepoMock.Object,
@@ -71,6 +96,7 @@ public class QuizServiceTests
             _scoringMock.Object,
             _roadmapServiceMock.Object,
             _mapperMock.Object,
+            serviceProviderMock.Object,
             _loggerMock.Object);
     }
 
@@ -101,10 +127,11 @@ public class QuizServiceTests
     }
 
     [Fact]
-    public async Task GenerateQuizAsync_PendingQuizExists_ThrowsAppException()
+    public async Task GenerateQuizAsync_PendingQuizExists_ReturnsExistingQuiz()
     {
         var stageId = Guid.NewGuid();
         var userTrackId = 1;
+        var existingQuizId = Guid.NewGuid();
 
         _stageRepoMock.Setup(r => r.GetByIdAsync(stageId))
             .ReturnsAsync(new UserStageProgress
@@ -121,12 +148,15 @@ public class QuizServiceTests
         _trackRepoMock.Setup(r => r.GetActiveTrackByUserIdAsync(_testUserId))
             .ReturnsAsync(new UserTrack { Id = userTrackId });
 
-        _stageRepoMock.Setup(r => r.HasPendingQuizAsync(stageId))
-            .ReturnsAsync(true);
+        _quizRepoMock.Setup(r => r.GetActiveQuizByStageIdAsync(stageId))
+            .ReturnsAsync(new QuizAttempt { Id = existingQuizId, StageProgressId = stageId, UserId = _testUserId });
 
-        var ex = await Assert.ThrowsAsync<AppException>(
-            () => _sut.GenerateQuizAsync(stageId, _testUserId));
-        Assert.Equal("QUIZ_PENDING_EXISTS", ex.ErrorCode);
+        _mapperMock.Setup(m => m.Map<MentraAI.API.Modules.Quizzes.DTOs.Responses.QuizResponse>(It.IsAny<QuizAttempt>()))
+            .Returns(new MentraAI.API.Modules.Quizzes.DTOs.Responses.QuizResponse { QuizId = existingQuizId });
+
+        var result = await _sut.GenerateQuizAsync(stageId, _testUserId);
+        Assert.NotNull(result);
+        Assert.Equal(existingQuizId, result.QuizId);
     }
 
     [Fact]
@@ -350,6 +380,7 @@ public class QuizServiceTests
             });
 
         var result = await _sut.SubmitQuizAsync(quizId, request, _testUserId);
+        await Task.Delay(200);
 
         Assert.False(result.IsPassed);
         Assert.True(result.RoadmapAdapted);
