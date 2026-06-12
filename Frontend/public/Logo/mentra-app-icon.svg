@@ -1,0 +1,18 @@
+<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C3AED"/>
+      <stop offset="0.55" stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+  </defs>
+  <rect width="80" height="80" rx="18" fill="url(#bgGrad)"/>
+  <!-- glow behind the active waypoint -->
+  <circle cx="54" cy="19" r="13" fill="#FFFFFF" opacity="0.22"/>
+  <!-- the M / ascending path -->
+  <path d="M12 62 L29 19 L40 43 L54 19 L68 62"
+        stroke="#FFFFFF" stroke-width="8"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- the active waypoint -->
+  <circle cx="54" cy="19" r="5" fill="#FFFFFF"/>
+</svg>

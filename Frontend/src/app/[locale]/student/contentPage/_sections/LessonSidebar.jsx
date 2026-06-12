@@ -20,7 +20,8 @@ export default function LessonSidebar({ open, lessons = [], setNumoflesson }) {
     >
       <Link href="/">
         <div className="px-6 py-5 border-b border-border">
-          <img src="/mentraai_logo_4x.png" alt="MentraAI Logo" className="h-8 w-auto object-contain" />
+          <img src="/Logo/mentra-logo-light.svg" alt="MentraAI Logo" className="h-8 w-auto object-contain dark:hidden" />
+          <img src="/Logo/mentra-logo-dark.svg" alt="MentraAI Logo" className="h-8 w-auto object-contain hidden dark:block" />
         </div>
       </Link>
 

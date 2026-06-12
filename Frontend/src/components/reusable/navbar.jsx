@@ -32,7 +32,8 @@ const Navbar = () => {
         {/* Logo */}
         <div className="flex items-center gap-4">
           <Link href="/" className="group flex items-center gap-2">
-            <img src="/mentraai_logo_4x.png" alt="MentraAI Logo" className="h-9 w-auto object-contain" />
+            <img src="/Logo/mentra-logo-light.svg" alt="MentraAI Logo" className="h-9 w-auto object-contain dark:hidden" />
+            <img src="/Logo/mentra-logo-dark.svg" alt="MentraAI Logo" className="h-9 w-auto object-contain hidden dark:block" />
           </Link>
           <ThemeToggle />
         </div>
