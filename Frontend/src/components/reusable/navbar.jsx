@@ -10,12 +10,13 @@ import ThemeToggle from "./ThemeToggle";
 //icons
 import { Menu, X, Brain } from "lucide-react";
 //hooks
-import { useGetCurrentUser } from "@/hooks/useAuth";
+import { useGetCurrentUser, useLogout } from "@/hooks/useAuth";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const t = useTranslations("Navbar");
   const user = useGetCurrentUser();
+  const { mutate: performLogout, isPending: isLoggingOut } = useLogout();
 
   const router = useRouter();
 
@@ -31,10 +32,7 @@ const Navbar = () => {
         {/* Logo */}
         <div className="flex items-center gap-4">
           <Link href="/" className="group flex items-center gap-2">
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-primary to-secondary transition-shadow group-hover:shadow-neon">
-              <Brain className="h-5 w-5 text-foreground-text-foreground" />
-            </div>
-            <span className="primary-gradient font-bold text-xl">MentraAi</span>
+            <img src="/mentraai_logo_4x.png" alt="MentraAI Logo" className="h-9 w-auto object-contain" />
           </Link>
           <ThemeToggle />
         </div>
@@ -54,29 +52,40 @@ const Navbar = () => {
 
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center gap-3">
-          {!user?.isSuccess ? (
-            <Link href="/register/Login">
-              <Button
-                variant="ghost"
-                className="rounded-full border border-border px-6 text-foreground-muted hover:text-foreground cursor-pointer"
-              >
-                Login
-              </Button>
-            </Link>
+          {!user?.data ? (
+            <>
+              <Link href="/register/Login">
+                <Button
+                  variant="ghost"
+                  className="rounded-full border border-border px-6 text-foreground-muted hover:text-foreground cursor-pointer"
+                >
+                  Login
+                </Button>
+              </Link>
+              <Link href="/register/SignUp">
+                <Button className="rounded-full gradient-cta px-6 hover:opacity-90 hover:scale-105 cursor-pointer">
+                  Sign up
+                </Button>
+              </Link>
+            </>
           ) : (
-            <Button
-              onClick={() => router.push("/student")}
-              className="rounded-full gradient-cta px-6 hover:opacity-90 hover:scale-105 cursor-pointer"
-            >
-              Dashboard
-            </Button>
+            <>
+              <Link href="/student/homepage">
+                <Button
+                  className="rounded-full gradient-cta px-6 hover:opacity-90 hover:scale-105 cursor-pointer"
+                >
+                  Dashboard
+                </Button>
+              </Link>
+              <Button
+                onClick={() => performLogout()}
+                disabled={isLoggingOut}
+                className="rounded-full bg-red-500/10 border border-red-500/20 text-red-500 px-6 hover:bg-red-500 hover:text-white transition cursor-pointer disabled:opacity-50"
+              >
+                Logout
+              </Button>
+            </>
           )}
-
-          <Link href="/register/SignUp">
-            <Button className="rounded-full gradient-cta px-6 hover:opacity-90 hover:scale-105 cursor-pointer">
-              Sign up
-            </Button>
-          </Link>
         </div>
 
         {/* Mobile Toggle */}
@@ -104,19 +113,41 @@ const Navbar = () => {
             ))}
 
             <div className="flex flex-col gap-2 border-t border-border pt-4">
-              <Link href="/register/Login">
-                <Button
-                  variant="ghost"
-                  className="w-full rounded-full border border-border text-foreground-muted hover:text-foreground"
-                >
-                  Login
-                </Button>
-              </Link>
-              <Link href="/register/SignUp">
-                <Button className="w-full rounded-full gradient-cta text-foreground hover:bg-gradient-cta cursor-pointer">
-                  Sign up
-                </Button>
-              </Link>
+              {!user?.data ? (
+                <>
+                  <Link href="/register/Login" onClick={() => setIsOpen(false)}>
+                    <Button
+                      variant="ghost"
+                      className="w-full rounded-full border border-border text-foreground-muted hover:text-foreground"
+                    >
+                      Login
+                    </Button>
+                  </Link>
+                  <Link href="/register/SignUp" onClick={() => setIsOpen(false)}>
+                    <Button className="w-full rounded-full gradient-cta text-foreground hover:bg-gradient-cta cursor-pointer">
+                      Sign up
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/student/homepage" onClick={() => setIsOpen(false)}>
+                    <Button className="w-full rounded-full gradient-cta text-foreground hover:bg-gradient-cta cursor-pointer">
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Button
+                    onClick={() => {
+                      performLogout();
+                      setIsOpen(false);
+                    }}
+                    disabled={isLoggingOut}
+                    className="w-full rounded-full bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition cursor-pointer disabled:opacity-50"
+                  >
+                    Logout
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

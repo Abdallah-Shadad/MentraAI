@@ -18,11 +18,8 @@ export default function RegisterPage() {
       <BackgroundNodes />
       <div className="main-container ">
         {/* Logo */}
-        <div className="flex w-fit mx-auto my-2 justify-center items-center gap-2 px-4 py-1 rounded-full border border-purple-500/40 bg-purple-500/10">
-          <div className="w-2.5 h-2.5 bg-purple-500 rounded-full shadow-[0_0_8px_rgba(139,92,246,.7)]" />
-          <span className="text-purple-300 text-sm font-semibold">
-            MentarAI
-          </span>
+        <div className="flex w-fit mx-auto my-2 justify-center items-center">
+          <img src="/mentraai_logo_4x.png" alt="MentraAI Logo" className="h-8 w-auto object-contain" />
         </div>
 
         {/* Header */}

@@ -85,7 +85,31 @@ export default function Onboarding() {
 
   //submit handler
   const handleSubmit = async () => {
-    submitOnboarding({ answers: answers });
+    const formattedAnswers = answers.map((answer) => {
+      let formattedVal = answer.answerText;
+      if (Array.isArray(formattedVal)) {
+        formattedVal = JSON.stringify(formattedVal);
+      } else if (typeof formattedVal === "number") {
+        formattedVal = String(formattedVal);
+      }
+      return {
+        questionId: answer.questionId,
+        answerText: formattedVal,
+      };
+    });
+    submitOnboarding({ answers: formattedAnswers });
+  };
+
+  const getValidationErrorMessage = () => {
+    const errorData = error?.response?.data?.error;
+    if (!errorData) return "An error occurred";
+    if (errorData.errors) {
+      const messages = Object.values(errorData.errors).flat();
+      if (messages.length > 0) {
+        return messages.join(" | ");
+      }
+    }
+    return errorData.message || "Validation failed";
   };
 
   return (
@@ -100,7 +124,7 @@ export default function Onboarding() {
       )}
       {isError && (
         <ErrorState
-          message={error?.response?.data?.error?.message}
+          message={getValidationErrorMessage()}
           close={() => {
             reset();
           }}

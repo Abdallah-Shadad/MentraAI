@@ -43,10 +43,18 @@ axiosInstance.interceptors.response.use(
           });
       }
 
-      // If the request that failed is the refresh endpoint itself, we must redirect to login
+      // If the request that failed is the refresh endpoint itself, we must redirect to login if on a protected path
       if (originalRequest.url?.includes("/auth/refresh")) {
         if (typeof window !== "undefined") {
-          window.location.href = "/en/register/Login";
+          const pathname = window.location.pathname;
+          const segments = pathname.split("/");
+          const locale = ["en", "ar"].includes(segments[1]) ? segments[1] : "";
+          const localePrefix = locale ? `/${locale}` : "";
+          const relativePath = locale ? pathname.substring(localePrefix.length) : pathname;
+          const isProtectedPath = relativePath === "/student" || relativePath.startsWith("/student/");
+          if (isProtectedPath) {
+            window.location.href = `/${locale || "en"}/register/Login`;
+          }
         }
         return Promise.reject(error);
       }
@@ -67,9 +75,17 @@ axiosInstance.interceptors.response.use(
         isRefreshing = false;
         processQueue(refreshError);
         
-        // Session expired, redirect to login
+        // Session expired, redirect to login if on protected path
         if (typeof window !== "undefined") {
-          window.location.href = "/en/register/Login";
+          const pathname = window.location.pathname;
+          const segments = pathname.split("/");
+          const locale = ["en", "ar"].includes(segments[1]) ? segments[1] : "";
+          const localePrefix = locale ? `/${locale}` : "";
+          const relativePath = locale ? pathname.substring(localePrefix.length) : pathname;
+          const isProtectedPath = relativePath === "/student" || relativePath.startsWith("/student/");
+          if (isProtectedPath) {
+            window.location.href = `/${locale || "en"}/register/Login`;
+          }
         }
         return Promise.reject(refreshError);
       }

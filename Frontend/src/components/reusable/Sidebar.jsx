@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import ThemeToggle from "@/components/reusable/ThemeToggle";
-import { Home, Menu, X, Map, LayoutDashboard, LogOut, Loader2 } from "lucide-react";
+import { Home, Menu, X, Map, LayoutDashboard, LogOut, Loader2, Sparkles } from "lucide-react";
 import { Link } from "@/lib/i18n/navigation";
 import { usePathname } from "@/lib/i18n/navigation";
 import { useLogout } from "@/hooks/useAuth";
@@ -12,7 +12,7 @@ export default function Sidebar() {
   const { mutate: performLogout, isPending: isLoggingOut } = useLogout();
 
   const links = [
-    { name: "Home", icon: Home, href: "/student" },
+    { name: "Home", icon: Home, href: "/student/homepage" },
     { name: "Dashboard", icon: LayoutDashboard, href: "/student/dashboard" },
     { name: "Roadmap", icon: Map, href: "/student/roadmap" },
   ];
@@ -21,7 +21,9 @@ export default function Sidebar() {
     <>
       {/* Mobile Top Bar */}
       <div className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card">
-        <h1 className="font-bold text-foreground">My App</h1>
+        <Link href="/student/homepage" className="flex items-center gap-2">
+          <img src="/mentraai_logo_4x.png" alt="MentraAI Logo" className="h-7 w-auto object-contain" />
+        </Link>
 
         <button onClick={() => setOpen(!open)} className="text-foreground">
           {open ? <X /> : <Menu />}
@@ -46,11 +48,14 @@ export default function Sidebar() {
         `}
       >
         <div>
-          {/* Header */}
+          {/* Header — Logo */}
           <div className="p-4 border-b border-border flex items-center justify-between gap-4">
-            <h1 className="font-bold text-foreground">Dashboard</h1>
+            <Link href="/student/homepage" className="flex items-center gap-2 min-w-0">
+              <img src="/mentraai_logo_4x.png" alt="MentraAI Logo" className="h-8 w-auto object-contain" />
+            </Link>
             <ThemeToggle />
           </div>
+
 
           {/* Links */}
           <nav className="p-4 space-y-2">

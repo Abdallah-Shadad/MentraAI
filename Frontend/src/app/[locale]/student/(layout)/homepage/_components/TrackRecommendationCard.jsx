@@ -1,11 +1,13 @@
 //icons
-import { Brain, CheckCircle2, Sparkles, ArrowUpRight } from "lucide-react";
+import { Brain, CheckCircle2, Sparkles, ArrowUpRight, Loader2 } from "lucide-react";
 //hooks
 import { useTrackSelection } from "@/hooks/useCareerTrack";
+import { useRouter } from "@/lib/i18n/navigation";
 
 export default function TrackRecommendationCard({ track }) {
   const circumference = 2 * Math.PI * 40;
   const offset = circumference - (track.fitScore / 100) * circumference;
+  const router = useRouter();
 
   const {
     mutate: selectTrack,
@@ -17,7 +19,11 @@ export default function TrackRecommendationCard({ track }) {
   } = useTrackSelection();
 
   const handleSelectTrack = async () => {
-    selectTrack(track.trackId);
+    selectTrack(track.trackId, {
+      onSuccess: () => {
+        router.push("/student/roadmap");
+      },
+    });
   };
 
   return (
@@ -150,10 +156,20 @@ export default function TrackRecommendationCard({ track }) {
         {/* footer */}
         <button
           onClick={handleSelectTrack}
-          className="mt-6 flex cursor-pointer w-full items-center justify-center gap-2 rounded-md bg-primary/25 px-4 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:bg-primary hover:text-muted hover:dark:text-foreground"
+          disabled={isPending}
+          className="mt-6 flex cursor-pointer w-full items-center justify-center gap-2 rounded-md bg-primary/25 px-4 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:bg-primary hover:text-muted hover:dark:text-foreground disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          choose Track
-          <ArrowUpRight className="size-4" />
+          {isPending ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Selecting...
+            </>
+          ) : (
+            <>
+              choose Track
+              <ArrowUpRight className="size-4" />
+            </>
+          )}
         </button>
       </div>
     </article>

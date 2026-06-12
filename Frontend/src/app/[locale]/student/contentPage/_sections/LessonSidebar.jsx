@@ -20,14 +20,7 @@ export default function LessonSidebar({ open, lessons = [], setNumoflesson }) {
     >
       <Link href="/">
         <div className="px-6 py-5 border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg gradient-cta flex items-center justify-center shadow-neon">
-              <Sparkles className="h-4 w-4 text-foreground-text-foreground" />
-            </div>
-            <span className="font-display font-semibold tracking-tight primary-gradient">
-              MentraAI
-            </span>
-          </div>
+          <img src="/mentraai_logo_4x.png" alt="MentraAI Logo" className="h-8 w-auto object-contain" />
         </div>
       </Link>
 
