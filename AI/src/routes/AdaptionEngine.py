@@ -216,7 +216,18 @@ async def adaptation_stage(
 
     # ── 7. Invoke graph ────────────────────────────────────────────────────────
     try:
-        final_state = app_graph.invoke(initial_state)
+        import asyncio
+        final_state = await asyncio.wait_for(app_graph.ainvoke(initial_state), timeout=150.0)
+    except asyncio.TimeoutError:
+        logger.error("[AdaptationStage] Graph execution timed out after 150 seconds.")
+        return JSONResponse(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            content={
+                "signal":  "504_Gateway_Timeout",
+                "status":  "error",
+                "message": "Roadmap adaptation request timed out after 150 seconds.",
+            },
+        )
     except Exception as exc:
         logger.error(f"[AdaptationStage] Graph execution failed: {exc}")
         return JSONResponse(

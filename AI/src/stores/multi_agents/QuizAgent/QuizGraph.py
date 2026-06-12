@@ -217,7 +217,10 @@ class QuizGraph(GraphInterface):
         """
         self.logger.info("[Quiz Supervisor] Deciding next agent...")
 
-        if not state.get("question_generator_done"):
+        if state.get("error"):
+            self.logger.error(f"[Quiz Supervisor] Found error in state: {state.get('error')}. Routing to ResponseFormatter to prevent infinite loop.")
+            next_agent = NodeName.RESPONSE_FORMATTER.value
+        elif not state.get("question_generator_done"):
             next_agent = NodeName.QUESTION_GENERATOR.value
         else:
             next_agent = NodeName.RESPONSE_FORMATTER.value
@@ -291,11 +294,12 @@ class QuizGraph(GraphInterface):
             return obj
 
         quiz_data = to_serializable(state.get("quiz_questions"))
+        state_error = state.get("error")
 
         return {
             **state,
             "api_response": {
-                "status":       "success",
+                "status":       "error" if (state_error or quiz_data is None) else "success",
                 "mode":         "generate_quiz",
                 "user_id":      state.get("user_id"),
                 "career_track": state.get("career_track"),
@@ -303,6 +307,6 @@ class QuizGraph(GraphInterface):
                 "data": {
                     "quiz": quiz_data,
                 },
-                "error": state.get("error"),
+                "error": state_error,
             },
         }

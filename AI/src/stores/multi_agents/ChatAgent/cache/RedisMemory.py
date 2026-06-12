@@ -80,7 +80,7 @@ class RedisMemoryManager:
             self._redis = aioredis.Redis(
                 host=settings.REDIS_HOST,
                 port=settings.REDIS_PORT,
-                password=settings.REDIS_PASSWORD,
+                password=settings.REDIS_PASSWORD if settings.REDIS_PASSWORD else None,
                 decode_responses=True,   # strings only — no bytes in this manager
             )
         return self._redis

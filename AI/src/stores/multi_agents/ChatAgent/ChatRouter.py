@@ -268,6 +268,8 @@ class ChatRouter:
                 "ChatRouter — LLM stream error (user=%s conv=%s tier=%s): %s",
                 user_id, conversation_id, chat_type, exc,
             )
+            if not chunks:
+                raise exc
             yield "\n[Error: failed to generate response. Please try again.]"
             return
 

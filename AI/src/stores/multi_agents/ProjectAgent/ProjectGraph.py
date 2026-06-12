@@ -218,7 +218,10 @@ class ProjectGraph(GraphInterface):
         """
         self.logger.info("[Project Supervisor] Deciding next agent...")
 
-        if not state.get("project_recommender_done"):
+        if state.get("error"):
+            self.logger.error(f"[Project Supervisor] Found error in state: {state.get('error')}. Routing to ResponseFormatter to prevent infinite loop.")
+            next_agent = NodeName.RESPONSE_FORMATTER.value
+        elif not state.get("project_recommender_done"):
             next_agent = NodeName.PROJECT_RECOMMENDER.value
         else:
             next_agent = NodeName.RESPONSE_FORMATTER.value
@@ -287,11 +290,12 @@ class ProjectGraph(GraphInterface):
             return obj
 
         project_data = to_serializable(state.get("project_recommendations"))
+        state_error = state.get("error")
 
         return {
             **state,
             "api_response": {
-                "status":       "success",
+                "status":       "error" if (state_error or project_data is None) else "success",
                 "mode":         "project_recommendations",
                 "user_id":      state.get("user_id"),
                 "career_track": state.get("career_track"),
@@ -299,6 +303,6 @@ class ProjectGraph(GraphInterface):
                 "data": {
                     "recommendations": project_data,
                 },
-                "error": state.get("error"),
+                "error": state_error,
             },
         }

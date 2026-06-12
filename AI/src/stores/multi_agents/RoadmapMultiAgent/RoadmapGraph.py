@@ -701,7 +701,7 @@ Respond with ONLY a JSON object:
         return {
             **state,
             "api_response": {
-                "status":       "success",
+                "status":       "error" if state.get("error") else "success",
                 "mode":         mode,
                 "user_id":      state.get("user_id"),
                 "career_track": state.get("career_track"),

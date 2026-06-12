@@ -133,9 +133,39 @@ async def chat(
             content={"error": "Failed to resolve chat request."},
         )
 
+    # Try to consume the first chunk eagerly to capture immediate startup errors (e.g. auth, rate limits, connection issues)
+    first_chunk = None
+    iterator = token_stream.__aiter__()
+    try:
+        first_chunk = await iterator.__anext__()
+    except StopAsyncIteration:
+        first_chunk = ""
+    except Exception as exc:
+        logger.error(
+            "chat endpoint — stream start failed (user=%s  conv=%s): %s",
+            body.user_id, body.conversation_id, exc,
+        )
+        exc_str = str(exc).lower()
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        if "unauthenticated" in exc_str or "unauthorized" in exc_str or "api_key" in exc_str:
+            status_code = status.HTTP_502_BAD_GATEWAY
+        elif "rate limit" in exc_str or "quota" in exc_str or "429" in exc_str:
+            status_code = status.HTTP_502_BAD_GATEWAY
+        elif "timeout" in exc_str:
+            status_code = status.HTTP_504_GATEWAY_TIMEOUT
+        elif "refused" in exc_str or "connecting to" in exc_str or "redis" in exc_str:
+            status_code = status.HTTP_502_BAD_GATEWAY
+
+        return JSONResponse(
+            status_code=status_code,
+            content={"error": f"ERROR: Try again Later"},
+        )
+
     async def safe_stream():
+        if first_chunk:
+            yield first_chunk
         try:
-            async for chunk in token_stream:
+            async for chunk in iterator:
                 yield chunk
         except Exception as exc:
             logger.error(

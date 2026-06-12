@@ -26,6 +26,18 @@ class LlmWorker:
     """
 
     def __init__(self):
+        from stores.llm.LLMManager import LLMManager
+        from helpers.config import get_llm_config
+
+        config = get_llm_config()
+        self.llm_manager = LLMManager(config)
+
+        self._tier_agent_names = {
+            ChatTypes.SIMPLE.value:   "ChatSimple",
+            ChatTypes.MEDIUM.value:   "ChatMedium",
+            ChatTypes.ADVANCED.value: "ChatAdvanced",
+        }
+
         self._workers: dict = {
             ChatTypes.SIMPLE.value:   self._build(settings.SIMPLE_LLM_TYPE,   settings.SIMPLE_LLM_MODEL),
             ChatTypes.MEDIUM.value:   self._build(settings.MEDIUM_LLM_TYPE,   settings.MEDIUM_LLM_MODEL),
@@ -77,14 +89,32 @@ class LlmWorker:
         Yields:
             str — one text chunk per token batch emitted by the model.
         """
-        provider = self._workers.get(chat_type)
-        if not provider:
+        agent_name = self._tier_agent_names.get(chat_type)
+        if not agent_name:
             raise ValueError(
                 f"Unknown chat_type: '{chat_type}'. "
-                f"Expected one of: {list(self._workers.keys())}"
+                f"Expected one of: {list(self._tier_agent_names.keys())}"
             )
-        async for chunk in provider.stream(messages):
-            yield chunk
+
+        chat_chain = self.llm_manager.get_chat_chain(agent_name)
+
+        try:
+            async for chunk in chat_chain.astream(messages):
+                content = chunk.content
+                if isinstance(content, list):
+                    parts = []
+                    for part in content:
+                        if isinstance(part, str):
+                            parts.append(part)
+                        elif isinstance(part, dict) and part.get("type") == "text":
+                            parts.append(part.get("text", ""))
+                    content = "".join(parts)
+                
+                if content:
+                    yield content
+        except Exception as e:
+            logger.error(f"[LlmWorker] stream failed for tier {chat_type}: {e}")
+            raise e
 
     def get_provider(self, chat_type: str):
         """Return the raw provider for a given tier (used by RedisMemoryManager)."""

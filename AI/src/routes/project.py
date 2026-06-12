@@ -168,7 +168,19 @@ async def recommend_projects(
 
     # ── Build LLM + Graph ─────────────────────────────────────────────────
     try:
-        llm, config = _build_llm_and_config(app_settings)
+        from helpers.config import get_llm_config
+        config = get_llm_config()
+
+        supervisor_key = (
+            getattr(app_settings, "GEMINI_API_KEY_SUPERVISOR", "") 
+            or app_settings.GEMINI_API_KEY
+        )
+        llm = GeminiProvider(
+            api_key=supervisor_key,
+            max_output_tokens=8192,
+            temperature=0.1,
+        )
+        llm.set_generation_model("gemini-2.5-flash-lite")
         agent_factory = AgentProviderFactory(config)
 
         graph = ProjectGraph(
@@ -189,7 +201,17 @@ async def recommend_projects(
 
     # ── Invoke graph ──────────────────────────────────────────────────────
     try:
-        final_state = app.invoke(initial_state)
+        import asyncio
+        final_state = await asyncio.wait_for(app.ainvoke(initial_state), timeout=150.0)
+    except asyncio.TimeoutError:
+        logger.error("[ProjectRecommend] Graph execution timed out after 150 seconds.")
+        return JSONResponse(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            content={
+                "signal": "504_Gateway_Timeout",
+                "message": "Project recommendation request timed out after 150 seconds.",
+            },
+        )
     except Exception as exc:
         logger.error(f"[ProjectRecommend] Graph execution failed: {exc}")
         return JSONResponse(
@@ -197,6 +219,29 @@ async def recommend_projects(
             content={
                 "signal": "500_Internal_Server_Error",
                 "message": f"Project recommendation error: {exc}",
+            },
+        )
+
+    # ── Check for agent errors in final state ────────────────────────
+    state_error = final_state.get("error")
+    project_recommendations = final_state.get("project_recommendations")
+
+    if state_error or project_recommendations is None:
+        logger.error(
+            f"[ProjectRecommend] Agent failed for user={data['user_id']}. "
+            f"error={state_error!r}"
+        )
+        return JSONResponse(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            content={
+                "signal":  "502_Bad_Gateway",
+                "status":  "error",
+                "message": (
+                    state_error
+                    or "All AI providers are unavailable or rate-limited. "
+                       "Project recommendations could not be generated."
+                ),
+                "time_consumed": time.perf_counter() - start_time,
             },
         )
 
