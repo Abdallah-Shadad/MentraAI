@@ -82,7 +82,7 @@ class AdaptationEngine(BaseWorkerAgent):
             f"Stage ID         : {stage_id}\n"
             f"Stage Name       : {stage_name}\n"
             f"Difficulty level : {difficulty_level}\n"
-            f"Quiz score       : {score}% (FAILED — below 50%)\n\n"
+            f"Quiz score       : {score}% (FAILED — below 70%)\n\n"
             f"Failed Questions :\n{formatted_failed}\n"
             f"Current curriculum (for context):\n{curriculum}\n\n"
             "Please analyse the failure, identify struggling topics, search for "
