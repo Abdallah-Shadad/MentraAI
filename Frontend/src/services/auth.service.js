@@ -3,6 +3,9 @@ import axiosInstance from "./axiosInstance";
 export const login = async (credentials) => {
   try {
     const response = await axiosInstance.post("/auth/login", credentials);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("has_session", "true");
+    }
     return response.data;
   } catch (error) {
     console.error("Error logging in:", error);
@@ -14,6 +17,9 @@ export const login = async (credentials) => {
 export const register = async (userData) => {
   try {
     const response = await axiosInstance.post("/auth/register", userData);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("has_session", "true");
+    }
     return response.data;
   } catch (error) {
     console.error("Error registering:", error);
@@ -24,7 +30,7 @@ export const register = async (userData) => {
 // Logout
 export const logout = async (queryClient) => {
   try {
-    await axiosInstance.post("/auth/logout");
+    await axiosInstance.post("/auth/logout", {});
   } catch (error) {
     console.error("Error logging out from backend:", error);
   } finally {
@@ -33,6 +39,7 @@ export const logout = async (queryClient) => {
       try {
         sessionStorage.clear();
         localStorage.removeItem("user"); // clear any stored user summary
+        localStorage.removeItem("has_session");
       } catch (storageError) {
         console.error("Error clearing client storage:", storageError);
       }
@@ -60,6 +67,9 @@ export const logout = async (queryClient) => {
 export const getUser = async () => {
   try {
     const response = await axiosInstance.get("/users/me");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("has_session", "true");
+    }
     return response.data;
   } catch (error) {
     console.error("Error getting user:", error);
@@ -70,7 +80,7 @@ export const getUser = async () => {
 // Refresh token
 export const refreshToken = async () => {
   try {
-    const response = await axiosInstance.post("/auth/refresh");
+    const response = await axiosInstance.post("/auth/refresh", {});
     return response.data;
   } catch (error) {
     console.error("Error refreshing token:", error);

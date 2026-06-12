@@ -30,6 +30,13 @@ axiosInstance.interceptors.response.use(
 
     // Intercept 401 errors
     if (error.response.status === 401 && !originalRequest._retry) {
+      // Check if user actually has an active session before attempting a refresh.
+      // If not, they are a guest; do not call /auth/refresh and propagate the 401.
+      const hasSession = typeof window !== "undefined" && localStorage.getItem("has_session") === "true";
+      if (!hasSession) {
+        return Promise.reject(error);
+      }
+
       // If we are already refreshing, queue the request until the refresh is complete
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -46,6 +53,8 @@ axiosInstance.interceptors.response.use(
       // If the request that failed is the refresh endpoint itself, we must redirect to login if on a protected path
       if (originalRequest.url?.includes("/auth/refresh")) {
         if (typeof window !== "undefined") {
+          localStorage.removeItem("has_session");
+          localStorage.removeItem("user");
           const pathname = window.location.pathname;
           const segments = pathname.split("/");
           const locale = ["en", "ar"].includes(segments[1]) ? segments[1] : "";
@@ -64,7 +73,7 @@ axiosInstance.interceptors.response.use(
 
       try {
         // Send refresh token request (cookies are attached automatically)
-        await axiosInstance.post("/auth/refresh");
+        await axiosInstance.post("/auth/refresh", {});
         
         isRefreshing = false;
         processQueue(null);
@@ -77,6 +86,8 @@ axiosInstance.interceptors.response.use(
         
         // Session expired, redirect to login if on protected path
         if (typeof window !== "undefined") {
+          localStorage.removeItem("has_session");
+          localStorage.removeItem("user");
           const pathname = window.location.pathname;
           const segments = pathname.split("/");
           const locale = ["en", "ar"].includes(segments[1]) ? segments[1] : "";
