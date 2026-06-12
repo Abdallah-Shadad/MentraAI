@@ -21,6 +21,7 @@ export default function LoginPage() {
     e.preventDefault();
     login({ ...formData });
   };
+  
   useEffect(() => {
     if (data?.success) {
       router.push("/student/homepage");
@@ -30,7 +31,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background p-4 font-sans relative overflow-hidden">
       <BackgroundNodes />
-      {/* Background Glows (Optimized with v4 filters */}
+      {/* Background Glows (Optimized with v4 filters) */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-24 -left-24 w-96 h-96 bg-surface opacity-10 blur-[120px] rounded-full"></div>
         <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-secondary opacity-10 blur-[120px] rounded-full"></div>
@@ -90,7 +91,7 @@ export default function LoginPage() {
             <p className="text-foreground-muted">
               New here?{" "}
               <Link
-                href="/register/SignUp"
+                href="/signup"
                 className="text-foreground-light hover:text-foreground underline underline-offset-4 transition-colors"
               >
                 Create an account
@@ -98,7 +99,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form className="group flex flex-col gap-6">
+          <form className="group flex flex-col gap-6" onSubmit={handleSubmit}>
             <div>
               <label className="text-sm font-semibold text-foreground-secondary tracking-wide mb-2 block">
                 EMAIL ADDRESS
@@ -111,6 +112,7 @@ export default function LoginPage() {
                 }
                 placeholder="developer@mentra.ai"
                 className="w-full bg-bg-surface border border-border rounded-md px-4 py-3.5 text-foreground outline-none ring-ring/0 focus:ring-2 focus:ring-ring focus:border-transparent transition-all duration-200 placeholder:text-foreground-muted/50"
+                required
               />
             </div>
 
@@ -134,13 +136,13 @@ export default function LoginPage() {
                 }
                 placeholder="••••••••"
                 className="w-full bg-bg-surface border border-border rounded-md px-4 py-3.5 text-foreground outline-none ring-ring/0 focus:ring-2 focus:ring-ring focus:border-transparent transition-all duration-200 placeholder:text-foreground-muted/50"
+                required
               />
             </div>
 
             <button
               type="submit"
               disabled={isPending}
-              onClick={handleSubmit}
               className="w-full flex items-center justify-center gap-2 py-4 bg-primary/20 border border-primary hover:bg-primary text-foreground font-bold rounded-md shadow-shadow-neon transition-all active:scale-[0.99] cursor-pointer"
             >
               {isPending ? (

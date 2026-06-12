@@ -49,9 +49,9 @@ export default function HomePage() {
                   onClick={() => setSelectedPath("not-recommend")}
                 />
                 <DecisionCard
-                  title="I'm not sure / I'm confused"
-                  description="Answer a few simple questions and let AI recommend the best path for you."
-                  ctaText="Get Recommendation"
+                  title="Analyze Knowledge Gaps"
+                  description="Let our AI analyze your background and recommend the highest-impact learning path."
+                  ctaText="Explore Alternative Paths"
                   isPrimary={true}
                   icon={<Sparkles className="w-6 h-6 text-foreground" />}
                   onClick={() => {

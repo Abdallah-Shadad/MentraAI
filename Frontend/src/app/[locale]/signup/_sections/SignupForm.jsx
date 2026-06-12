@@ -7,14 +7,15 @@ import { TriangleAlert, Eye, EyeOff, IdCard, Loader2 } from "lucide-react";
 
 //hooks
 import { useRegister } from "@/hooks/useAuth";
+import { useRouter } from "@/lib/i18n/navigation";
 
-export default function SignupForm({ setSteps }) {
+export default function SignupForm() {
+  const router = useRouter();
   const {
     mutate: register,
     isSuccess,
     isError,
     error,
-    data,
     isPending,
     reset,
   } = useRegister();
@@ -57,9 +58,9 @@ export default function SignupForm({ setSteps }) {
 
   useEffect(() => {
     if (isSuccess) {
-      setSteps(2);
+      router.push("/onboarding");
     }
-  }, [isSuccess, setSteps]);
+  }, [isSuccess, router]);
 
   const inputClass = (name) =>
     `w-full bg-background text-foreground placeholder:text-foreground-muted border ${
@@ -75,7 +76,7 @@ export default function SignupForm({ setSteps }) {
         />
       )}
       <div className="bg-card/70 border border-border rounded-2xl shadow-2xl w-full p-4">
-        <form>
+        <form onSubmit={handleSubmit}>
           {/* Personal */}
           <p className="text-xs md:text-sm text-foreground uppercase my-6 flex items-center gap-2">
             <IdCard className="w-5 h-5 inline shrink-0" />{" "}
@@ -215,24 +216,25 @@ export default function SignupForm({ setSteps }) {
               )}
             </div>
           </div>
-        </form>
 
-        {/* button movement */}
-        <div className="w-full flex gap-2">
-          <button
-            onClick={handleSubmit}
-            className="group cursor-pointer w-full mt-6 py-3 rounded-md bg-linear-to-r from-purple-500 to-purple-700 text-white font-semibold hover:opacity-90 disabled:opacity-50"
-          >
-            {isPending ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Second Step
-              </span>
-            ) : (
-              <span>First Step</span>
-            )}
-          </button>
-        </div>
+          {/* button movement */}
+          <div className="w-full flex gap-2">
+            <button
+              type="submit"
+              disabled={isPending}
+              className="group cursor-pointer w-full mt-6 py-3 rounded-md bg-linear-to-r from-purple-500 to-purple-700 text-white font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Creating account...</span>
+                </>
+              ) : (
+                <span>Sign Up</span>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

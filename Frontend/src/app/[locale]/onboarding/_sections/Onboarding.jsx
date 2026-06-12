@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "@/lib/i18n/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 //components
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,8 +22,26 @@ export default function Onboarding() {
   } = useOnboarding();
   const questions = onboardingData;
   const router = useRouter();
+  const queryClient = useQueryClient();
   //step management
   const [step, setStep] = useState(0);
+  
+  useEffect(() => {
+    if (isSuccess) {
+      // Invalidate user query to synchronize onboarded status across components
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+      
+      const timer = setTimeout(() => {
+        if (typeof window !== "undefined") {
+          const segments = window.location.pathname.split("/");
+          const locale = ["en", "ar"].includes(segments[1]) ? segments[1] : "en";
+          window.location.href = `/${locale}/student/homepage`;
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSuccess, queryClient]);
+
   const next = () => setStep((s) => Math.min(s + 1, 3));
   const back = () => setStep((s) => Math.max(s - 1, 0));
 
@@ -113,12 +132,17 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="min-h-[60vh] bg-background text-foreground flex flex-col justify-between">
       {isSuccess && (
         <SuccessState
           close={() => {
+            queryClient.invalidateQueries({ queryKey: ["user"] });
             reset();
-            router.push("/student");
+            if (typeof window !== "undefined") {
+              const segments = window.location.pathname.split("/");
+              const locale = ["en", "ar"].includes(segments[1]) ? segments[1] : "en";
+              window.location.href = `/${locale}/student/homepage`;
+            }
           }}
         />
       )}
@@ -130,7 +154,7 @@ export default function Onboarding() {
           }}
         />
       )}
-      <div className="flex-1 flex items-start justify-center">
+      <div className="flex-1 flex items-start justify-center py-6">
         {/* Step 0: Personal Info */}
         {step === 0 && (
           <div className="w-full space-y-6">

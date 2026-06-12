@@ -55,7 +55,7 @@ const Navbar = () => {
         <div className="hidden md:flex items-center gap-3">
           {!user?.data ? (
             <>
-              <Link href="/register/Login">
+              <Link href="/login">
                 <Button
                   variant="ghost"
                   className="rounded-full border border-border px-6 text-foreground-muted hover:text-foreground cursor-pointer"
@@ -63,7 +63,7 @@ const Navbar = () => {
                   Login
                 </Button>
               </Link>
-              <Link href="/register/SignUp">
+              <Link href="/signup">
                 <Button className="rounded-full gradient-cta px-6 hover:opacity-90 hover:scale-105 cursor-pointer">
                   Sign up
                 </Button>
@@ -116,7 +116,7 @@ const Navbar = () => {
             <div className="flex flex-col gap-2 border-t border-border pt-4">
               {!user?.data ? (
                 <>
-                  <Link href="/register/Login" onClick={() => setIsOpen(false)}>
+                  <Link href="/login" onClick={() => setIsOpen(false)}>
                     <Button
                       variant="ghost"
                       className="w-full rounded-full border border-border text-foreground-muted hover:text-foreground"
@@ -124,7 +124,7 @@ const Navbar = () => {
                       Login
                     </Button>
                   </Link>
-                  <Link href="/register/SignUp" onClick={() => setIsOpen(false)}>
+                  <Link href="/signup" onClick={() => setIsOpen(false)}>
                     <Button className="w-full rounded-full gradient-cta text-foreground hover:bg-gradient-cta cursor-pointer">
                       Sign up
                     </Button>

@@ -62,7 +62,7 @@ axiosInstance.interceptors.response.use(
           const relativePath = locale ? pathname.substring(localePrefix.length) : pathname;
           const isProtectedPath = relativePath === "/student" || relativePath.startsWith("/student/");
           if (isProtectedPath) {
-            window.location.href = `/${locale || "en"}/register/Login`;
+            window.location.href = `/${locale || "en"}/login`;
           }
         }
         return Promise.reject(error);
@@ -95,7 +95,7 @@ axiosInstance.interceptors.response.use(
           const relativePath = locale ? pathname.substring(localePrefix.length) : pathname;
           const isProtectedPath = relativePath === "/student" || relativePath.startsWith("/student/");
           if (isProtectedPath) {
-            window.location.href = `/${locale || "en"}/register/Login`;
+            window.location.href = `/${locale || "en"}/login`;
           }
         }
         return Promise.reject(refreshError);
