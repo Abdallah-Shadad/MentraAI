@@ -217,7 +217,10 @@ class TrackRecommenderGraph(GraphInterface):
         """
         self.logger.info("[TrackRecommender Supervisor] Deciding next agent...")
 
-        if not state.get("track_recommender_done"):
+        if state.get("error"):
+            self.logger.error(f"[TrackRecommender Supervisor] Found error in state: {state.get('error')}. Routing to ResponseFormatter to prevent infinite loop.")
+            next_agent = NodeName.RESPONSE_FORMATTER.value
+        elif not state.get("track_recommender_done"):
             next_agent = NodeName.TRACK_RECOMMENDER.value
         else:
             next_agent = NodeName.RESPONSE_FORMATTER.value
@@ -282,17 +285,20 @@ class TrackRecommenderGraph(GraphInterface):
                 return {k: to_serializable(v) for k, v in obj.items()}
             return obj
 
+        state_error = state.get("error")
         recommendations_data = to_serializable(state.get("track_recommendations"))
+
+        api_status = "error" if (state_error or recommendations_data is None) else "success"
 
         return {
             **state,
             "api_response": {
-                "status":       "success",
+                "status":       api_status,
                 "mode":         "track_recommendation",
                 "user_id":      state.get("user_id"),
                 "data": {
                     "recommendations": recommendations_data,
                 },
-                "error": state.get("error"),
+                "error": state_error,
             },
         }

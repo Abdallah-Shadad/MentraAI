@@ -48,28 +48,12 @@ class ClassifyAgent:
         self.llm_type  = llm_type
         self.llm_model = llm_model
 
-        # Instantiate provider directly (factory requires config fields not in Settings)
-        if self.llm_type == LLMEnums.GEMINI.value:
-            provider = GeminiProvider(api_key=settings.GEMINI_API_KEY)
-        elif self.llm_type == LLMEnums.OPENAI.value:
-            if not settings.OPENAI_API_KEY:
-                raise RuntimeError("OPENAI_API_KEY required in .env for ClassifyAgent with OPENAI type.")
-            provider = OpenAIProvider(
-                api_key=settings.OPENAI_API_KEY,
-                base_url=settings.OPENAI_API_URL or "",
-            )
-        else:
-            raise ValueError(f"ClassifyAgent: unsupported llm_type '{self.llm_type}'. Use GEMINI or OPENAI.")
+        from stores.llm.LLMManager import LLMManager
+        from helpers.config import get_llm_config
 
-        provider.set_generation_model(self.llm_model)
-        # Call with_structured_output on the raw LangChain client directly.
-        # provider.with_structured_output() mutates provider.client in-place
-        # and returns `self` (the provider), NOT the chain.
-        # Calling provider.invoke() would then go through GeminiProvider.invoke()
-        # which tries response.content — but structured output returns a Pydantic
-        # object, not an AIMessage. So we grab the chain directly.
-        provider.client = provider.client.with_structured_output(RouterResponse)
-        self._chain = provider.client   # raw LangChain structured chain
+        config = get_llm_config()
+        self.llm_manager = LLMManager(config)
+        self._chain = self.llm_manager.get_structured_chain("ClassifyAgent", RouterResponse)
 
     # ─────────────────────────────────────────────
     # Private — sync (runs in thread pool)

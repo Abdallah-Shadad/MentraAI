@@ -169,3 +169,60 @@ class LLMManager:
             )
         
         return primary_chain
+
+    def get_chat_chain(self, agent_name: str) -> Runnable:
+        """
+        Creates a Runnable chain (without tools or structure), automatically wrapping it
+        in fallbacks if configured.
+        """
+        agent_configs = self.config.get("agent_llm_configs", {})
+        config_for_agent = agent_configs.get(agent_name, self.config.get("default_llm_config", {}))
+
+        if not config_for_agent:
+            config_for_agent = {
+                "primary": {
+                    "provider": "gemini", 
+                    "model": "gemini-2.5-flash", 
+                    "api_key": self.config.get("api_key", "")
+                }
+            }
+
+        primary_config = config_for_agent.get("primary", {})
+        primary_provider = self.create_provider(primary_config)
+        
+        if not primary_provider.client:
+            raise RuntimeError(f"Primary provider client not initialized for {agent_name}")
+            
+        primary_chain = primary_provider.client
+
+        fallback_configs = config_for_agent.get("fallbacks", [])
+        if not isinstance(fallback_configs, list):
+            fallback_configs = [fallback_configs] if fallback_configs else []
+
+        fallback_chains = []
+        for f_conf in fallback_configs:
+            f_provider = self.create_provider(f_conf)
+            if f_provider.client:
+                fallback_chains.append(f_provider.client)
+
+        if fallback_chains:
+            primary_label   = f"{primary_config.get('provider','?')}:{primary_config.get('model','?')}"
+            fallback_labels = [f"{f.get('provider','?')}:{f.get('model','?')}" for f in fallback_configs]
+
+            def _log_primary_c(inputs, label=primary_label, name=agent_name):
+                logging.getLogger("uvicorn.error").info(f"[{name}] Using PRIMARY model → {label}")
+                return inputs
+            def _log_fallback_c(inputs, labels=fallback_labels, name=agent_name):
+                logging.getLogger("uvicorn.error").info(f"[{name}] PRIMARY failed → switching to FALLBACK {labels}")
+                return inputs
+
+            logged_primary   = RunnableLambda(_log_primary_c)  | primary_chain
+            logged_fallbacks = [RunnableLambda(_log_fallback_c) | fc for fc in fallback_chains]
+
+            self.logger.info(f"[{agent_name}] Attaching {len(fallback_chains)} chat fallback model(s). Primary={primary_label}")
+            return logged_primary.with_fallbacks(
+                logged_fallbacks,
+                exceptions_to_handle=(Exception,),
+            )
+        
+        return primary_chain

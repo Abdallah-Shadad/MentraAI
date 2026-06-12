@@ -86,9 +86,17 @@ def _build_llm_and_config(app_settings: Settings):
 # ENDPOINT — Recommend Tech Tracks
 # ══════════════════════════════════════════════════════════════════════════════
 
+from pydantic import BaseModel
+from typing import Dict, Any
+
+class TrackRecommendRequest(BaseModel):
+    user_id: str
+    profile: Dict[str, Any]
+
+
 @track_recommender_router.post("/recommend", status_code=status.HTTP_201_CREATED)
 async def recommend_tracks(
-    request: Request,
+    request_body: TrackRecommendRequest,
     app_settings: Settings = Depends(get_settings),
 ):
     """
@@ -100,37 +108,8 @@ async def recommend_tracks(
     """
     start_time = time.perf_counter()
 
-    # ── Parse request body ────────────────────────────────────────────────
-    try:
-        data = await request.json()
-    except Exception as exc:
-        logger.error(f"[TrackRecommend] Failed to parse request body: {exc}")
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"signal": "400_Bad_Request", "message": "Invalid JSON body."},
-        )
-
-    # ── Validate required fields ──────────────────────────────────────────
-    user_id = data.get("user_id")
-    profile = data.get("profile")
-
-    if not user_id:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "signal": "400_Bad_Request",
-                "message": "Missing required field: 'user_id'",
-            },
-        )
-
-    if profile is None or not isinstance(profile, dict):
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "signal": "400_Bad_Request",
-                "message": "Missing or invalid 'profile' — must be a JSON object.",
-            },
-        )
+    user_id = request_body.user_id
+    profile = request_body.profile
 
     logger.info(
         f"[TrackRecommend] user={user_id} | "
@@ -146,7 +125,19 @@ async def recommend_tracks(
 
     # ── Build LLM + Graph ─────────────────────────────────────────────────
     try:
-        llm, config = _build_llm_and_config(app_settings)
+        from helpers.config import get_llm_config
+        config = get_llm_config()
+
+        supervisor_key = (
+            getattr(app_settings, "GEMINI_API_KEY_SUPERVISOR", "") 
+            or app_settings.GEMINI_API_KEY
+        )
+        llm = GeminiProvider(
+            api_key=supervisor_key,
+            max_output_tokens=8192,
+            temperature=0.1,
+        )
+        llm.set_generation_model("gemini-2.5-flash-lite")
         agent_factory = AgentProviderFactory(config)
 
         graph = TrackRecommenderGraph(
@@ -167,7 +158,17 @@ async def recommend_tracks(
 
     # ── Invoke graph ──────────────────────────────────────────────────────
     try:
-        final_state = app.invoke(initial_state)
+        import asyncio
+        final_state = await asyncio.wait_for(app.ainvoke(initial_state), timeout=150.0)
+    except asyncio.TimeoutError:
+        logger.error("[TrackRecommend] Graph execution timed out after 150 seconds.")
+        return JSONResponse(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            content={
+                "signal": "504_Gateway_Timeout",
+                "message": "Track recommendation request timed out after 150 seconds.",
+            },
+        )
     except Exception as exc:
         logger.error(f"[TrackRecommend] Graph execution failed: {exc}")
         return JSONResponse(
@@ -178,7 +179,30 @@ async def recommend_tracks(
             },
         )
 
-    # ── Return response ───────────────────────────────────────────────────
+    # ── Check for agent errors in final state ────────────────────────
+    state_error = final_state.get("error")
+    recommendations = final_state.get("track_recommendations")
+
+    if state_error or recommendations is None:
+        logger.error(
+            f"[TrackRecommend] Agent failed for user={user_id}. "
+            f"error={state_error!r} | recommendations={recommendations!r}"
+        )
+        return JSONResponse(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            content={
+                "signal":  "502_Bad_Gateway",
+                "status":  "error",
+                "message": (
+                    state_error
+                    or "All AI providers are unavailable or rate-limited. "
+                       "No recommendations could be generated."
+                ),
+                "time_consumed": time.perf_counter() - start_time,
+            },
+        )
+
+    # ── Return success response ───────────────────────────────────────
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content=jsonable_encoder({

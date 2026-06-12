@@ -73,7 +73,7 @@ class SemanticCache:
             self._redis = aioredis.Redis(
                 host=settings.REDIS_HOST,
                 port=settings.REDIS_PORT,
-                password=settings.REDIS_PASSWORD,
+                password=settings.REDIS_PASSWORD if settings.REDIS_PASSWORD else None,
                 decode_responses=False,
             )
         return self._redis

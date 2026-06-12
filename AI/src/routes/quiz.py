@@ -60,9 +60,22 @@ def _build_llm_and_config(app_settings: Settings):
 # ENDPOINT — Generate Quiz Questions
 # ══════════════════════════════════════════════════════════════════════════════
 
+from pydantic import BaseModel, Field
+from typing import List, Dict, Optional
+
+class QuizGenerateRequest(BaseModel):
+    user_id: str
+    career_track: str
+    stage_id: str
+    topics: List[str]
+    stage_name: Optional[str] = None
+    learning_objectives: Optional[Dict[str, str]] = Field(default_factory=dict)
+    difficulty_level: Optional[str] = "beginner"
+
+
 @quiz_router.post("/generate", status_code=status.HTTP_201_CREATED)
 async def generate_quiz(
-    request: Request,
+    request_body: QuizGenerateRequest,
     app_settings: Settings = Depends(get_settings),
 ):
     """
@@ -123,47 +136,45 @@ async def generate_quiz(
     """
     start_time = time.perf_counter()
 
-    # ── Parse request body ────────────────────────────────────────────────
-    try:
-        data = await request.json()
-    except Exception as exc:
-        logger.error(f"[QuizGenerate] Failed to parse request body: {exc}")
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"signal": "400_Bad_Request", "message": "Invalid JSON body."},
-        )
-
-    # ── Validate required fields ──────────────────────────────────────────
-    required = ["user_id", "career_track", "stage_id", "topics"]
-    missing = [f for f in required if not data.get(f)]
-    if missing:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "signal": "400_Bad_Request",
-                "message": f"Missing required fields: {', '.join(missing)}",
-            },
-        )
+    user_id = request_body.user_id
+    career_track = request_body.career_track
+    stage_id = request_body.stage_id
+    stage_name = request_body.stage_name if request_body.stage_name else request_body.stage_id
+    topics = request_body.topics
+    learning_objectives = request_body.learning_objectives if request_body.learning_objectives is not None else {}
+    difficulty_level = request_body.difficulty_level if request_body.difficulty_level else "beginner"
 
     logger.info(
-        f"[QuizGenerate] user={data['user_id']} | stage={data['stage_id']} | "
-        f"topics={data['topics']}"
+        f"[QuizGenerate] user={user_id} | stage={stage_id} | "
+        f"topics={topics}"
     )
 
     # ── Build initial state ───────────────────────────────────────────────
     initial_state: QuizState = {
-        "user_id":              data["user_id"],
-        "career_track":         data["career_track"],
-        "stage_id":             data["stage_id"],
-        "stage_name":           data.get("stage_name", data["stage_id"]),
-        "topics":               data["topics"],
-        "learning_objectives":  data.get("learning_objectives", {}),
-        "difficulty_level":     data.get("difficulty_level", "beginner"),
+        "user_id":              user_id,
+        "career_track":         career_track,
+        "stage_id":             stage_id,
+        "stage_name":           stage_name,
+        "topics":               topics,
+        "learning_objectives":  learning_objectives,
+        "difficulty_level":     difficulty_level,
     }
 
     # ── Build LLM + Graph ─────────────────────────────────────────────────
     try:
-        llm, config = _build_llm_and_config(app_settings)
+        from helpers.config import get_llm_config
+        config = get_llm_config()
+
+        supervisor_key = (
+            getattr(app_settings, "GEMINI_API_KEY_SUPERVISOR", "") 
+            or app_settings.GEMINI_API_KEY
+        )
+        llm = GeminiProvider(
+            api_key=supervisor_key,
+            max_output_tokens=8192,
+            temperature=0.1,
+        )
+        llm.set_generation_model("gemini-2.5-flash-lite")
         agent_factory = AgentProviderFactory(config)
 
         graph = QuizGraph(
@@ -184,7 +195,17 @@ async def generate_quiz(
 
     # ── Invoke graph ──────────────────────────────────────────────────────
     try:
-        final_state = app.invoke(initial_state)
+        import asyncio
+        final_state = await asyncio.wait_for(app.ainvoke(initial_state), timeout=150.0)
+    except asyncio.TimeoutError:
+        logger.error("[QuizGenerate] Graph execution timed out after 150 seconds.")
+        return JSONResponse(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            content={
+                "signal": "504_Gateway_Timeout",
+                "message": "Quiz generation request timed out after 150 seconds.",
+            },
+        )
     except Exception as exc:
         logger.error(f"[QuizGenerate] Graph execution failed: {exc}")
         return JSONResponse(
@@ -192,6 +213,29 @@ async def generate_quiz(
             content={
                 "signal": "500_Internal_Server_Error",
                 "message": f"Quiz generation error: {exc}",
+            },
+        )
+
+    # ── Check for agent errors in final state ────────────────────────
+    state_error = final_state.get("error")
+    quiz_questions = final_state.get("quiz_questions")
+
+    if state_error or quiz_questions is None:
+        logger.error(
+            f"[QuizGenerate] Agent failed for user={data['user_id']}. "
+            f"error={state_error!r}"
+        )
+        return JSONResponse(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            content={
+                "signal":  "502_Bad_Gateway",
+                "status":  "error",
+                "message": (
+                    state_error
+                    or "All AI providers are unavailable or rate-limited. "
+                       "Quiz could not be generated."
+                ),
+                "time_consumed": time.perf_counter() - start_time,
             },
         )
 

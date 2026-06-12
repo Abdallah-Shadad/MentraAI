@@ -100,13 +100,48 @@ async def roadmap(request_body: RoadmapRequest, app_settings: Settings = Depends
         )
 
         app = graph.build().compile()
-        final_state = app.invoke(initial_state)
+        try:
+            import asyncio
+            final_state = await asyncio.wait_for(app.ainvoke(initial_state), timeout=300.0)
+        except asyncio.TimeoutError:
+            logger.error("[Roadmap] Graph execution timed out after 300 seconds.")
+            return JSONResponse(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                content={
+                    "signal": "504_Gateway_Timeout",
+                    "error": "Roadmap generation request timed out after 300 seconds."
+                }
+            )
+
+        # ── Check for agent errors in final state ─────────────────────
+        state_error = final_state.get("error")
+        api_response = final_state.get("api_response")
+
+        if state_error or api_response is None:
+            logger.error(
+                f"[Roadmap] Agent failed for user={user_id}. "
+                f"error={state_error!r}"
+            )
+            return JSONResponse(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                content={
+                    "signal":  "502_Bad_Gateway",
+                    "status":  "error",
+                    "message": (
+                        state_error
+                        or "All AI providers are unavailable or rate-limited. "
+                           "Roadmap could not be generated."
+                    ),
+                },
+            )
+
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content=jsonable_encoder({
                 "signal": "201_Created",
+                "status": "success",
                 "message": "Roadmap generated successfully",
-                "roadmap": final_state.get("api_response", final_state)
+                "roadmap": api_response,
             })
         )
     except Exception as e:
