@@ -157,7 +157,7 @@ export const useChat = (contextProps = {}) => {
       console.error("Pre-flight authentication check failed:", err);
       setStreamError("Authentication expired. Please log in again.");
       if (typeof window !== "undefined") {
-        window.location.href = "/en/register/Login";
+        window.location.href = "/en/login";
       }
       return;
     }

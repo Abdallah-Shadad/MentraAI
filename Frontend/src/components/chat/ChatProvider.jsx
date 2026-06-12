@@ -9,8 +9,8 @@ import ChatDrawer from "./ChatDrawer";
 const ChatContext = createContext(null);
 
 const EXCLUDED_PATTERNS = [
-  "/register/Login",
-  "/register/SignUp",
+  "/login",
+  "/signup",
   "/onboarding"
 ];
 

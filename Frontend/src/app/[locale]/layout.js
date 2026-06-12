@@ -24,6 +24,11 @@ const playfair = Playfair_Display({
 export const metadata = {
   title: "MentarAi",
   description: "MentarAi - Your AI Study Companion",
+  icons: {
+    icon: "/Logo/mentra-app-icon.svg",
+    shortcut: "/Logo/mentra-app-icon.svg",
+    apple: "/Logo/mentra-app-icon.svg",
+  },
 };
 
 export default async function UserLayout({ children }) {

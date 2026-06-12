@@ -8,7 +8,18 @@ import {
 export function useCareerTrack() {
   return useQuery({
     queryKey: ["career-track"],
-    queryFn: getMyTrack,
+    queryFn: async () => {
+      try {
+        return await getMyTrack();
+      } catch (error) {
+        const status = error?.response?.status;
+        if (status === 404 || status === 422) {
+          return { data: null };
+        }
+        throw error;
+      }
+    },
+    retry: false,
   });
 }
 
