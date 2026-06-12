@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "@/lib/i18n/navigation";
+import { useRouter, Link } from "@/lib/i18n/navigation";
 //component
 import { BackgroundNodes } from "@/components/reusable/BackgroundNodes";
 import ErrorState from "@/components/reusable/ErrorState";
@@ -23,7 +23,7 @@ export default function LoginPage() {
   };
   useEffect(() => {
     if (data?.success) {
-      router.push("/student");
+      router.push("/student/homepage");
     }
   }, [data, router]);
 
@@ -48,12 +48,7 @@ export default function LoginPage() {
         {/* Left Side: Brand Experience */}
         <div className="hidden lg:flex flex-col justify-center p-12 bg-linear-to-br from-surface-elevated to-bg-surface border-r border-border">
           <div className="flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 rounded-full bg-linear-to-br from-primary to-secondary flex items-center justify-center shadow-shadow-neon">
-              <span className="text-foreground font-bold text-2xl">M</span>
-            </div>
-            <span className="primary-gradient font-bold text-2xl">
-              MentraAI
-            </span>
+            <img src="/mentraai_logo_4x.png" alt="MentraAI Logo" className="h-10 w-auto object-contain" />
           </div>
 
           <h2 className="text-5xl font-black text-foreground mb-6 leading-[1.1]">
@@ -93,12 +88,12 @@ export default function LoginPage() {
             </h3>
             <p className="text-foreground-muted">
               New here?{" "}
-              <a
-                href="#"
+              <Link
+                href="/register/SignUp"
                 className="text-foreground-light hover:text-foreground underline underline-offset-4 transition-colors"
               >
                 Create an account
-              </a>
+              </Link>
             </p>
           </div>
 

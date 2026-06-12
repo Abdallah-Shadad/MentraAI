@@ -9,6 +9,7 @@ import {
   useGetStageResources1,
   useGetStageResources2,
 } from "@/hooks/useResource";
+import { Loader2, BookOpenText } from "lucide-react";
 
 export default function LessonPage() {
   const params = useParams();
@@ -17,10 +18,27 @@ export default function LessonPage() {
   const [numoflesson, setNumoflesson] = useState(0);
 
   // get resources
-  const { data: resources1 } = useGetStageResources1(id);
-  const { data: resources2 } = useGetStageResources2(id);
+  const { data: resources1, isLoading: isLoading1 } = useGetStageResources1(id);
+  const { data: resources2, isLoading: isLoading2 } = useGetStageResources2(id);
+  const isLoading = isLoading1 || isLoading2;
   const resources =
     resources1?.data?.resources || resources2?.data?.resources || {};
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <BookOpenText className="w-8 h-8 text-primary" />
+            </div>
+            <Loader2 className="w-6 h-6 text-primary animate-spin absolute -top-1 -right-1" />
+          </div>
+          <p className="text-foreground-muted text-sm font-medium">Loading resources...</p>
+        </div>
+      </div>
+    );
+  }
 
   console.log(resources);
 

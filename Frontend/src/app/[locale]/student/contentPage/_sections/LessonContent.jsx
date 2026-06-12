@@ -135,11 +135,12 @@ export default function LessonContent({ setOpenSidebar, video, article }) {
 
           <div>
             <Link
-              href={article?.url || ""}
+              href={article?.url || "#"}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-surface text-foreground-text-foreground px-18 py-4 rounded-lg hover:bg-surface-hover transition-colors duration-200"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary/15 border border-primary/40 text-foreground font-semibold hover:bg-primary hover:border-primary hover:text-foreground shadow-md transition-all duration-200 active:scale-[0.98]"
             >
+              <BookOpenText className="h-5 w-5" />
               Read the Article
             </Link>
           </div>

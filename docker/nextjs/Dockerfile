@@ -13,7 +13,7 @@ RUN apk add --no-cache libc6-compat
 COPY Frontend/package.json Frontend/package-lock.json ./
 
 # Clean install — exact versions, no surprises in production
-RUN npm ci
+RUN npm install
 
 # =============================================================
 # Stage 2 — BUILDER

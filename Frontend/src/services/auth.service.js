@@ -51,7 +51,7 @@ export const logout = async (queryClient) => {
       const locale = ["en", "ar"].includes(segments[1]) ? segments[1] : "en";
 
       // Hard redirect to clear all in-memory React states
-      window.location.href = `/${locale}/register/Login`;
+      window.location.href = `/${locale}`;
     }
   }
 };

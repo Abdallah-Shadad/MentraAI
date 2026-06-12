@@ -2,6 +2,7 @@
 import { cn } from "@/lib/utils";
 //icons
 import { ArrowRight, Briefcase } from "lucide-react";
+import { useRouter } from "@/lib/i18n/navigation";
 
 export const TrackCard = ({
   Id,
@@ -11,8 +12,10 @@ export const TrackCard = ({
   Description,
   postTrackSelection,
 }) => {
+  const router = useRouter();
   const handleTrackSelection = async () => {
-    postTrackSelection(Id);
+    await postTrackSelection(Id);
+    router.push("/student/roadmap");
   };
 
   return (
