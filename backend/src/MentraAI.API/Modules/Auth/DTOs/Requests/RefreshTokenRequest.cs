@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 
 namespace MentraAI.API.Modules.Auth.DTOs.Requests;
 

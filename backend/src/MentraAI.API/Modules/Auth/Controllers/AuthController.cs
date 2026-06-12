@@ -96,6 +96,11 @@ public class AuthController : ControllerBase
             request.RefreshToken = cookieToken;
         }
 
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            return Unauthorized(ApiResponse<object>.Fail(ErrorCodes.UNAUTHORIZED, "Missing refresh cookie", 401));
+        }
+
         var validation = await _refreshValidator.ValidateAsync(request);
         if (!validation.IsValid)
         {
