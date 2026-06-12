@@ -1,163 +1,147 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { 
+  useGenerateQuiz, 
+  useSubmitQuiz, 
+  useQuizHistory 
+} from "@/hooks/useQuiz";
+import { getQuiz, getQuestionHint } from "@/services/quiz.service";
 
-// questions data
-export const QUESTIONS = [
-  {
-    id: 1,
-    concept: "Variables & Scope",
-    prompt:
-      "What value will be logged? `let x = 1; { let x = 2; } console.log(x);`",
-    options: [
-      { id: "a", label: "1" },
-      { id: "b", label: "2" },
-      { id: "c", label: "undefined" },
-      { id: "d", label: "ReferenceError" },
-    ],
-    correct: "a",
-  },
-  {
-    id: 2,
-    concept: "Variables",
-    prompt:
-      "Which keyword allows reassignment but prevents redeclaration in the same scope?",
-    options: [
-      { id: "a", label: "var" },
-      { id: "b", label: "const" },
-      { id: "c", label: "let" },
-      { id: "d", label: "static" },
-    ],
-    correct: "c",
-  },
-  {
-    id: 3,
-    concept: "Constants",
-    prompt: "What happens if you try to reassign a `const` variable?",
-    options: [
-      { id: "a", label: "Nothing happens" },
-      { id: "b", label: "It becomes undefined" },
-      { id: "c", label: "A TypeError is thrown" },
-      { id: "d", label: "The value changes normally" },
-    ],
-    correct: "c",
-  },
-  {
-    id: 4,
-    concept: "Data Types",
-    prompt: "What is the result of `typeof null`?",
-    options: [
-      { id: "a", label: "'null'" },
-      { id: "b", label: "'object'" },
-      { id: "c", label: "'undefined'" },
-      { id: "d", label: "'boolean'" },
-    ],
-    correct: "b",
-  },
-  {
-    id: 5,
-    concept: "Equality",
-    prompt: "What does `===` check in JavaScript?",
-    options: [
-      { id: "a", label: "Value only" },
-      { id: "b", label: "Type only" },
-      { id: "c", label: "Value and type" },
-      { id: "d", label: "Reference only" },
-    ],
-    correct: "c",
-  },
-  {
-    id: 6,
-    concept: "Arrays",
-    prompt: "Which method adds an item to the end of an array?",
-    options: [
-      { id: "a", label: "push()" },
-      { id: "b", label: "pop()" },
-      { id: "c", label: "shift()" },
-      { id: "d", label: "unshift()" },
-    ],
-    correct: "a",
-  },
-  {
-    id: 7,
-    concept: "Functions",
-    prompt: "How do you define an arrow function?",
-    options: [
-      { id: "a", label: "function => {}" },
-      { id: "b", label: "() => {}" },
-      { id: "c", label: "=> function {}" },
-      { id: "d", label: "arrow() {}" },
-    ],
-    correct: "b",
-  },
-  {
-    id: 8,
-    concept: "Objects",
-    prompt: "How do you access the `name` property of an object `user`?",
-    options: [
-      { id: "a", label: "user->name" },
-      { id: "b", label: "user:name" },
-      { id: "c", label: "user.name" },
-      { id: "d", label: "user[name]" },
-    ],
-    correct: "c",
-  },
-  {
-    id: 9,
-    concept: "Loops",
-    prompt: "Which loop is commonly used to iterate over array elements?",
-    options: [
-      { id: "a", label: "for" },
-      { id: "b", label: "while" },
-      { id: "c", label: "do...while" },
-      { id: "d", label: "All of the above" },
-    ],
-    correct: "d",
-  },
-  {
-    id: 10,
-    concept: "Promises",
-    prompt: "Which keyword is used with Promises to wait for a result?",
-    options: [
-      { id: "a", label: "pause" },
-      { id: "b", label: "await" },
-      { id: "c", label: "yield" },
-      { id: "d", label: "hold" },
-    ],
-    correct: "b",
-  },
-];
-export function useQuizEngine() {
-  const [phase, setPhase] = useState("quiz");
+export function useQuizEngine(stageProgressId) {
+  const [phase, setPhase] = useState("idle"); // idle, generating, quiz, submitting, results, error
+  const [questions, setQuestions] = useState([]);
   const [current, setCurrent] = useState(0);
-  const [answers, setAnswers] = useState({});
+  const [answers, setAnswers] = useState({}); // { questionId: "A" }
+  const [timeRemaining, setTimeRemaining] = useState(null);
+  const [totalTime, setTotalTime] = useState(null);
+  const [quizId, setQuizId] = useState(null);
+  const [submitResult, setSubmitResult] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
   const [analyzeStep, setAnalyzeStep] = useState(0);
+  const [unlockedHints, setUnlockedHints] = useState({}); // { questionId: ["hint1", "hint2"] }
+  const [hintLoading, setHintLoading] = useState(false);
 
-  const question = QUESTIONS[current];
+  // Keep answers in a ref so auto-submit can access the latest state without re-binding the timer effect
+  const answersRef = useRef({});
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
 
-  //total questions
-  const total = QUESTIONS.length;
-  //answered questions
-  const answeredCount = Object.keys(answers).length;
-  //progress
-  const progress = Math.round((answeredCount / total) * 100);
+  const { mutateAsync: generateMutation } = useGenerateQuiz();
+  const { mutateAsync: submitMutation } = useSubmitQuiz();
+  const { refetch: fetchHistory } = useQuizHistory(stageProgressId, { enabled: false });
 
-  //select answer = put the answer option id in the answers object
-  const selectAnswer = (optionId) => {
+  // Initialize and generate/retrieve quiz
+  const initQuiz = useCallback(async (id) => {
+    if (!id) return;
+    setPhase("generating");
+    setErrorMessage("");
+    try {
+      // 1. Try to generate a new quiz
+      const res = await generateMutation(id);
+      const quizData = res?.data || res;
+      loadQuizData(quizData);
+    } catch (err) {
+      console.warn("Quiz generation check:", err);
+      const status = err?.response?.status;
+      
+      // If 409, there's already an active (unsubmitted) quiz attempt. Let's find it.
+      if (status === 409 || err?.response?.data?.error?.code === "QUIZ_PENDING_EXISTS") {
+        try {
+          const historyRes = await fetchHistory();
+          const attempts = historyRes?.data?.data || historyRes?.data || [];
+          const activeAttempt = attempts.find(a => !a.isSubmitted);
+          
+          if (activeAttempt) {
+            // Fetch the details of the active attempt
+            const existingQuiz = await getQuiz(activeAttempt.quizId);
+            const quizData = existingQuiz?.data || existingQuiz;
+            loadQuizData(quizData);
+            return;
+          }
+        } catch (historyErr) {
+          console.error("Failed to restore existing quiz attempt:", historyErr);
+        }
+      }
+      
+      // Generic error handling
+      setErrorMessage(
+        err?.response?.data?.error?.message || 
+        "Failed to generate quiz. Please verify if the stage is unlocked."
+      );
+      setPhase("error");
+    }
+  }, [generateMutation, fetchHistory]);
+
+  const loadQuizData = (quizData) => {
+    if (!quizData || !quizData.quizId) {
+      setErrorMessage("Received invalid quiz payload from server.");
+      setPhase("error");
+      return;
+    }
+    setQuizId(quizData.quizId);
+    setQuestions(quizData.questions || []);
+    setCurrent(0);
+    
+    // Check if session backup exists for this specific quiz
+    let restoredAnswers = {};
+    let restoredTime = null;
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`mentra_quiz_backup_${quizData.quizId}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          restoredAnswers = parsed.answers || {};
+          restoredTime = parsed.timeRemaining;
+        } catch (e) {
+          console.error("Failed to load quiz session backup", e);
+        }
+      }
+    }
+    
+    setAnswers(restoredAnswers);
+
+    // Setup time limit
+    const limitMinutes = quizData.timeLimitMinutes || 10;
+    const limitSeconds = limitMinutes * 60;
+    
+    if (restoredTime !== null && restoredTime > 0) {
+      setTimeRemaining(restoredTime);
+    } else {
+      setTimeRemaining(limitSeconds);
+    }
+    setTotalTime(limitSeconds);
+    setPhase("quiz");
+  };
+
+  // Session backup save
+  useEffect(() => {
+    if (phase === "quiz" && quizId) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          `mentra_quiz_backup_${quizId}`,
+          JSON.stringify({ answers, timeRemaining })
+        );
+      }
+    }
+  }, [answers, timeRemaining, phase, quizId]);
+
+  // Answer selection
+  const selectAnswer = (label) => {
     setAnswers((prev) => ({
       ...prev,
-      [question.id]: optionId,
+      [questions[current].id]: label,
     }));
   };
 
-  //navBar
+  // Nav actions
   const next = () => {
-    if (current < total - 1) {
+    if (current < questions.length - 1) {
       setCurrent((prev) => prev + 1);
-      return;
+    } else {
+      submitAnswers();
     }
-
-    startAnalysis();
   };
 
   const prev = () => {
@@ -166,45 +150,135 @@ export function useQuizEngine() {
     }
   };
 
-  const startAnalysis = () => {
-    setPhase("analyzing");
+  // Submit answers to API
+  const submitAnswers = useCallback(async () => {
+    if (!quizId) return;
+    setPhase("submitting");
+    setErrorMessage("");
+
+    // Simulate analysis transitions
     setAnalyzeStep(0);
+    const stepInterval = setInterval(() => {
+      setAnalyzeStep((s) => Math.min(s + 1, 3));
+    }, 800);
 
-    [0, 1, 2, 3].forEach((step) => {
-      setTimeout(() => {
-        setAnalyzeStep(step);
-      }, step * 850);
-    });
+    try {
+      // Map local answers map into the backend answers DTO list: [{ questionId, answer }]
+      const formattedAnswers = questions.map((q) => ({
+        questionId: q.id,
+        answer: answersRef.current[q.id] || "", // Send blank string if unanswered
+      }));
 
-    setTimeout(() => {
+      const res = await submitMutation({
+        quizId,
+        answers: formattedAnswers,
+      });
+
+      // Clear session backup
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(`mentra_quiz_backup_${quizId}`);
+      }
+
+      clearInterval(stepInterval);
+      setAnalyzeStep(3);
+      setSubmitResult(res);
       setPhase("results");
-    }, 3800);
-  };
+    } catch (err) {
+      clearInterval(stepInterval);
+      setErrorMessage(
+        err?.response?.data?.error?.message || 
+        "Failed to submit your answers. Please check your connection."
+      );
+      setPhase("error");
+    }
+  }, [quizId, questions, submitMutation]);
 
+  // Timer Countdown Effect
+  useEffect(() => {
+    if (phase !== "quiz" || timeRemaining === null) return;
+    if (timeRemaining <= 0) {
+      submitAnswers();
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [phase, timeRemaining, submitAnswers]);
+ 
+  // Request a hint for a specific question
+  const requestHint = useCallback(async (questionId) => {
+    if (!quizId || !questionId) return;
+    const currentHints = unlockedHints[questionId] || [];
+    const nextIndex = currentHints.length;
+    if (nextIndex >= 3) return; // limit to 3 hints (levels 1, 2, 3)
+
+    setHintLoading(true);
+    try {
+      const res = await getQuestionHint(quizId, questionId, nextIndex);
+      const hintText = res?.data?.hint || res?.hint;
+      if (hintText) {
+        setUnlockedHints((prev) => ({
+          ...prev,
+          [questionId]: [...(prev[questionId] || []), hintText],
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to fetch question hint:", err);
+    } finally {
+      setHintLoading(false);
+    }
+  }, [quizId, unlockedHints]);
+
+  // Reset engine for retries
   const reset = () => {
     setAnswers({});
+    setSubmitResult(null);
+    setQuestions([]);
     setCurrent(0);
-    setPhase("quiz");
+    setTimeRemaining(null);
+    setTotalTime(null);
+    setQuizId(null);
+    setErrorMessage("");
+    setUnlockedHints({});
+    setHintLoading(false);
+    initQuiz(stageProgressId);
   };
 
+  // Compute stats
+  const total = questions.length;
+  const answeredCount = Object.keys(answers).length;
+  const progress = total > 0 ? Math.round((answeredCount / total) * 100) : 0;
+  const question = questions[current] || null;
+
   return {
-    //progressBar
+    phase,
     progress,
     answeredCount,
     total,
-    //question Card
     question,
     current,
     answers,
+    timeRemaining,
+    totalTime,
+    submitResult,
+    errorMessage,
+    analyzeStep,
+    unlockedHints,
+    hintLoading,
+    requestHint,
     selectAnswer,
-    //navBar
     next,
     prev,
-    startAnalysis,
-
-    //Analysis
-    phase,
-    analyzeStep,
     reset,
+    initQuiz,
   };
 }

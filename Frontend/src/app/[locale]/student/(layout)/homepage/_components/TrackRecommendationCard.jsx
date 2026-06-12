@@ -19,7 +19,7 @@ export default function TrackRecommendationCard({ track }) {
   } = useTrackSelection();
 
   const handleSelectTrack = async () => {
-    selectTrack(track.trackId, {
+    selectTrack(track.careerTrackId, {
       onSuccess: () => {
         router.push("/student/roadmap");
       },
@@ -153,11 +153,17 @@ export default function TrackRecommendationCard({ track }) {
           </div>
         </div>
 
+        {isError && (
+          <div className="mt-4 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-2.5 text-center font-medium">
+            {error?.response?.data?.error?.message || error?.message || "Selection failed."}
+          </div>
+        )}
+
         {/* footer */}
         <button
           onClick={handleSelectTrack}
           disabled={isPending}
-          className="mt-6 flex cursor-pointer w-full items-center justify-center gap-2 rounded-md bg-primary/25 px-4 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:bg-primary hover:text-muted hover:dark:text-foreground disabled:opacity-60 disabled:cursor-not-allowed"
+          className="mt-6 flex cursor-pointer w-full items-center justify-center gap-2 rounded-md bg-primary/25 px-4 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:bg-primary hover:text-white disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {isPending ? (
             <>
@@ -166,7 +172,7 @@ export default function TrackRecommendationCard({ track }) {
             </>
           ) : (
             <>
-              choose Track
+              Choose Track
               <ArrowUpRight className="size-4" />
             </>
           )}

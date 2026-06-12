@@ -7,10 +7,11 @@ import {
   Play,
   RotateCcw,
   ChevronRight,
+  Brain,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Link } from "@/lib/i18n/navigation";
+import { Link, useRouter } from "@/lib/i18n/navigation";
 
 const statusConfig = {
   completed: {
@@ -65,18 +66,25 @@ const ModuleCard = ({
   onClick,
   id,
 }) => {
+  const router = useRouter();
   console.log("ModuleCard status:", status);
 
   const config = statusConfig[status] || statusConfig["LOCKED"];
   const Icon = config.icon;
   const isDisabled = status === "LOCKED";
 
+  const handleCardClick = () => {
+    if (!isDisabled) {
+      router.push(`/student/contentPage/${id}`);
+    }
+  };
+
   return (
-    <Link href={`/student/contentPage/${id}`}>
-      <div
-        className="relative flex items-start gap-4 animate-slide-in mb-4"
-        style={{ animationDelay: `${index * 100}ms` }}
-      >
+    <div
+      className="relative flex items-start gap-4 animate-slide-in mb-4 cursor-pointer"
+      style={{ animationDelay: `${index * 100}ms` }}
+      onClick={handleCardClick}
+    >
         {/* Timeline */}
         <div className="flex flex-col items-center">
           {/* Node */}
@@ -151,6 +159,24 @@ const ModuleCard = ({
                 {lessonCount} lessons
               </p>
 
+              {status === "ACTIVE" && (
+                <div className="mt-3">
+                  <Link 
+                    href={`/student/quizPage?stageProgressId=${id}`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-primary/45 bg-primary/5 hover:bg-primary/15 hover:text-primary text-foreground cursor-pointer font-semibold gap-1.5 h-8 text-xs"
+                    >
+                      <Brain className="w-3.5 h-3.5 text-primary animate-pulse" />
+                      Take Stage Quiz
+                    </Button>
+                  </Link>
+                </div>
+              )}
+
               {/* AI Tooltip */}
               {aiTooltip && status === "locked" && (
                 <div className="mt-3 p-3 rounded-lg bg-card/50 border border-border/50">
@@ -181,7 +207,6 @@ const ModuleCard = ({
           </div>
         </div>
       </div>
-    </Link>
   );
 };
 

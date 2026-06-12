@@ -35,9 +35,8 @@ export default function TracksRecommendationList({ isOpen, onOpenChange }) {
           {isLoading && <div>Loading...</div>}
           {tracks?.map((track) => (
             <TrackRecommendationCard
-              key={track.Id}
+              key={track.careerTrackId}
               track={track}
-              onClick={() => onSelectTrack(track.Id)}
             />
           ))}
         </div>

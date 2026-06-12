@@ -1,7 +1,7 @@
 "use client";
 import { Brain, Sparkles, Target, Clock, Activity } from "lucide-react";
 
-export default function Header() {
+export default function Header({ stageName, totalQuestions, timeLimitMinutes }) {
   return (
     <header className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
       <div className="flex items-start gap-4">
@@ -14,20 +14,20 @@ export default function Header() {
         <div>
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-foreground-muted">
             <Sparkles className="size-3.5 text-accent" />
-            MentraAi · Understanding Check
+            MentraAi · Stage Assessment
           </div>
-          <h1 className="mt-2 text-3xl sm:text-4xl font-semibold text-foreground">
-            Module 2 Assessment
-            <span className="text-foreground-muted font-normal">
-              {" "}
-              — JavaScript Basics
-            </span>
+          <h1 className="mt-2 text-2xl sm:text-3xl font-semibold text-foreground">
+            {stageName || "Assessment"}
           </h1>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-            <Pill icon={<Target className="size-3.5" />}>5 questions</Pill>
-            <Pill icon={<Clock className="size-3.5" />}>~12 min</Pill>
+            {totalQuestions > 0 && (
+              <Pill icon={<Target className="size-3.5" />}>{totalQuestions} questions</Pill>
+            )}
+            {timeLimitMinutes > 0 && (
+              <Pill icon={<Clock className="size-3.5" />}>~{timeLimitMinutes} min</Pill>
+            )}
             <Pill icon={<Activity className="size-3.5" />}>
-              Adaptive · Beginner+
+              Adaptive Assessment
             </Pill>
           </div>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Lock, Play, Sparkles } from "lucide-react";
+import { Check, Lock, Play, Sparkles, Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -10,11 +10,11 @@ import {
 } from "@/components/ui/tooltip";
 import { Link } from "@/lib/i18n/navigation";
 
-export default function LessonSidebar({ open, lessons = [], setNumoflesson }) {
+export default function LessonSidebar({ open, lessons = [], setNumoflesson, stageProgressId }) {
   return (
     <aside
       className={cn(
-        "fixed top-0 left-0 min-h-screen lg:static lg:flex w-72 shrink-0 flex-col z-20 border-r border-border bg-card/60 backdrop-blur-xl transition-all duration-300",
+        "fixed top-0 left-0 h-screen lg:sticky lg:top-0 lg:flex w-72 shrink-0 flex-col z-20 border-r border-border bg-card/60 backdrop-blur-xl transition-all duration-300",
         open ? "left-0" : "-left-72",
       )}
     >
@@ -25,7 +25,7 @@ export default function LessonSidebar({ open, lessons = [], setNumoflesson }) {
         </div>
       </Link>
 
-      <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 h-[calc(100vh-12rem)] px-3 pb-6">
+      <nav className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 px-3 py-4">
         <TooltipProvider delayDuration={200}>
           <ul className="space-y-1">
             {lessons.map((lesson, idx) => (
@@ -39,6 +39,7 @@ export default function LessonSidebar({ open, lessons = [], setNumoflesson }) {
                       lesson.state === "completed" && "hover:bg-muted/40",
                       lesson.state === "locked" &&
                         "opacity-55 cursor-not-allowed",
+                      lesson.isRemedial && "border-amber-500/35 bg-amber-500/5 hover:bg-amber-500/10"
                     )}
                     disabled={lesson.state === "locked"}
                     onClick={() => setNumoflesson(idx)}
@@ -67,14 +68,21 @@ export default function LessonSidebar({ open, lessons = [], setNumoflesson }) {
                       </span> */}
                     {/* دي النص اللي جنب الايقونات */}
                     <span className="min-w-0 flex-1 hover:underline">
-                      <span
-                        className={cn(
-                          "block text-[11px] tracking-wider muted-text-foreground my-2",
-                          lesson.state === "current" && "text-foreground-light",
+                      <div className="flex items-center justify-between gap-1.5 my-2">
+                        <span
+                          className={cn(
+                            "block text-[11px] tracking-wider muted-text-foreground",
+                            lesson.state === "current" && "text-foreground-light",
+                          )}
+                        >
+                          Lesson {String(idx + 1).padStart(2, "0")}
+                        </span>
+                        {lesson.isRemedial && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/35 text-[9px] font-extrabold text-amber-500 uppercase tracking-wide">
+                            <Brain className="w-2.5 h-2.5" /> Remedial
+                          </span>
                         )}
-                      >
-                        Lesson {String(idx + 1).padStart(2, "0")}
-                      </span>
+                      </div>
 
                       <span
                         className={cn(
@@ -107,6 +115,29 @@ export default function LessonSidebar({ open, lessons = [], setNumoflesson }) {
           </ul>
         </TooltipProvider>
       </nav>
+
+      {/* Stage Quiz Button Container at the bottom of the sidebar */}
+      <div className="p-4 border-t border-border bg-background/50 backdrop-blur-md">
+        <div className="rounded-xl border border-primary/20 bg-linear-to-br from-primary/5 to-secondary/5 p-3 mb-3 text-center">
+          <div className="flex items-center justify-center gap-1.5 mb-1">
+            <Brain className="w-4 h-4 text-primary animate-pulse" />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground-light">Stage Progress</span>
+          </div>
+          <p className="text-[10px] text-foreground-muted leading-relaxed">
+            Ready to test your knowledge? Take the stage quiz to unlock the next level.
+          </p>
+        </div>
+
+        <Link
+          href={`/student/quizPage?stageProgressId=${stageProgressId}`}
+          className="block w-full"
+        >
+          <button className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-primary text-foreground hover:bg-primary-dark font-semibold text-sm transition-all shadow-neon hover:shadow-neon-hover active:scale-[0.98] cursor-pointer">
+            <Brain className="w-4 h-4 text-foreground" />
+            <span>Start Stage Quiz</span>
+          </button>
+        </Link>
+      </div>
     </aside>
   );
-}
+};

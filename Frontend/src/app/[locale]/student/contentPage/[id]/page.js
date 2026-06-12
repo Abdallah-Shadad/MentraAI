@@ -5,10 +5,7 @@ import { useParams } from "next/navigation";
 import LessonSidebar from "../_sections/LessonSidebar";
 import LessonContent from "../_sections/LessonContent";
 //hooks
-import {
-  useGetStageResources1,
-  useGetStageResources2,
-} from "@/hooks/useResource";
+import { useStageResources } from "@/hooks/useResource";
 import { Loader2, BookOpenText } from "lucide-react";
 
 export default function LessonPage() {
@@ -17,12 +14,9 @@ export default function LessonPage() {
   const [openSidebar, setOpenSidebar] = useState(false);
   const [numoflesson, setNumoflesson] = useState(0);
 
-  // get resources
-  const { data: resources1, isLoading: isLoading1 } = useGetStageResources1(id);
-  const { data: resources2, isLoading: isLoading2 } = useGetStageResources2(id);
-  const isLoading = isLoading1 || isLoading2;
-  const resources =
-    resources1?.data?.resources || resources2?.data?.resources || {};
+  // get resources using single unified fallback hook
+  const { data: resourcesResponse, isLoading, isError, error } = useStageResources(id);
+  const resources = resourcesResponse?.data?.resources || resourcesResponse?.resources || {};
 
   if (isLoading) {
     return (
@@ -40,19 +34,42 @@ export default function LessonPage() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-background p-6">
+        <div className="max-w-md text-center space-y-4">
+          <h2 className="text-xl font-bold text-destructive">Failed to Load Resources</h2>
+          <p className="text-foreground-muted text-sm">
+            {error?.response?.data?.error?.message || error?.message || "An error occurred while loading learning resources."}
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition cursor-pointer"
+          >
+            Retry Loading
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   console.log(resources);
 
   return (
-    <div className="min-h-screen w-full flex bg-background text-foreground font-sans">
+    <div className="h-screen w-full flex overflow-hidden bg-background text-foreground font-sans">
       <LessonSidebar
         open={openSidebar}
         lessons={resources?.videos || []}
         setNumoflesson={setNumoflesson}
+        stageProgressId={id}
       />
       <LessonContent
         setOpenSidebar={setOpenSidebar}
         video={resources?.videos?.[numoflesson] || {}}
         article={resources?.articles?.[numoflesson] || {}}
+        stageProgressId={id}
+        isLastLesson={numoflesson === ((resources?.videos?.length || 1) - 1)}
+        onNextLesson={() => setNumoflesson((prev) => prev + 1)}
       />
       {openSidebar && (
         <div
