@@ -5,7 +5,10 @@ export async function getMyTrack() {
     const response = await axiosInstance.get("/career-tracks/my-track");
     return response.data;
   } catch (error) {
-    console.error("Error getting my track:", error);
+    const status = error?.response?.status;
+    if (status !== 404 && status !== 422) {
+      console.error("Error getting my track:", error);
+    }
     throw error;
   }
 }
