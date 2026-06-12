@@ -22,7 +22,8 @@ export default function Sidebar() {
       {/* Mobile Top Bar */}
       <div className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card">
         <Link href="/student/homepage" className="flex items-center gap-2">
-          <img src="/mentraai_logo_4x.png" alt="MentraAI Logo" className="h-7 w-auto object-contain" />
+          <img src="/Logo/mentra-logo-light.svg" alt="MentraAI Logo" className="h-7 w-auto object-contain dark:hidden" />
+          <img src="/Logo/mentra-logo-dark.svg" alt="MentraAI Logo" className="h-7 w-auto object-contain hidden dark:block" />
         </Link>
 
         <button onClick={() => setOpen(!open)} className="text-foreground">
@@ -51,7 +52,8 @@ export default function Sidebar() {
           {/* Header — Logo */}
           <div className="p-4 border-b border-border flex items-center justify-between gap-4">
             <Link href="/student/homepage" className="flex items-center gap-2 min-w-0">
-              <img src="/mentraai_logo_4x.png" alt="MentraAI Logo" className="h-8 w-auto object-contain" />
+              <img src="/Logo/mentra-logo-light.svg" alt="MentraAI Logo" className="h-8 w-auto object-contain dark:hidden" />
+              <img src="/Logo/mentra-logo-dark.svg" alt="MentraAI Logo" className="h-8 w-auto object-contain hidden dark:block" />
             </Link>
             <ThemeToggle />
           </div>

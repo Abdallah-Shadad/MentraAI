@@ -48,7 +48,8 @@ export default function LoginPage() {
         {/* Left Side: Brand Experience */}
         <div className="hidden lg:flex flex-col justify-center p-12 bg-linear-to-br from-surface-elevated to-bg-surface border-r border-border">
           <div className="flex items-center gap-3 mb-10">
-            <img src="/mentraai_logo_4x.png" alt="MentraAI Logo" className="h-10 w-auto object-contain" />
+            <img src="/Logo/mentra-logo-light.svg" alt="MentraAI Logo" className="h-10 w-auto object-contain dark:hidden" />
+            <img src="/Logo/mentra-logo-dark.svg" alt="MentraAI Logo" className="h-10 w-auto object-contain hidden dark:block" />
           </div>
 
           <h2 className="text-5xl font-black text-foreground mb-6 leading-[1.1]">

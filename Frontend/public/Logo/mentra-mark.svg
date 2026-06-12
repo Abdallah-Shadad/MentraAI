@@ -1,0 +1,17 @@
+<svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="mentraGrad" x1="10" y1="64" x2="70" y2="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C3AED"/>
+      <stop offset="0.55" stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+  </defs>
+  <!-- glow behind the active waypoint -->
+  <circle cx="54" cy="16" r="13" fill="#22D3EE" opacity="0.18"/>
+  <!-- the M / ascending path -->
+  <path d="M10 64 L28 16 L40 42 L54 16 L70 64"
+        stroke="url(#mentraGrad)" stroke-width="9"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- the active waypoint -->
+  <circle cx="54" cy="16" r="5.5" fill="#22D3EE"/>
+</svg>

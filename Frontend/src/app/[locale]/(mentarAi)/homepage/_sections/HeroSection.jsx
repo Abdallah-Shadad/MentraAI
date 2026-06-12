@@ -15,14 +15,17 @@ export default function HeroSection() {
       {/* Content */}
       <div className="text-center mx-auto flex flex-col items-center absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full z-1">
         <div>
-          <motion.h1
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-3xl sm:text-5xl md:text-4xl lg:text-5xl font-bold bg-linear-to-br from-primary to-secondary bg-clip-text text-transparent"
+            className="flex items-center justify-center gap-3 mb-4"
           >
-            MentrAi
-          </motion.h1>
+            <img src="/Logo/mentra-mark.svg" alt="MentraAI Mark" className="h-12 sm:h-16 w-auto object-contain" />
+            <h1 className="text-3xl sm:text-5xl md:text-4xl lg:text-5xl font-bold bg-linear-to-br from-primary to-secondary bg-clip-text text-transparent">
+              MentrAi
+            </h1>
+          </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
