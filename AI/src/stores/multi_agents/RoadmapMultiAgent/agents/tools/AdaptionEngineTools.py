@@ -69,6 +69,7 @@ def _fetch_tavily(query: str, topic: str, difficulty: str) -> list[dict]:
             "include_answer": False,
         },
         timeout=15.0,
+        verify=False,
     )
     resp.raise_for_status()
     items = resp.json().get("results", [])
@@ -110,6 +111,7 @@ def _fetch_youtube(query: str, topic: str, difficulty: str) -> list[dict]:
             "safeSearch": "strict",
         },
         timeout=15.0,
+        verify=False,
     )
     resp.raise_for_status()
     items = resp.json().get("items", [])

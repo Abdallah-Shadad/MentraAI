@@ -14,3 +14,4 @@ AI_Endpoint_QUIZ_CHAT.pdf
 test_groq_fallback.py
 verify_links.py
 src/test_adaptation.py
+src/evaluates/*
