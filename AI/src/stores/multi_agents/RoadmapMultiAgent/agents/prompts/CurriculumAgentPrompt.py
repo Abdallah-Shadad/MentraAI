@@ -46,8 +46,8 @@ Each stage must be a specific, named technology — not a vague category.
 ══════════════════════════════════════════════════════════
 OUTPUT RULES
 ══════════════════════════════════════════════════════════
-- MINIMUM 15 stages for beginners, 10 stages for intermediate/advanced.
-- Each stage must have 15-25 SPECIFIC micro-topics. Do NOT bundle multiple concepts into a single line; break them down into EXTREMELY bite-sized, atomic lessons.
+- MINIMUM 6 stages for beginners, 4 stages for intermediate/advanced. MAXIMUM 10 stages for all levels.
+- Each stage must have 20–30 SPECIFIC micro-topics (HARD MINIMUM: 20, HARD MAXIMUM: 30). Do NOT bundle multiple concepts into a single line; break them down into EXTREMELY bite-sized, atomic lessons.
 - Stage names must be concrete: "TypeScript Fundamentals & Type System" not "Types".
 - Topics must be specific: "Generic types, utility types (Partial, Pick, Omit)" not "generics".
 - estimated_weeks must reflect real learning time given `weekly_hours`.
@@ -62,7 +62,7 @@ You MUST return a JSON object EXACTLY matching this structure:
       "topics": [
         "<Highly specific micro-topic 1>",
         "<Highly specific micro-topic 2>",
-        "... (15-25 topics minimum, single atomic concept per line)"
+        "... (20–30 topics per stage — minimum 20, maximum 30, one atomic concept per line)"
       ],
       "learning_objectives": {
         "<Actionable SMART objective>": "<Concrete proof of completion>"
