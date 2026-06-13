@@ -69,7 +69,7 @@ Your output must map EVERY topic in the stage to its specific curated resources,
 
     def invoke(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Executes the agent and programmatically enforces that every topic
+        Executes the agent and programmatically enforces that every topic 
         has EXACTLY at most 1 video, 1 article, and 1 documentation resource
         by choosing the highest quality score from the model's choices.
         """
@@ -83,7 +83,7 @@ Your output must map EVERY topic in the stage to its specific curated resources,
                     topic.articles = sorted(topic.articles, key=lambda x: getattr(x, "quality_score", 0.0) or 0.0, reverse=True)[:1]
                 if len(topic.documentation) > 1:
                     topic.documentation = sorted(topic.documentation, key=lambda x: getattr(x, "quality_score", 0.0) or 0.0, reverse=True)[:1]
-
+            
             # Sync back modified resources to state dict keys
             output_dict = stage_resources.model_dump() if hasattr(stage_resources, "model_dump") else stage_resources.dict() if hasattr(stage_resources, "dict") else {}
             res.update(output_dict)
