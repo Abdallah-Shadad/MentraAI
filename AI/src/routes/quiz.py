@@ -222,7 +222,7 @@ async def generate_quiz(
 
     if state_error or quiz_questions is None:
         logger.error(
-            f"[QuizGenerate] Agent failed for user={data['user_id']}. "
+            f"[QuizGenerate] Agent failed for user={user_id}. "
             f"error={state_error!r}"
         )
         return JSONResponse(
