@@ -25,6 +25,9 @@ public class AuthController : ControllerBase
     private readonly IValidator<LoginRequest> _loginValidator;
     private readonly IValidator<RefreshTokenRequest> _refreshValidator;
     private readonly IValidator<LogoutRequest> _logoutValidator;
+    private readonly IValidator<GoogleLoginRequest> _googleLoginValidator;
+    private readonly IValidator<GitHubLoginRequest> _githubLoginValidator;
+    private readonly IValidator<AppleLoginRequest> _appleLoginValidator;
 
     public AuthController(
         IAuthService authService,
@@ -32,7 +35,10 @@ public class AuthController : ControllerBase
         IValidator<RegisterRequest> registerValidator,
         IValidator<LoginRequest> loginValidator,
         IValidator<RefreshTokenRequest> refreshValidator,
-        IValidator<LogoutRequest> logoutValidator)
+        IValidator<LogoutRequest> logoutValidator,
+        IValidator<GoogleLoginRequest> googleLoginValidator,
+        IValidator<GitHubLoginRequest> githubLoginValidator,
+        IValidator<AppleLoginRequest> appleLoginValidator)
     {
         _authService = authService;
         _env = env;
@@ -40,6 +46,9 @@ public class AuthController : ControllerBase
         _loginValidator = loginValidator;
         _refreshValidator = refreshValidator;
         _logoutValidator = logoutValidator;
+        _googleLoginValidator = googleLoginValidator;
+        _githubLoginValidator = githubLoginValidator;
+        _appleLoginValidator = appleLoginValidator;
     }
 
     // == POST /api/v1/auth/register ===
@@ -134,6 +143,63 @@ public class AuthController : ControllerBase
         await _authService.LogoutAsync(request.RefreshToken, userId);
         ClearTokenCookies();
         return NoContent();
+    }
+
+    // == POST /api/v1/auth/google ===
+    [HttpPost("google")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), 200)]
+    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+    [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+    public async Task<IActionResult> LoginWithGoogle([FromBody] GoogleLoginRequest request)
+    {
+        var validation = await _googleLoginValidator.ValidateAsync(request);
+        if (!validation.IsValid)
+        {
+            throw new AppException(ErrorCodes.VALIDATION_ERROR, "Validation failed.", 400);
+        }
+
+        var result = await _authService.LoginWithGoogleAsync(request.IdToken);
+        SetTokenCookies(result.AccessToken, result.RefreshToken, result.ExpiresIn);
+        return Ok(ApiResponse<AuthResponse>.Ok(result));
+    }
+
+    // == POST /api/v1/auth/github ===
+    [HttpPost("github")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), 200)]
+    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+    [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+    public async Task<IActionResult> LoginWithGitHub([FromBody] GitHubLoginRequest request)
+    {
+        var validation = await _githubLoginValidator.ValidateAsync(request);
+        if (!validation.IsValid)
+        {
+            throw new AppException(ErrorCodes.VALIDATION_ERROR, "Validation failed.", 400);
+        }
+
+        var result = await _authService.LoginWithGitHubAsync(request.Code);
+        SetTokenCookies(result.AccessToken, result.RefreshToken, result.ExpiresIn);
+        return Ok(ApiResponse<AuthResponse>.Ok(result));
+    }
+
+    // == POST /api/v1/auth/apple ===
+    [HttpPost("apple")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), 200)]
+    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+    [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+    public async Task<IActionResult> LoginWithApple([FromBody] AppleLoginRequest request)
+    {
+        var validation = await _appleLoginValidator.ValidateAsync(request);
+        if (!validation.IsValid)
+        {
+            throw new AppException(ErrorCodes.VALIDATION_ERROR, "Validation failed.", 400);
+        }
+
+        var result = await _authService.LoginWithAppleAsync(request.IdentityToken, request.FirstName, request.LastName);
+        SetTokenCookies(result.AccessToken, result.RefreshToken, result.ExpiresIn);
+        return Ok(ApiResponse<AuthResponse>.Ok(result));
     }
 
     private void SetTokenCookies(string accessToken, string refreshToken, int accessExpiresInSeconds)
