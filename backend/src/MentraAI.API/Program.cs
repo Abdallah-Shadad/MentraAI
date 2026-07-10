@@ -258,6 +258,7 @@ app.UseMiddleware<GlobalExceptionMiddleware>();
 // Must be placed early in the pipeline to capture all requests
 app.UseHttpMetrics();
 
+
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -297,5 +298,4 @@ app.MapControllers();
 // Prometheus scrapes this endpoint to collect request metrics
 app.MapMetrics();
 
-app.MapControllers();
 app.Run();
