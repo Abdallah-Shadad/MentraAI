@@ -62,6 +62,8 @@ services:
     container_name: dotnet_api
     ports:
       - "8081:8080"
+    volumes:
+      - dotnet_dataprotection:/root/.aspnet/DataProtection-Keys
     networks:
       - backend
     env_file:
@@ -177,3 +179,4 @@ volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
+  dotnet_dataprotection:
