@@ -86,7 +86,7 @@ def _build_llm(app_settings: Settings):
 def _validate_body(data: dict) -> tuple[bool, str]:
     """
     Returns (is_valid, error_message).
-    Validates all required fields and enforces the < 50 % score rule.
+    Validates all required fields and enforces the < 70 % score rule.
     """
     required = ["user_id", "career_track", "stage_id", "stage_name", "score", "failed_questions"]
     for field in required:
@@ -96,10 +96,10 @@ def _validate_body(data: dict) -> tuple[bool, str]:
     score = data.get("score")
     if not isinstance(score, (int, float)):
         return False, "score must be a number"
-    if score >= 50:
+    if score >= 70:
         return False, (
-            f"Adaptation not triggered — learner scored {score}% which is ≥ 50%. "
-            "Adaptation only runs when score is below 50%."
+            f"Adaptation not triggered — learner scored {score}% which is ≥ 70%. "
+            "Adaptation only runs when score is below 70%."
         )
     return True, ""
 
