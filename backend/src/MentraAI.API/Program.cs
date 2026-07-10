@@ -297,5 +297,4 @@ app.MapControllers();
 // Prometheus scrapes this endpoint to collect request metrics
 app.MapMetrics();
 
-app.MapControllers();
 app.Run();
